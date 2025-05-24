@@ -19,6 +19,7 @@ import { ProfilePage } from '@/components/dashboard/ProfilePage';
 import { QuizSelector } from '@/components/quiz/QuizSelector';
 import { ChatBot } from '@/components/quiz/ChatBot';
 import { QuizType } from '@/types/quiz';
+import { BrowserRouter } from 'react-router-dom';
 
 const queryClient = new QueryClient();
 
@@ -146,23 +147,25 @@ function AppContent() {
   }
 
   return (
-    <Router>
-      <Routes>
-        <Route path="/quiz" element={<QuizApp />} />
-        <Route 
-          path="/portal" 
-          element={user ? <DoctorPortal /> : <Navigate to="/auth" />} 
-        />
-        <Route 
-          path="/auth" 
-          element={!user ? <AuthPage /> : <Navigate to="/portal" />} 
-        />
-        <Route 
-          path="/" 
-          element={<Navigate to={user ? "/portal" : "/quiz"} />} 
-        />
-      </Routes>
-    </Router>
+    <BrowserRouter basename="/pathway-lead-capture-bot">
+      <Router>
+        <Routes>
+          <Route path="/quiz" element={<QuizApp />} />
+          <Route 
+            path="/portal" 
+            element={user ? <DoctorPortal /> : <Navigate to="/auth" />} 
+          />
+          <Route 
+            path="/auth" 
+            element={!user ? <AuthPage /> : <Navigate to="/portal" />} 
+          />
+          <Route 
+            path="/" 
+            element={<Navigate to={user ? "/portal" : "/quiz"} />} 
+          />
+        </Routes>
+      </Router>
+    </BrowserRouter>
   );
 }
 
