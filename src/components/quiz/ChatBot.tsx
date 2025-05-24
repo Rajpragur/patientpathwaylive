@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { QuizType } from '@/types/quiz';
@@ -33,6 +32,7 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
   const [phase, setPhase] = useState<'greeting' | 'quiz' | 'userInfo' | 'results'>('greeting');
   const [isTyping, setIsTyping] = useState(false);
   const [quizResult, setQuizResult] = useState<any>(null);
+  const [showResult, setShowResult] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const quiz = quizzes[quizType];
@@ -50,6 +50,14 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    if (phase === 'results') {
+      setShowResult(false);
+      const timer = setTimeout(() => setShowResult(true), 200); // delay for fade-in
+      return () => clearTimeout(timer);
+    }
+  }, [phase]);
 
   const addBotMessage = (content: string, options?: string[]) => {
     setIsTyping(true);
@@ -76,7 +84,7 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
     addUserMessage(option);
 
     if (phase === 'greeting') {
-      if (option === 'Yes, let\'s start') {
+      if (option === "Yes, let's start" || option === "I'm ready now") {
         setPhase('quiz');
         setCurrentQuestionIndex(0);
         setTimeout(() => {
@@ -88,7 +96,7 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
       } else if (option === 'Tell me more first') {
         addBotMessage(
           `The ${quiz.title} assessment helps evaluate your symptoms and provides insights about your condition. It takes about 5-10 minutes to complete. When you're ready, we can start!`,
-          ['I\'m ready now', 'Maybe later']
+          ["I'm ready now", 'Maybe later']
         );
       } else {
         addBotMessage("No problem! Feel free to return when you're ready. Take care! 💙");
@@ -180,150 +188,191 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6">
-        <h2 className="text-2xl font-bold">{quiz.title} Assessment</h2>
-        <p className="text-blue-100 text-sm mt-2">{quiz.description}</p>
-        {phase === 'quiz' && (
-          <div className="mt-4 bg-white bg-opacity-20 rounded-lg p-2">
-            <div className="flex justify-between text-sm">
-              <span>Progress</span>
-              <span>{currentQuestionIndex + 1} of {quiz.questions.length}</span>
-            </div>
-            <div className="w-full bg-white bg-opacity-30 rounded-full h-2 mt-1">
-              <div 
-                className="bg-white h-2 rounded-full transition-all duration-500" 
-                style={{ width: `${((currentQuestionIndex + 1) / quiz.questions.length) * 100}%` }}
-              ></div>
-            </div>
-          </div>
-        )}
+    <div
+      className="w-full h-full bg-white rounded-none shadow-none overflow-hidden flex flex-col mt-[2.5cm]"
+    >
+      {/* Chat header */}
+      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-8">
+        <h2 className="text-3xl font-bold">{quizType} Assessment</h2>
+        <p className="text-blue-100 text-lg mt-2">{quiz.title}</p>
       </div>
-      
-      <div className="h-96 overflow-y-auto p-6 space-y-4">
+
+      {/* Chat messages area */}
+      <div className="flex-1 overflow-y-auto p-8 space-y-6">
         {messages.map((message) => (
-          <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-xs lg:max-w-md px-6 py-4 rounded-2xl transition-all duration-200 ${
-              message.type === 'user' 
-                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' 
-                : 'bg-gray-100 text-gray-800 shadow-md'
-            }`}>
-              <p className="text-sm whitespace-pre-line leading-relaxed">{message.content}</p>
-              {message.options && (
-                <div className="mt-4 space-y-2">
-                  {message.options.map((option, index) => (
-                    <Button
-                      key={index}
-                      variant="outline"
-                      size="sm"
-                      className="w-full text-left justify-start transition-all duration-200 hover:scale-105 hover:shadow-md bg-white border-gray-300"
-                      onClick={() => handleOptionClick(option)}
-                    >
-                      {option}
-                    </Button>
-                  ))}
+          <div
+            key={message.id}
+            className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <div className={`flex items-end gap-2`}>
+              {message.type === 'bot' && (
+                <div className="w-8 h-8 rounded-full bg-blue-200 flex items-center justify-center text-blue-700 font-bold">
+                  🤖
+                </div>
+              )}
+              <div
+                className={`max-w-xs lg:max-w-md px-6 py-4 rounded-2xl shadow-md ${
+                  message.type === 'user'
+                    ? 'bg-blue-600 text-white ml-auto'
+                    : 'bg-gray-100 text-gray-800'
+                }`}
+              >
+                <p className="text-sm whitespace-pre-line leading-relaxed">{message.content}</p>
+                {message.options && (
+                  <div className="mt-4 space-y-2">
+                    {message.options.map((option, index) => (
+                      <Button
+                        key={index}
+                        variant="outline"
+                        size="sm"
+                        className="w-full text-left justify-start bg-white border-gray-300"
+                        onClick={() => handleOptionClick(option)}
+                      >
+                        {option}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {message.type === 'user' && (
+                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold">
+                  🧑
                 </div>
               )}
             </div>
           </div>
         ))}
-        
+
         {isTyping && (
           <div className="flex justify-start">
-            <div className="bg-gray-100 text-gray-800 px-6 py-4 rounded-2xl shadow-md">
-              <div className="flex space-x-1">
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-              </div>
+            <div className="bg-gray-100 text-gray-800 px-6 py-4 rounded-2xl shadow-md flex items-center gap-2">
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
             </div>
           </div>
         )}
 
-        {/* Enhanced Results Display */}
-        {phase === 'results' && quizResult && (
-          <div className="space-y-6">
-            <Card className={`border-2 ${getSeverityColor(quizResult.severity)} shadow-xl`}>
-              <CardHeader className="text-center">
-                <div className="flex justify-center mb-4">
-                  {getSeverityIcon(quizResult.severity)}
-                </div>
-                <CardTitle className="text-2xl text-gray-800">Your Assessment Results</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="text-center">
-                  <div className="text-4xl font-bold text-gray-800 mb-2">{quizResult.score}</div>
-                  <Badge className={`text-lg px-4 py-2 ${
-                    quizResult.severity === 'normal' ? 'bg-green-500' :
-                    quizResult.severity === 'mild' ? 'bg-blue-500' :
-                    quizResult.severity === 'moderate' ? 'bg-yellow-500' : 'bg-red-500'
-                  }`}>
-                    {quizResult.severity.toUpperCase()} SYMPTOMS
-                  </Badge>
-                </div>
-                
-                <div className="bg-white rounded-lg p-6 shadow-inner">
-                  <h3 className="font-semibold text-lg mb-3 text-gray-800">What This Means:</h3>
-                  <p className="text-gray-700 leading-relaxed">{quizResult.interpretation}</p>
-                </div>
-
-                <div className="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
-                  <h4 className="font-semibold text-blue-800 mb-2">Next Steps:</h4>
-                  <p className="text-blue-700 text-sm">
-                    Consider discussing these results with a healthcare professional for personalized medical advice and treatment options.
-                  </p>
-                </div>
-
-                <div className="text-center pt-4">
-                  <Button 
-                    onClick={() => window.print()}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-3 rounded-full transition-all duration-200 transform hover:scale-105"
-                  >
-                    Print Results
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-        
         <div ref={messagesEndRef} />
       </div>
 
+      {/* User info form as chat bubble */}
       {phase === 'userInfo' && (
-        <div className="p-6 border-t bg-gradient-to-r from-blue-50 to-purple-50">
-          <form onSubmit={handleUserInfoSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                placeholder="Your Full Name *"
-                value={userInfo.name}
-                onChange={(e) => setUserInfo(prev => ({ ...prev, name: e.target.value }))}
-                className="rounded-xl border-2 border-blue-200 focus:border-blue-500 transition-all duration-200"
-                required
-              />
-              <Input
-                type="email"
-                placeholder="Your Email Address *"
-                value={userInfo.email}
-                onChange={(e) => setUserInfo(prev => ({ ...prev, email: e.target.value }))}
-                className="rounded-xl border-2 border-blue-200 focus:border-blue-500 transition-all duration-200"
-                required
-              />
-            </div>
+        <div className="p-6 border-t bg-gray-50">
+          <form onSubmit={handleUserInfoSubmit} className="space-y-4 max-w-md mx-auto">
             <Input
+              className="text-lg py-3"
+              placeholder="Your Full Name *"
+              value={userInfo.name}
+              onChange={(e) => setUserInfo(prev => ({ ...prev, name: e.target.value }))}
+              required
+            />
+            <Input
+              className="text-lg py-3"
+              type="email"
+              placeholder="Your Email Address *"
+              value={userInfo.email}
+              onChange={(e) => setUserInfo(prev => ({ ...prev, email: e.target.value }))}
+              required
+            />
+            <Input
+              className="text-lg py-3"
               type="tel"
               placeholder="Your Phone Number (Optional)"
               value={userInfo.phone}
               onChange={(e) => setUserInfo(prev => ({ ...prev, phone: e.target.value }))}
-              className="rounded-xl border-2 border-blue-200 focus:border-blue-500 transition-all duration-200"
             />
-            <Button 
-              type="submit" 
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-4 rounded-xl transition-all duration-200 transform hover:scale-105 text-lg font-semibold"
-            >
-              Get My Personalized Results 🎯
+            <Button type="submit" className="w-full text-lg py-3">
+              Get My Results
             </Button>
           </form>
+        </div>
+      )}
+
+      {/* Results section with transition, progress bar, and print button */}
+      {phase === 'results' && quizResult && (
+        <div className="p-8 flex justify-center items-center bg-gradient-to-br from-blue-50 to-purple-100 min-h-[350px]">
+          <div
+            className={`transition-all duration-700 ease-out transform ${
+              showResult ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'
+            } w-full max-w-2xl`}
+          >
+            <Card className="w-full shadow-2xl rounded-3xl border-0">
+              <div className="rounded-t-3xl bg-gradient-to-r from-blue-600 to-purple-600 px-8 py-6 flex items-center gap-4 justify-between">
+                <div className="flex items-center gap-4">
+                  <span className="text-4xl">🎉</span>
+                  <div>
+                    <CardTitle className="text-white text-2xl font-bold tracking-tight">
+                      Assessment Complete!
+                    </CardTitle>
+                    <div className="text-blue-100 text-sm mt-1">{quiz.title}</div>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  className="bg-white text-blue-700 border-blue-200 hover:bg-blue-50"
+                  onClick={() => window.print()}
+                >
+                  🖨️ Print Results
+                </Button>
+              </div>
+              <CardContent className="bg-white rounded-b-3xl px-8 py-8">
+                {/* Progress Bar */}
+                <div className="mb-8">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-gray-700 font-medium">Your Score</span>
+                    <span className="text-blue-700 font-bold">{quizResult.score} / {quiz.maxScore || 100}</span>
+                  </div>
+                  <div className="w-full bg-blue-100 rounded-full h-4 overflow-hidden">
+                    <div
+                      className={`
+                        h-4 rounded-full transition-all duration-700
+                        ${quizResult.severity === 'normal' && 'bg-green-400'}
+                        ${quizResult.severity === 'mild' && 'bg-blue-400'}
+                        ${quizResult.severity === 'moderate' && 'bg-yellow-400'}
+                        ${quizResult.severity === 'severe' && 'bg-red-400'}
+                      `}
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          Math.round((quizResult.score / (quiz.maxScore || 100)) * 100)
+                        )}%`
+                      }}
+                    />
+                  </div>
+                </div>
+                {/* Severity & Icon */}
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-6">
+                  <div className="flex items-center gap-3">
+                    {getSeverityIcon(quizResult.severity)}
+                    <span className={`text-lg font-semibold capitalize px-3 py-1 rounded-full
+                      ${quizResult.severity === 'normal' && 'bg-green-100 text-green-700'}
+                      ${quizResult.severity === 'mild' && 'bg-blue-100 text-blue-700'}
+                      ${quizResult.severity === 'moderate' && 'bg-yellow-100 text-yellow-800'}
+                      ${quizResult.severity === 'severe' && 'bg-red-100 text-red-700'}
+                    `}>
+                      {quizResult.severity}
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-gray-500 text-sm">Severity Level</span>
+                    <span className="text-xl font-bold">
+                      {quizResult.severity.charAt(0).toUpperCase() + quizResult.severity.slice(1)}
+                    </span>
+                  </div>
+                </div>
+                <hr className="my-6" />
+                <div className="mb-6 text-gray-700 text-base leading-relaxed">
+                  {quizResult.summary}
+                </div>
+                <div className="flex justify-end">
+                  <Badge className="text-base px-4 py-2 bg-blue-50 text-blue-700 border-blue-200" variant="outline">
+                    {quiz.title}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       )}
     </div>

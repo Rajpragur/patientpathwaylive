@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -101,17 +100,26 @@ function QuizApp() {
 
   if (selectedQuiz) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 py-8">
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="mb-6">
-            <button
-              onClick={() => setSelectedQuiz(null)}
-              className="text-blue-600 hover:underline transition-all duration-200 hover:scale-105"
-            >
-              ← Back to Quiz Selection
-            </button>
+      <div className="min-h-screen h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+        <div className="h-full flex flex-col">
+          <div className="border-b bg-white/80 backdrop-blur-sm">
+            <div className="w-full mx-auto px-8 py-3 flex items-center justify-between">
+              <button
+                onClick={() => setSelectedQuiz(null)}
+                className="text-blue-600 hover:text-blue-500 hover:underline transition-all duration-200 hover:scale-105 flex items-center gap-2"
+              >
+                ← Back to Assessments
+              </button>
+              <h1 className="text-lg font-semibold text-gray-700">
+                {selectedQuiz.type} Assessment
+              </h1>
+            </div>
           </div>
-          <ChatBot quizType={selectedQuiz.type} shareKey={selectedQuiz.shareKey} />
+          <div className="flex-1 overflow-hidden flex flex-col bg-white">
+            <div className="flex-1 h-[calc(100vh-4rem)]">
+              <ChatBot quizType={selectedQuiz.type} shareKey={selectedQuiz.shareKey} />
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -125,13 +133,13 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-4 border-blue-600 mx-auto"></div>
-          <h1 className="mt-6 text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-4 border-blue-400 mx-auto"></div>
+          <h1 className="mt-6 text-2xl font-bold bg-gradient-to-r from-blue-400 to-pink-400 bg-clip-text text-transparent">
             Patient Pathway
           </h1>
-          <p className="mt-2 text-gray-600">Loading your medical assessment platform...</p>
+          <p className="mt-2 text-gray-400">Loading your medical assessment platform...</p>
         </div>
       </div>
     );

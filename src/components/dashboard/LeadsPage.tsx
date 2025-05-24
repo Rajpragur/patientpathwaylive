@@ -145,39 +145,6 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
     );
   }
 
-  const filteredLeads = leads.filter(lead => {
-    if (filters.search && !lead.name.toLowerCase().includes(filters.search.toLowerCase())) {
-      return false;
-    }
-    if (filters.quizType !== 'all' && lead.quiz_type !== filters.quizType) {
-      return false;
-    }
-    if (filters.status !== 'all' && lead.lead_status !== filters.status) {
-      return false;
-    }
-    return true;
-  });
-
-  const totalLeads = leads.length;
-  const newLeads = leads.filter(l => l.lead_status === 'NEW').length;
-  const contactedLeads = leads.filter(l => l.lead_status === 'CONTACTED').length;
-  const scheduledLeads = leads.filter(l => l.lead_status === 'SCHEDULED').length;
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'NEW': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'CONTACTED': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'SCHEDULED': return 'bg-green-100 text-green-800 border-green-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const getSeverityColor = (score: number, quizType: string) => {
-    if (score > 50) return 'text-red-600 font-semibold';
-    if (score > 25) return 'text-yellow-600 font-medium';
-    return 'text-green-600';
-  };
-
   return (
     <div className="p-6 space-y-6">
       {/* Stats Cards with animations */}
