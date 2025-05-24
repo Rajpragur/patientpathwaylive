@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
@@ -19,7 +19,6 @@ import { ProfilePage } from '@/components/dashboard/ProfilePage';
 import { QuizSelector } from '@/components/quiz/QuizSelector';
 import { ChatBot } from '@/components/quiz/ChatBot';
 import { QuizType } from '@/types/quiz';
-import { BrowserRouter } from 'react-router-dom';
 
 const queryClient = new QueryClient();
 
@@ -101,22 +100,22 @@ function QuizApp() {
 
   if (selectedQuiz) {
     return (
-      <div className="min-h-screen h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+      <div className="min-h-screen h-screen bg-gradient-to-br from-gray-900 to-gray-800">
         <div className="h-full flex flex-col">
-          <div className="border-b bg-white/80 backdrop-blur-sm">
+          <div className="border-b border-gray-700 bg-gray-800/80 backdrop-blur-sm">
             <div className="w-full mx-auto px-8 py-3 flex items-center justify-between">
               <button
                 onClick={() => setSelectedQuiz(null)}
-                className="text-blue-600 hover:text-blue-500 hover:underline transition-all duration-200 hover:scale-105 flex items-center gap-2"
+                className="text-blue-400 hover:text-blue-300 hover:underline transition-all duration-200 hover:scale-105 flex items-center gap-2"
               >
                 ← Back to Assessments
               </button>
-              <h1 className="text-lg font-semibold text-gray-700">
+              <h1 className="text-lg font-semibold text-gray-200">
                 {selectedQuiz.type} Assessment
               </h1>
             </div>
           </div>
-          <div className="flex-1 overflow-hidden flex flex-col bg-white">
+          <div className="flex-1 overflow-hidden flex flex-col bg-gradient-to-br from-gray-800 to-gray-900">
             <div className="flex-1 h-[calc(100vh-4rem)]">
               <ChatBot quizType={selectedQuiz.type} shareKey={selectedQuiz.shareKey} />
             </div>
@@ -147,24 +146,22 @@ function AppContent() {
   }
 
   return (
-    <BrowserRouter basename="/pathway-lead-capture-bot">
-      <Router>
-        <Routes>
-          <Route path="/quiz" element={<QuizApp />} />
-          <Route 
-            path="/portal" 
-            element={user ? <DoctorPortal /> : <Navigate to="/auth" />} 
-          />
-          <Route 
-            path="/auth" 
-            element={!user ? <AuthPage /> : <Navigate to="/portal" />} 
-          />
-          <Route 
-            path="/" 
-            element={<Navigate to={user ? "/portal" : "/quiz"} />} 
-          />
-        </Routes>
-      </Router>
+    <BrowserRouter basename="">
+      <Routes>
+        <Route path="/quiz" element={<QuizApp />} />
+        <Route 
+          path="/portal" 
+          element={user ? <DoctorPortal /> : <Navigate to="/auth" />} 
+        />
+        <Route 
+          path="/auth" 
+          element={!user ? <AuthPage /> : <Navigate to="/portal" />} 
+        />
+        <Route 
+          path="/" 
+          element={<Navigate to={user ? "/portal" : "/quiz"} />} 
+        />
+      </Routes>
     </BrowserRouter>
   );
 }
