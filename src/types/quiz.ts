@@ -30,13 +30,14 @@ export interface Lead {
   name: string;
   email?: string;
   phone?: string;
-  quiz_type: QuizType;
+  quiz_type: string; // Changed from QuizType to string to match database
   score: number;
   answers: any;
   lead_source: string;
   lead_status: 'NEW' | 'CONTACTED' | 'SCHEDULED';
   submitted_at: string;
   created_at: string;
+  doctor_id: string; // Added missing field from database
 }
 
 export interface DoctorProfile {
