@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Lead } from '@/types/quiz';
@@ -34,7 +33,24 @@ export function LeadsPage() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setLeads(data || []);
+      
+      // Transform the data to match the Lead interface
+      const transformedLeads: Lead[] = (data || []).map(lead => ({
+        id: lead.id,
+        name: lead.name,
+        email: lead.email,
+        phone: lead.phone,
+        quiz_type: lead.quiz_type,
+        score: lead.score,
+        answers: lead.answers,
+        lead_source: lead.lead_source || 'website',
+        lead_status: lead.lead_status as 'NEW' | 'CONTACTED' | 'SCHEDULED',
+        submitted_at: lead.submitted_at,
+        created_at: lead.created_at,
+        doctor_id: lead.doctor_id
+      }));
+      
+      setLeads(transformedLeads);
     } catch (error) {
       console.error('Error fetching leads:', error);
       toast.error('Failed to fetch leads');
@@ -53,7 +69,7 @@ export function LeadsPage() {
       if (error) throw error;
       
       setLeads(leads.map(lead => 
-        lead.id === leadId ? { ...lead, lead_status: status as any } : lead
+        lead.id === leadId ? { ...lead, lead_status: status as 'NEW' | 'CONTACTED' | 'SCHEDULED' } : lead
       ));
       toast.success('Lead status updated');
     } catch (error) {

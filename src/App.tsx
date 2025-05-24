@@ -11,6 +11,11 @@ import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { TopTabs } from '@/components/dashboard/TopTabs';
 import { LeadsPage } from '@/components/dashboard/LeadsPage';
+import { AnalyticsPage } from '@/components/dashboard/AnalyticsPage';
+import { TrendsPage } from '@/components/dashboard/TrendsPage';
+import { QuizManagementPage } from '@/components/dashboard/QuizManagementPage';
+import { SettingsPage } from '@/components/dashboard/SettingsPage';
+import { SupportPage } from '@/components/dashboard/SupportPage';
 import { QuizSelector } from '@/components/quiz/QuizSelector';
 import { ChatBot } from '@/components/quiz/ChatBot';
 import { QuizType } from '@/types/quiz';
@@ -46,17 +51,17 @@ function DoctorPortal() {
           </div>
         );
       case 'analytics':
-        return <div className="p-6">Analytics dashboard coming soon...</div>;
+        return <AnalyticsPage />;
       case 'trends':
-        return <div className="p-6">Trends analysis coming soon...</div>;
+        return <TrendsPage />;
       case 'quizzes':
-        return <div className="p-6">Quiz management coming soon...</div>;
+        return <QuizManagementPage />;
       case 'profile':
         return <div className="p-6">Profile settings coming soon...</div>;
       case 'settings':
-        return <div className="p-6">Settings coming soon...</div>;
+        return <SettingsPage />;
       case 'support':
-        return <div className="p-6">Support center coming soon...</div>;
+        return <SupportPage />;
       default:
         return (
           <div>
