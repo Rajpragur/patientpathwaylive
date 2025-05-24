@@ -9,6 +9,44 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      doctor_notifications: {
+        Row: {
+          created_at: string
+          doctor_id: string
+          id: string
+          message: string
+          read: boolean
+          title: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          doctor_id: string
+          id?: string
+          message: string
+          read?: boolean
+          title: string
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          doctor_id?: string
+          id?: string
+          message?: string
+          read?: boolean
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_notifications_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctor_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       doctor_profiles: {
         Row: {
           clinic_name: string | null
@@ -61,6 +99,7 @@ export type Database = {
           phone: string | null
           quiz_type: string
           score: number
+          share_key: string | null
           submitted_at: string
         }
         Insert: {
@@ -75,6 +114,7 @@ export type Database = {
           phone?: string | null
           quiz_type: string
           score: number
+          share_key?: string | null
           submitted_at?: string
         }
         Update: {
@@ -89,6 +129,7 @@ export type Database = {
           phone?: string | null
           quiz_type?: string
           score?: number
+          share_key?: string | null
           submitted_at?: string
         }
         Relationships: [
