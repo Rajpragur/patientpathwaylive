@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
@@ -146,7 +146,7 @@ function AppContent() {
   }
 
   return (
-    <BrowserRouter>
+    <Router>
       <Routes>
         <Route path="/quiz" element={<QuizApp />} />
         <Route 
@@ -162,7 +162,7 @@ function AppContent() {
           element={<Navigate to={user ? "/portal" : "/quiz"} />} 
         />
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
 }
 
