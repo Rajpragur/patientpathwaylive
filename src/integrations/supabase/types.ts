@@ -9,7 +9,98 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      doctor_profiles: {
+        Row: {
+          clinic_name: string | null
+          created_at: string
+          email: string | null
+          first_name: string | null
+          id: string
+          last_name: string | null
+          phone: string | null
+          specialty: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          clinic_name?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          phone?: string | null
+          specialty?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          clinic_name?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          phone?: string | null
+          specialty?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      quiz_leads: {
+        Row: {
+          answers: Json | null
+          created_at: string
+          doctor_id: string
+          email: string | null
+          id: string
+          lead_source: string | null
+          lead_status: string | null
+          name: string
+          phone: string | null
+          quiz_type: string
+          score: number
+          submitted_at: string
+        }
+        Insert: {
+          answers?: Json | null
+          created_at?: string
+          doctor_id: string
+          email?: string | null
+          id?: string
+          lead_source?: string | null
+          lead_status?: string | null
+          name: string
+          phone?: string | null
+          quiz_type: string
+          score: number
+          submitted_at?: string
+        }
+        Update: {
+          answers?: Json | null
+          created_at?: string
+          doctor_id?: string
+          email?: string | null
+          id?: string
+          lead_source?: string | null
+          lead_status?: string | null
+          name?: string
+          phone?: string | null
+          quiz_type?: string
+          score?: number
+          submitted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_leads_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctor_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
