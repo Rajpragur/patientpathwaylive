@@ -6,6 +6,7 @@ export const quizzes: Record<QuizType, Quiz> = {
     id: 'SNOT22',
     title: 'SNOT-22',
     description: 'Sino-Nasal Outcome Test',
+    maxScore: 110,
     questions: [
       {
         id: 'q1',
@@ -33,6 +34,7 @@ export const quizzes: Record<QuizType, Quiz> = {
     id: 'NOSE',
     title: 'NOSE',
     description: 'Nasal Obstruction Symptom Evaluation',
+    maxScore: 100,
     questions: [
       {
         id: 'q1',
@@ -65,6 +67,7 @@ export const quizzes: Record<QuizType, Quiz> = {
     id: 'HHIA',
     title: 'HHIA',
     description: 'Hearing Handicap Inventory for Adults',
+    maxScore: 100,
     questions: [
       {
         id: 'q1',
@@ -97,6 +100,7 @@ export const quizzes: Record<QuizType, Quiz> = {
     id: 'EPWORTH',
     title: 'Epworth Sleepiness Scale',
     description: 'Assessment of daytime sleepiness',
+    maxScore: 24,
     questions: [
       {
         id: 'q1',
@@ -144,6 +148,7 @@ export const quizzes: Record<QuizType, Quiz> = {
     id: 'DHI',
     title: 'DHI',
     description: 'Dizziness Handicap Inventory',
+    maxScore: 100,
     questions: [
       {
         id: 'q1',
@@ -176,6 +181,7 @@ export const quizzes: Record<QuizType, Quiz> = {
     id: 'STOP',
     title: 'STOP-Bang',
     description: 'Sleep Apnea Screening',
+    maxScore: 8,
     questions: [
       {
         id: 'q1',
@@ -223,6 +229,7 @@ export const quizzes: Record<QuizType, Quiz> = {
     id: 'TNSS',
     title: 'TNSS',
     description: 'Total Nasal Symptom Score',
+    maxScore: 12,
     questions: [
       {
         id: 'q1',

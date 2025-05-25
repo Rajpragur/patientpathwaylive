@@ -8,8 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, Filter, Calendar, User, Search, Plus } from 'lucide-react';
+import { Download, Search, Plus, Trash2, Eye } from 'lucide-react';
 import { toast } from 'sonner';
+import { LeadDetails } from './LeadDetails';
 
 interface LeadsPageProps {
   filterStatus?: string;
@@ -19,6 +20,7 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [filters, setFilters] = useState({
     search: '',
     quizType: 'all',
@@ -102,6 +104,48 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
     }
   };
 
+  const deleteLeads = async (leadIds: string[]) => {
+    try {
+      const { error } = await supabase
+        .from('quiz_leads')
+        .delete()
+        .in('id', leadIds);
+
+      if (error) throw error;
+      
+      setLeads(leads.filter(lead => !leadIds.includes(lead.id)));
+      setSelectedLeads([]);
+      toast.success(`${leadIds.length} lead(s) deleted successfully`);
+    } catch (error) {
+      console.error('Error deleting leads:', error);
+      toast.error('Failed to delete leads');
+    }
+  };
+
+  const exportLeads = () => {
+    const csvContent = [
+      ['Name', 'Email', 'Phone', 'Quiz Type', 'Score', 'Status', 'Source', 'Submitted'],
+      ...filteredLeads.map(lead => [
+        lead.name,
+        lead.email || '',
+        lead.phone || '',
+        lead.quiz_type,
+        lead.score.toString(),
+        lead.lead_status,
+        lead.lead_source,
+        new Date(lead.submitted_at).toLocaleDateString()
+      ])
+    ].map(row => row.join(',')).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'leads.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'NEW': return 'bg-blue-100 text-blue-800';
@@ -111,7 +155,7 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
     }
   };
 
-  const getSeverityColor = (score: number, quizType: string) => {
+  const getSeverityColor = (score: number) => {
     if (score > 50) return 'text-red-600';
     if (score > 25) return 'text-yellow-600';
     return 'text-green-600';
@@ -148,7 +192,7 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
     <div className="p-6 space-y-6">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="shadow-lg border-0 bg-gradient-to-br from-blue-50 to-blue-100 transition-all duration-300 hover:scale-105">
+        <Card className="shadow-sm border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-blue-700">Total Leads</CardTitle>
           </CardHeader>
@@ -157,7 +201,7 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
             <p className="text-xs text-blue-600 mt-1">All time</p>
           </CardContent>
         </Card>
-        <Card className="shadow-lg border-0 bg-gradient-to-br from-blue-50 to-indigo-100 transition-all duration-300 hover:scale-105">
+        <Card className="shadow-sm border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-indigo-700">New Leads</CardTitle>
           </CardHeader>
@@ -166,7 +210,7 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
             <p className="text-xs text-indigo-600 mt-1">Awaiting contact</p>
           </CardContent>
         </Card>
-        <Card className="shadow-lg border-0 bg-gradient-to-br from-yellow-50 to-orange-100 transition-all duration-300 hover:scale-105">
+        <Card className="shadow-sm border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-orange-700">Contacted</CardTitle>
           </CardHeader>
@@ -175,7 +219,7 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
             <p className="text-xs text-orange-600 mt-1">In progress</p>
           </CardContent>
         </Card>
-        <Card className="shadow-lg border-0 bg-gradient-to-br from-green-50 to-emerald-100 transition-all duration-300 hover:scale-105">
+        <Card className="shadow-sm border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-emerald-700">Scheduled</CardTitle>
           </CardHeader>
@@ -187,7 +231,7 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
       </div>
 
       {/* Filters */}
-      <Card className="shadow-lg border-0">
+      <Card className="shadow-sm border">
         <CardContent className="p-4">
           <div className="flex flex-wrap gap-4 items-center justify-between">
             <div className="flex gap-4 items-center">
@@ -197,11 +241,11 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
                   placeholder="Search leads..."
                   value={filters.search}
                   onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                  className="pl-10 w-64 transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+                  className="pl-10 w-64"
                 />
               </div>
               <Select value={filters.quizType} onValueChange={(value) => setFilters(prev => ({ ...prev, quizType: value }))}>
-                <SelectTrigger className="w-40 transition-all duration-200 hover:shadow-md">
+                <SelectTrigger className="w-40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -216,7 +260,7 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
                 </SelectContent>
               </Select>
               <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
-                <SelectTrigger className="w-40 transition-all duration-200 hover:shadow-md">
+                <SelectTrigger className="w-40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -228,13 +272,19 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
               </Select>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="transition-all duration-200 hover:scale-105">
+              {selectedLeads.length > 0 && (
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  onClick={() => deleteLeads(selectedLeads)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete ({selectedLeads.length})
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={exportLeads}>
                 <Download className="w-4 h-4 mr-2" />
                 Export
-              </Button>
-              <Button variant="outline" size="sm" className="transition-all duration-200 hover:scale-105">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Lead
               </Button>
             </div>
           </div>
@@ -242,15 +292,15 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
       </Card>
 
       {/* Leads Table */}
-      <Card className="shadow-lg border-0">
+      <Card className="shadow-sm border">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b">
+              <thead className="bg-slate-50 border-b">
                 <tr>
                   <th className="text-left p-4">
                     <Checkbox 
-                      checked={selectedLeads.length === filteredLeads.length}
+                      checked={selectedLeads.length === filteredLeads.length && filteredLeads.length > 0}
                       onCheckedChange={(checked) => {
                         if (checked) {
                           setSelectedLeads(filteredLeads.map(l => l.id));
@@ -270,10 +320,10 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
                 </tr>
               </thead>
               <tbody>
-                {filteredLeads.map((lead, index) => (
+                {filteredLeads.map((lead) => (
                   <tr 
                     key={lead.id} 
-                    className="border-b hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
+                    className="border-b hover:bg-slate-50"
                   >
                     <td className="p-4">
                       <Checkbox 
@@ -289,8 +339,8 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                          <User className="w-5 h-5 text-white" />
+                        <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                          {lead.name.charAt(0).toUpperCase()}
                         </div>
                         <span className="font-medium text-gray-800">{lead.name}</span>
                       </div>
@@ -303,7 +353,7 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
                     </td>
                     <td className="p-4">
                       <Badge variant="outline" className="text-xs">
-                        {lead.lead_source}
+                        {lead.lead_source === 'shared_link' ? 'shared link' : lead.lead_source}
                       </Badge>
                     </td>
                     <td className="p-4">
@@ -329,18 +379,28 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
                       </Badge>
                     </td>
                     <td className="p-4">
-                      <span className={`font-bold text-lg ${getSeverityColor(lead.score, lead.quiz_type)}`}>
+                      <span className={`font-bold text-lg ${getSeverityColor(lead.score)}`}>
                         {lead.score}
                       </span>
                     </td>
                     <td className="p-4">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="transition-all duration-200 hover:scale-105 hover:bg-blue-100"
-                      >
-                        View Details
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => setSelectedLead(lead)}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => deleteLeads([lead.id])}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -348,7 +408,7 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
             </table>
             {filteredLeads.length === 0 && (
               <div className="text-center py-12 text-gray-500">
-                <User className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <div className="text-6xl mb-4">📋</div>
                 <h3 className="text-lg font-medium text-gray-800 mb-2">No leads found</h3>
                 <p className="text-sm">Try adjusting your filters or check back later for new leads.</p>
               </div>
@@ -356,6 +416,14 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Lead Details Modal */}
+      {selectedLead && (
+        <LeadDetails 
+          lead={selectedLead} 
+          onClose={() => setSelectedLead(null)} 
+        />
+      )}
     </div>
   );
 }

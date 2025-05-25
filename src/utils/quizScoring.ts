@@ -18,7 +18,12 @@ export function calculateQuizScore(quizType: QuizType, answers: QuizAnswer[]): Q
     case 'TNSS':
       return calculateTNSSScore(answers);
     default:
-      return { score: 0, interpretation: 'Unknown quiz type', severity: 'normal' };
+      return { 
+        score: 0, 
+        interpretation: 'Unknown quiz type', 
+        severity: 'normal',
+        summary: 'Unable to calculate score for unknown quiz type.'
+      };
   }
 }
 
@@ -41,19 +46,23 @@ function calculateSNOT22Score(answers: QuizAnswer[]): QuizResult {
 
   let interpretation = "";
   let severity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
+  let summary = "";
 
   if (finalScore >= 45) {
     interpretation = "🚨 Your score suggests severe chronic rhinitis. We recommend consulting a specialist as soon as possible.";
     severity = 'severe';
+    summary = "You scored in the severe range, indicating significant impact on your quality of life from nasal and sinus symptoms.";
   } else if (finalScore >= 18) {
     interpretation = "⚠️ Your score indicates significant chronic rhinitis, a common but treatable condition.";
     severity = 'moderate';
+    summary = "You scored in the moderate range, suggesting your symptoms may benefit from professional evaluation and treatment.";
   } else {
     interpretation = "✅ You appear to have No to Mild Chronic rhinitis at this time.";
     severity = 'normal';
+    summary = "You scored in the normal range, indicating minimal impact from nasal and sinus symptoms.";
   }
 
-  return { score: finalScore, interpretation, severity };
+  return { score: finalScore, interpretation, severity, summary };
 }
 
 function mapNOSELabelToScore(label: string): number {
@@ -74,22 +83,27 @@ function calculateNOSEScore(answers: QuizAnswer[]): QuizResult {
 
   let interpretation = "";
   let severity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
+  let summary = "";
 
   if (finalScore >= 80) {
     interpretation = "🚨 Your score suggests severe nasal obstruction. We recommend consulting a specialist as soon as possible.";
     severity = 'severe';
+    summary = "You scored in the severe range, indicating significant breathing difficulties through your nose.";
   } else if (finalScore >= 55) {
     interpretation = "⚠️ Your score indicates significant nasal obstruction, a common but treatable condition.";
     severity = 'moderate';
+    summary = "You scored in the moderate range, suggesting noticeable nasal breathing problems that may benefit from treatment.";
   } else if (finalScore >= 30) {
     interpretation = "🙂 Your score shows moderate symptoms. Monitoring and early care may be helpful.";
     severity = 'mild';
+    summary = "You scored in the mild range, indicating some nasal obstruction symptoms worth monitoring.";
   } else {
     interpretation = "✅ You appear to have mild or no nasal obstruction at this time.";
     severity = 'normal';
+    summary = "You scored in the normal range, indicating minimal nasal breathing problems.";
   }
 
-  return { score: finalScore, interpretation, severity };
+  return { score: finalScore, interpretation, severity, summary };
 }
 
 function mapHHIALabelToScore(label: string): number {
@@ -108,19 +122,23 @@ function calculateHHIAScore(answers: QuizAnswer[]): QuizResult {
 
   let interpretation = "";
   let severity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
+  let summary = "";
 
   if (finalScore >= 44) {
     interpretation = "🚨 Your score suggests a significant hearing handicap. Please consider consulting an audiologist or ENT specialist.";
     severity = 'severe';
+    summary = "You scored in the severe range, indicating significant impact on daily activities due to hearing difficulties.";
   } else if (finalScore >= 18) {
     interpretation = "⚠️ Your score indicates a mild to moderate hearing handicap, which may impact your daily communication.";
     severity = 'moderate';
+    summary = "You scored in the moderate range, suggesting some hearing-related challenges in social situations.";
   } else {
     interpretation = "✅ You appear to have no significant hearing handicap at this time.";
     severity = 'normal';
+    summary = "You scored in the normal range, indicating minimal impact from hearing difficulties.";
   }
 
-  return { score: finalScore, interpretation, severity };
+  return { score: finalScore, interpretation, severity, summary };
 }
 
 function mapEpworthLabelToScore(label: string): number {
@@ -139,22 +157,27 @@ function calculateEpworthScore(answers: QuizAnswer[]): QuizResult {
 
   let interpretation = "";
   let severity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
+  let summary = "";
 
   if (finalScore >= 16) {
     interpretation = "Your score suggests severe daytime sleepiness. Please seek medical attention — this could indicate a serious underlying sleep disorder.";
     severity = 'severe';
+    summary = "You scored in the severe range, indicating excessive daytime sleepiness that may require immediate medical attention.";
   } else if (finalScore >= 10) {
     interpretation = "Your score raises concern: you may need to get more sleep, improve your sleep hygiene, or consult a doctor.";
     severity = 'moderate';
+    summary = "You scored in the moderate range, suggesting significant daytime sleepiness that warrants further evaluation.";
   } else if (finalScore >= 5) {
     interpretation = "Your score shows mild sleepiness. Monitor your sleep habits and stay consistent with your sleep routine.";
     severity = 'mild';
+    summary = "You scored in the mild range, indicating some daytime sleepiness worth monitoring.";
   } else {
     interpretation = "You appear to have normal sleep patterns with no excessive daytime sleepiness.";
     severity = 'normal';
+    summary = "You scored in the normal range, indicating healthy sleep patterns and alertness during the day.";
   }
 
-  return { score: finalScore, interpretation, severity };
+  return { score: finalScore, interpretation, severity, summary };
 }
 
 function mapDHILabelToScore(label: string): number {
@@ -172,22 +195,27 @@ function calculateDHIScore(answers: QuizAnswer[]): QuizResult {
 
   let interpretation = "";
   let severity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
+  let summary = "";
 
   if (finalScore >= 54) {
     interpretation = "🚨 Your score indicates severe handicap. Please consult a balance specialist.";
     severity = 'severe';
+    summary = "You scored in the severe range, indicating significant impact on daily activities due to dizziness and balance issues.";
   } else if (finalScore >= 36) {
     interpretation = "⚠️ Your score indicates moderate handicap. Consider consulting a specialist.";
     severity = 'moderate';
+    summary = "You scored in the moderate range, suggesting noticeable impact from dizziness symptoms.";
   } else if (finalScore >= 16) {
     interpretation = "🙂 Your score indicates mild handicap. Monitoring may be helpful.";
     severity = 'mild';
+    summary = "You scored in the mild range, indicating some dizziness-related difficulties worth monitoring.";
   } else {
     interpretation = "✅ You appear to have minimal dizziness handicap at this time.";
     severity = 'normal';
+    summary = "You scored in the normal range, indicating minimal impact from dizziness or balance problems.";
   }
 
-  return { score: finalScore, interpretation, severity };
+  return { score: finalScore, interpretation, severity, summary };
 }
 
 function calculateSTOPScore(answers: QuizAnswer[]): QuizResult {
@@ -195,19 +223,23 @@ function calculateSTOPScore(answers: QuizAnswer[]): QuizResult {
   
   let interpretation = "";
   let severity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
+  let summary = "";
 
   if (yesCount >= 5) {
     interpretation = "🚨 High Risk: You have a high risk of obstructive sleep apnea. Please consult a sleep specialist.";
     severity = 'severe';
+    summary = "You scored in the high-risk range for sleep apnea, indicating multiple risk factors are present.";
   } else if (yesCount >= 3) {
     interpretation = "⚠️ Intermediate Risk: You have an intermediate risk of obstructive sleep apnea. Consider evaluation.";
     severity = 'moderate';
+    summary = "You scored in the intermediate-risk range, suggesting some risk factors for sleep apnea are present.";
   } else {
     interpretation = "✅ Low Risk: You have a low risk of obstructive sleep apnea.";
     severity = 'normal';
+    summary = "You scored in the low-risk range, indicating few risk factors for sleep apnea.";
   }
 
-  return { score: yesCount, interpretation, severity };
+  return { score: yesCount, interpretation, severity, summary };
 }
 
 function mapTNSSLabelToScore(label: string): number {
@@ -226,20 +258,25 @@ function calculateTNSSScore(answers: QuizAnswer[]): QuizResult {
 
   let interpretation = "";
   let severity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
+  let summary = "";
 
   if (finalScore >= 9) {
     interpretation = "🚨 Your score suggests severe chronic rhinitis symptoms. We recommend consulting a specialist as soon as possible.";
     severity = 'severe';
+    summary = "You scored in the severe range, indicating significant impact from nasal allergy symptoms.";
   } else if (finalScore >= 6) {
     interpretation = "⚠️ Your score indicates moderate chronic rhinitis symptoms, a common but treatable condition.";
     severity = 'moderate';
+    summary = "You scored in the moderate range, suggesting noticeable nasal allergy symptoms that may benefit from treatment.";
   } else if (finalScore >= 1) {
     interpretation = "🙂 Your score shows mild chronic rhinitis symptoms. Monitoring and early care may be helpful.";
     severity = 'mild';
+    summary = "You scored in the mild range, indicating some nasal allergy symptoms worth monitoring.";
   } else {
     interpretation = "✅ You appear to have no chronic rhinitis symptoms at this time.";
     severity = 'normal';
+    summary = "You scored in the normal range, indicating no significant nasal allergy symptoms.";
   }
 
-  return { score: finalScore, interpretation, severity };
+  return { score: finalScore, interpretation, severity, summary };
 }

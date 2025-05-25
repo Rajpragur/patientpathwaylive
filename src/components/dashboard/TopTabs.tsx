@@ -20,9 +20,9 @@ export function TopTabs({ currentTab, onTabChange }: TopTabsProps) {
           <Button
             key={tab.id}
             variant={currentTab === tab.id ? "default" : "ghost"}
-            className={`px-4 py-2 rounded-lg transition-all duration-200 hover:scale-105 ${
+            className={`px-6 py-3 rounded-lg transition-all duration-200 ${
               currentTab === tab.id 
-                ? 'bg-blue-500 text-white shadow-md' 
+                ? 'bg-blue-500 text-white shadow-sm' 
                 : 'text-slate-600 hover:text-slate-800 hover:bg-slate-100'
             }`}
             onClick={() => onTabChange(tab.id)}

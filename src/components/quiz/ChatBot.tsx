@@ -125,11 +125,10 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
         addBotMessage("No problem! Feel free to return when you're ready. Take care! 💙");
       }
     } else if (phase === 'quiz') {
-      // Check if the selected option is valid for the current question
       if (currentQuestionIndex >= 0 && currentQuestionIndex < quiz.questions.length) {
         const currentQuestion = quiz.questions[currentQuestionIndex];
         
-        // Check if the option is one of the valid options for this question
+        // Validate that the selected option is valid for this question
         if (!currentQuestion.options.includes(option)) {
           addBotMessage(
             "Please select one of the provided options for this question.",
@@ -174,7 +173,7 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
     const result = calculateQuizScore(quizType, answers);
     setQuizResult(result);
 
-    // Save to database only when quiz is actually submitted
+    // Only save to database when quiz is actually submitted with user info
     try {
       const leadSource = doctorShareKey ? 'shared_link' : 'website';
       
@@ -245,7 +244,7 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-4xl mx-auto w-full">
-        {messages.map((message, index) => (
+        {messages.map((message) => (
           <div
             key={message.id}
             className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} transition-all duration-300 ease-in-out transform hover:scale-[1.01]`}

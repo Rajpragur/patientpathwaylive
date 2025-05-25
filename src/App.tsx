@@ -55,6 +55,10 @@ function DoctorPortal() {
                     <label className="block text-sm font-medium text-slate-700 mb-2">Address</label>
                     <textarea className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" rows={3} placeholder="Enter practice address"></textarea>
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Phone</label>
+                    <input className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Enter phone number" />
+                  </div>
                 </div>
               </div>
               <div className="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
@@ -77,7 +81,7 @@ function DoctorPortal() {
                 <h3 className="text-lg font-semibold text-slate-800 mb-3">Quiz Integration</h3>
                 <p className="text-slate-600 mb-4 text-sm">Embed medical assessments on your website to capture qualified leads.</p>
                 <button 
-                  className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all duration-200 hover:scale-105 text-sm"
+                  className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors text-sm"
                   onClick={() => setCurrentPage('quizzes')}
                 >
                   Configure Quizzes
@@ -88,7 +92,7 @@ function DoctorPortal() {
                 <h3 className="text-lg font-semibold text-slate-800 mb-3">Analytics Tracking</h3>
                 <p className="text-slate-600 mb-4 text-sm">Track conversion rates and optimize your lead capture performance.</p>
                 <button 
-                  className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-all duration-200 hover:scale-105 text-sm"
+                  className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors text-sm"
                   onClick={() => setCurrentPage('analytics')}
                 >
                   View Analytics
@@ -99,7 +103,7 @@ function DoctorPortal() {
                 <h3 className="text-lg font-semibold text-slate-800 mb-3">Campaign Management</h3>
                 <p className="text-slate-600 mb-4 text-sm">Create and manage targeted campaigns for specific conditions.</p>
                 <button 
-                  className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-all duration-200 hover:scale-105 text-sm"
+                  className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors text-sm"
                   onClick={() => setCurrentPage('trends')}
                 >
                   Manage Campaigns
@@ -174,7 +178,7 @@ function QuizApp() {
             <div className="w-full mx-auto px-6 py-3 flex items-center justify-between">
               <button
                 onClick={() => setSelectedQuiz(null)}
-                className="text-blue-500 hover:text-blue-600 hover:underline transition-all duration-200 hover:scale-105 flex items-center gap-2"
+                className="text-blue-500 hover:text-blue-600 hover:underline transition-colors flex items-center gap-2"
               >
                 ← Back to Assessments
               </button>
