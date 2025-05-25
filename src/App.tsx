@@ -18,8 +18,6 @@ import { SettingsPage } from '@/components/dashboard/SettingsPage';
 import { SupportPage } from '@/components/dashboard/SupportPage';
 import { ProfilePage } from '@/components/dashboard/ProfilePage';
 import { SchedulePage } from '@/components/dashboard/SchedulePage';
-import { AdminDashboard } from '@/components/admin/AdminDashboard';
-import { SecuritySettings } from '@/components/settings/SecuritySettings';
 import { QuizSelector } from '@/components/quiz/QuizSelector';
 import { EnhancedChatBot } from '@/components/quiz/EnhancedChatBot';
 import { SNOT22Page } from '@/components/quiz/SNOT22Page';
@@ -41,38 +39,6 @@ function DoctorPortal() {
     switch (currentTab) {
       case 'leads':
         return <LeadsPage />;
-      case 'company':
-        return <div className="p-6">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-2xl font-bold text-slate-800 mb-6">Company Settings</h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white rounded-xl shadow-sm p-6 border">
-                <h3 className="text-lg font-semibold text-slate-800 mb-4">Practice Information</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Practice Name</label>
-                    <input className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Enter practice name" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Address</label>
-                    <textarea className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" rows={3} placeholder="Enter practice address"></textarea>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Phone</label>
-                    <input className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Enter phone number" />
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white rounded-xl shadow-sm p-6 border">
-                <h3 className="text-lg font-semibold text-slate-800 mb-4">Team Management</h3>
-                <p className="text-slate-600 mb-4">Manage your team members and their access levels.</p>
-                <button className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors">
-                  Add Team Member
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>;
       case 'lead-capture':
         return <div className="p-6">
           <div className="max-w-4xl mx-auto">
@@ -138,14 +104,10 @@ function DoctorPortal() {
         return <ProfilePage />;
       case 'settings':
         return <SettingsPage />;
-      case 'security':
-        return <SecuritySettings />;
       case 'support':
         return <SupportPage />;
       case 'schedule':
         return <SchedulePage />;
-      case 'admin':
-        return <AdminDashboard />;
       default:
         return (
           <div>

@@ -70,13 +70,24 @@ export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
     if (!doctorShareKey) return;
     
     try {
-      const { data: doctorProfiles } = await supabase
-        .from('doctor_profiles')
-        .select('id')
+      const { data: leads } = await supabase
+        .from('quiz_leads')
+        .select('doctor_id')
+        .eq('share_key', doctorShareKey)
         .limit(1);
       
-      if (doctorProfiles && doctorProfiles.length > 0) {
-        setDoctorId(doctorProfiles[0].id);
+      if (leads && leads.length > 0) {
+        setDoctorId(leads[0].doctor_id);
+      } else {
+        // Fallback to first doctor if no lead found
+        const { data: doctorProfiles } = await supabase
+          .from('doctor_profiles')
+          .select('id')
+          .limit(1);
+        
+        if (doctorProfiles && doctorProfiles.length > 0) {
+          setDoctorId(doctorProfiles[0].id);
+        }
       }
     } catch (error) {
       console.error('Error finding doctor:', error);
@@ -495,18 +506,20 @@ export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
         </div>
       )}
 
-      <style jsx>{`
-        @keyframes fadeInSlide {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
+      <style>
+        {`
+          @keyframes fadeInSlide {
+            from {
+              opacity: 0;
+              transform: translateY(20px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
           }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
+        `}
+      </style>
     </div>
   );
 }

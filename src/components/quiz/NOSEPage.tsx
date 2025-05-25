@@ -1,21 +1,32 @@
 
 import { useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 
 export function NOSEPage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const key = searchParams.get('key');
     const doctor = searchParams.get('doctor');
     
     if (key || doctor) {
-      window.location.href = `/quiz?type=NOSE&key=${key}&doctor=${doctor}&mode=single`;
+      // Redirect to the main quiz interface with proper parameters
+      const params = new URLSearchParams();
+      params.set('type', 'NOSE');
+      if (key) params.set('key', key);
+      if (doctor) params.set('doctor', doctor);
+      params.set('mode', 'single');
+      
+      navigate(`/quiz?${params.toString()}`);
     }
-  }, [searchParams]);
+  }, [searchParams, navigate]);
 
   const handleSelectQuiz = () => {
-    window.location.href = '/quiz?type=NOSE&mode=single';
+    const params = new URLSearchParams();
+    params.set('type', 'NOSE');
+    params.set('mode', 'single');
+    navigate(`/quiz?${params.toString()}`);
   };
 
   return (
