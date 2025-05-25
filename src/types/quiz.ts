@@ -12,7 +12,7 @@ export interface Quiz {
   title: string;
   description: string;
   questions: QuizQuestion[];
-  maxScore: number; // Added maxScore property
+  maxScore: number;
 }
 
 export interface QuizAnswer {
@@ -24,7 +24,7 @@ export interface QuizResult {
   score: number;
   interpretation: string;
   severity: 'normal' | 'mild' | 'moderate' | 'severe';
-  summary: string; // Added summary property
+  summary: string;
 }
 
 export interface Lead {

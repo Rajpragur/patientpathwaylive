@@ -1,54 +1,89 @@
 
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
 import { 
-  Home, 
+  LayoutDashboard, 
   BarChart3, 
   TrendingUp, 
+  FileText, 
   User, 
   Settings, 
-  HelpCircle,
-  Stethoscope
+  HelpCircle, 
+  LogOut,
+  Calendar,
+  Shield,
+  UserCog
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 interface SidebarProps {
   currentPage: string;
   onPageChange: (page: string) => void;
 }
 
-const sidebarItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: Home },
-  { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-  { id: 'trends', label: 'Trends', icon: TrendingUp },
-  { id: 'quizzes', label: 'Quiz Management', icon: Stethoscope },
-  { id: 'profile', label: 'Profile', icon: User },
-  { id: 'settings', label: 'Settings', icon: Settings },
-  { id: 'support', label: 'Support', icon: HelpCircle },
-];
-
 export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
+  const { signOut } = useAuth();
+
+  const menuItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+    { id: 'trends', label: 'Trends', icon: TrendingUp },
+    { id: 'quizzes', label: 'Quiz Management', icon: FileText },
+    { id: 'schedule', label: 'Schedule', icon: Calendar },
+    { id: 'profile', label: 'Profile', icon: User },
+    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'security', label: 'Security', icon: Shield },
+    { id: 'admin', label: 'Admin Panel', icon: UserCog },
+    { id: 'support', label: 'Support', icon: HelpCircle },
+  ];
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
   return (
-    <div className="w-64 bg-white border-r border-gray-200 min-h-screen">
-      <div className="p-6">
-        <h2 className="text-xl font-bold text-blue-600">Patient Pathway</h2>
-        <p className="text-sm text-gray-500">Doctor Portal</p>
+    <div className="w-64 bg-white border-r h-full flex flex-col">
+      <div className="p-6 border-b">
+        <h1 className="text-xl font-bold text-blue-600">Patient Pathway</h1>
+        <p className="text-sm text-slate-500 mt-1">Doctor Portal</p>
       </div>
-      <nav className="mt-6">
-        {sidebarItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => onPageChange(item.id)}
-            className={cn(
-              "w-full flex items-center px-6 py-3 text-left transition-colors",
-              currentPage === item.id
-                ? "bg-blue-50 text-blue-600 border-r-2 border-blue-600"
-                : "text-gray-600 hover:bg-gray-50"
-            )}
-          >
-            <item.icon className="w-5 h-5 mr-3" />
-            {item.label}
-          </button>
-        ))}
+      
+      <nav className="flex-1 p-4 space-y-2">
+        {menuItems.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Button
+              key={item.id}
+              variant={currentPage === item.id ? "default" : "ghost"}
+              className={cn(
+                "w-full justify-start gap-3 text-left",
+                currentPage === item.id 
+                  ? "bg-blue-500 text-white" 
+                  : "text-slate-600 hover:text-slate-800 hover:bg-slate-100"
+              )}
+              onClick={() => onPageChange(item.id)}
+            >
+              <Icon className="w-4 h-4" />
+              {item.label}
+            </Button>
+          );
+        })}
       </nav>
+      
+      <div className="p-4 border-t">
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-3 text-slate-600 hover:text-red-600 hover:bg-red-50"
+          onClick={handleSignOut}
+        >
+          <LogOut className="w-4 h-4" />
+          Sign Out
+        </Button>
+      </div>
     </div>
   );
 }

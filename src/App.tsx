@@ -18,8 +18,10 @@ import { SettingsPage } from '@/components/dashboard/SettingsPage';
 import { SupportPage } from '@/components/dashboard/SupportPage';
 import { ProfilePage } from '@/components/dashboard/ProfilePage';
 import { SchedulePage } from '@/components/dashboard/SchedulePage';
+import { AdminDashboard } from '@/components/admin/AdminDashboard';
+import { SecuritySettings } from '@/components/settings/SecuritySettings';
 import { QuizSelector } from '@/components/quiz/QuizSelector';
-import { ChatBot } from '@/components/quiz/ChatBot';
+import { EnhancedChatBot } from '@/components/quiz/EnhancedChatBot';
 import { SNOT22Page } from '@/components/quiz/SNOT22Page';
 import { NOSEPage } from '@/components/quiz/NOSEPage';
 import { HHIAPage } from '@/components/quiz/HHIAPage';
@@ -44,7 +46,7 @@ function DoctorPortal() {
           <div className="max-w-4xl mx-auto">
             <h2 className="text-2xl font-bold text-slate-800 mb-6">Company Settings</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
+              <div className="bg-white rounded-xl shadow-sm p-6 border">
                 <h3 className="text-lg font-semibold text-slate-800 mb-4">Practice Information</h3>
                 <div className="space-y-4">
                   <div>
@@ -61,7 +63,7 @@ function DoctorPortal() {
                   </div>
                 </div>
               </div>
-              <div className="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
+              <div className="bg-white rounded-xl shadow-sm p-6 border">
                 <h3 className="text-lg font-semibold text-slate-800 mb-4">Team Management</h3>
                 <p className="text-slate-600 mb-4">Manage your team members and their access levels.</p>
                 <button className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors">
@@ -76,7 +78,7 @@ function DoctorPortal() {
           <div className="max-w-4xl mx-auto">
             <h2 className="text-2xl font-bold text-slate-800 mb-6">Lead Capture Tools</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+              <div className="bg-white rounded-xl p-6 shadow-sm border hover:shadow-md transition-shadow">
                 <div className="text-3xl mb-4">📋</div>
                 <h3 className="text-lg font-semibold text-slate-800 mb-3">Quiz Integration</h3>
                 <p className="text-slate-600 mb-4 text-sm">Embed medical assessments on your website to capture qualified leads.</p>
@@ -87,7 +89,7 @@ function DoctorPortal() {
                   Configure Quizzes
                 </button>
               </div>
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+              <div className="bg-white rounded-xl p-6 shadow-sm border hover:shadow-md transition-shadow">
                 <div className="text-3xl mb-4">📊</div>
                 <h3 className="text-lg font-semibold text-slate-800 mb-3">Analytics Tracking</h3>
                 <p className="text-slate-600 mb-4 text-sm">Track conversion rates and optimize your lead capture performance.</p>
@@ -98,7 +100,7 @@ function DoctorPortal() {
                   View Analytics
                 </button>
               </div>
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+              <div className="bg-white rounded-xl p-6 shadow-sm border hover:shadow-md transition-shadow">
                 <div className="text-3xl mb-4">🎯</div>
                 <h3 className="text-lg font-semibold text-slate-800 mb-3">Campaign Management</h3>
                 <p className="text-slate-600 mb-4 text-sm">Create and manage targeted campaigns for specific conditions.</p>
@@ -136,10 +138,14 @@ function DoctorPortal() {
         return <ProfilePage />;
       case 'settings':
         return <SettingsPage />;
+      case 'security':
+        return <SecuritySettings />;
       case 'support':
         return <SupportPage />;
       case 'schedule':
         return <SchedulePage />;
+      case 'admin':
+        return <AdminDashboard />;
       default:
         return (
           <div>
@@ -174,7 +180,7 @@ function QuizApp() {
     return (
       <div className="min-h-screen h-screen bg-slate-50">
         <div className="h-full flex flex-col">
-          <div className="border-b border-slate-200 bg-white">
+          <div className="border-b bg-white">
             <div className="w-full mx-auto px-6 py-3 flex items-center justify-between">
               <button
                 onClick={() => setSelectedQuiz(null)}
@@ -189,7 +195,7 @@ function QuizApp() {
           </div>
           <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
             <div className="flex-1 h-[calc(100vh-4rem)]">
-              <ChatBot quizType={selectedQuiz.type} shareKey={selectedQuiz.shareKey} />
+              <EnhancedChatBot quizType={selectedQuiz.type} shareKey={selectedQuiz.shareKey} />
             </div>
           </div>
         </div>
