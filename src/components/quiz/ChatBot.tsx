@@ -69,24 +69,13 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
     if (!doctorShareKey) return;
     
     try {
-      const { data: leads } = await supabase
-        .from('quiz_leads')
-        .select('doctor_id')
-        .eq('share_key', doctorShareKey)
+      const { data: doctorProfiles } = await supabase
+        .from('doctor_profiles')
+        .select('id')
         .limit(1);
-
-      if (leads && leads.length > 0) {
-        setDoctorId(leads[0].doctor_id);
-      } else {
-        // If no existing leads with this share key, try to find doctor profile by share key
-        const { data: doctorProfiles } = await supabase
-          .from('doctor_profiles')
-          .select('id')
-          .limit(1);
-        
-        if (doctorProfiles && doctorProfiles.length > 0) {
-          setDoctorId(doctorProfiles[0].id);
-        }
+      
+      if (doctorProfiles && doctorProfiles.length > 0) {
+        setDoctorId(doctorProfiles[0].id);
       }
     } catch (error) {
       console.error('Error finding doctor:', error);
@@ -136,10 +125,21 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
         addBotMessage("No problem! Feel free to return when you're ready. Take care! 💙");
       }
     } else if (phase === 'quiz') {
-      // Only proceed if we're actually answering a quiz question
+      // Check if the selected option is valid for the current question
       if (currentQuestionIndex >= 0 && currentQuestionIndex < quiz.questions.length) {
+        const currentQuestion = quiz.questions[currentQuestionIndex];
+        
+        // Check if the option is one of the valid options for this question
+        if (!currentQuestion.options.includes(option)) {
+          addBotMessage(
+            "Please select one of the provided options for this question.",
+            currentQuestion.options
+          );
+          return;
+        }
+
         const newAnswers = [...answers, {
-          questionId: quiz.questions[currentQuestionIndex].id,
+          questionId: currentQuestion.id,
           answer: option
         }];
         setAnswers(newAnswers);
@@ -174,8 +174,10 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
     const result = calculateQuizScore(quizType, answers);
     setQuizResult(result);
 
-    // Save to database
+    // Save to database only when quiz is actually submitted
     try {
+      const leadSource = doctorShareKey ? 'shared_link' : 'website';
+      
       await supabase.from('quiz_leads').insert({
         doctor_id: doctorId,
         name: userInfo.name,
@@ -184,7 +186,7 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
         quiz_type: quizType,
         score: result.score,
         answers: answers,
-        lead_source: doctorShareKey ? 'shared_link' : 'website',
+        lead_source: leadSource,
         share_key: doctorShareKey
       });
       
@@ -218,59 +220,58 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
   };
 
   return (
-    <div className="w-full h-full bg-gradient-to-br from-gray-50 to-blue-50 overflow-hidden flex flex-col">
-      {/* Enhanced Header */}
-      <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 text-white p-8 shadow-xl">
+    <div className="w-full h-full bg-gradient-to-br from-slate-50 to-blue-50 overflow-hidden flex flex-col">
+      {/* Header */}
+      <div className="bg-white border-b border-slate-200 text-slate-800 p-6 shadow-sm">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-4xl font-bold mb-2">{quizType} Assessment</h2>
-          <p className="text-blue-100 text-xl">{quiz.title}</p>
-          <div className="flex items-center gap-6 mt-4 text-blue-100">
+          <h2 className="text-3xl font-bold mb-2 text-blue-600">{quizType} Assessment</h2>
+          <p className="text-slate-600 text-lg">{quiz.title}</p>
+          <div className="flex items-center gap-6 mt-3 text-slate-500">
             <div className="flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              <span>{quiz.questions.length} Questions</span>
+              <Users className="w-4 h-4" />
+              <span className="text-sm">{quiz.questions.length} Questions</span>
             </div>
             <div className="flex items-center gap-2">
-              <Target className="w-5 h-5" />
-              <span>5-10 Minutes</span>
+              <Target className="w-4 h-4" />
+              <span className="text-sm">5-10 Minutes</span>
             </div>
             <div className="flex items-center gap-2">
-              <Award className="w-5 h-5" />
-              <span>Instant Results</span>
+              <Award className="w-4 h-4" />
+              <span className="text-sm">Instant Results</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Enhanced Messages Area */}
-      <div className="flex-1 overflow-y-auto p-8 space-y-8 max-w-4xl mx-auto w-full">
+      {/* Messages Area */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-4xl mx-auto w-full">
         {messages.map((message, index) => (
           <div
             key={message.id}
-            className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
-            style={{ animationDelay: `${index * 100}ms` }}
+            className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} transition-all duration-300 ease-in-out transform hover:scale-[1.01]`}
           >
-            <div className={`flex items-end gap-4 max-w-2xl`}>
+            <div className={`flex items-end gap-3 max-w-2xl`}>
               {message.type === 'bot' && (
-                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold shadow-md">
                   🤖
                 </div>
               )}
               <div
-                className={`px-8 py-6 rounded-3xl shadow-lg ${
+                className={`px-6 py-4 rounded-2xl shadow-md transition-all duration-200 hover:shadow-lg ${
                   message.type === 'user'
-                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white ml-auto'
-                    : 'bg-white text-gray-800 border border-gray-200'
+                    ? 'bg-blue-500 text-white ml-auto'
+                    : 'bg-white text-slate-800 border border-slate-200'
                 }`}
               >
-                <p className="text-base whitespace-pre-line leading-relaxed">{message.content}</p>
+                <p className="text-sm whitespace-pre-line leading-relaxed">{message.content}</p>
                 {message.options && (
-                  <div className="mt-6 space-y-3">
+                  <div className="mt-4 space-y-2">
                     {message.options.map((option, index) => (
                       <Button
                         key={index}
                         variant="outline"
-                        size="lg"
-                        className="w-full text-left justify-start bg-white border-2 border-gray-300 hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 hover:scale-105 text-gray-700 hover:text-blue-700 py-4 px-6 rounded-xl"
+                        size="sm"
+                        className="w-full text-left justify-start bg-slate-50 border border-slate-300 hover:border-blue-400 hover:bg-blue-50 transition-all duration-200 hover:scale-105 text-slate-700 hover:text-blue-700 py-3 px-4 rounded-xl"
                         onClick={() => handleOptionClick(option)}
                       >
                         {option}
@@ -280,7 +281,7 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
                 )}
               </div>
               {message.type === 'user' && (
-                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-green-500 to-blue-500 flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white font-bold shadow-md">
                   👤
                 </div>
               )}
@@ -289,15 +290,15 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
         ))}
 
         {isTyping && (
-          <div className="flex justify-start animate-fade-in">
-            <div className="flex items-end gap-4">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-xl shadow-lg">
+          <div className="flex justify-start">
+            <div className="flex items-end gap-3">
+              <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold shadow-md">
                 🤖
               </div>
-              <div className="bg-white text-gray-800 px-8 py-6 rounded-3xl shadow-lg border border-gray-200 flex items-center gap-2">
-                <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce"></div>
-                <div className="w-3 h-3 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                <div className="w-3 h-3 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+              <div className="bg-white text-slate-800 px-6 py-4 rounded-2xl shadow-md border border-slate-200 flex items-center gap-2">
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
               </div>
             </div>
           </div>
@@ -306,23 +307,23 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Enhanced User Info Form */}
+      {/* User Info Form */}
       {phase === 'userInfo' && (
-        <div className="p-8 border-t bg-gradient-to-r from-blue-50 to-purple-50">
-          <form onSubmit={handleUserInfoSubmit} className="space-y-6 max-w-md mx-auto">
-            <div className="text-center mb-6">
-              <h3 className="text-2xl font-bold text-gray-800 mb-2">Almost Done! 🎯</h3>
-              <p className="text-gray-600">Just a few details to get your personalized results</p>
+        <div className="p-6 border-t bg-white">
+          <form onSubmit={handleUserInfoSubmit} className="space-y-4 max-w-md mx-auto">
+            <div className="text-center mb-4">
+              <h3 className="text-xl font-bold text-slate-800 mb-2">Almost Done! 🎯</h3>
+              <p className="text-slate-600">Just a few details to get your personalized results</p>
             </div>
             <Input
-              className="text-lg py-4 px-6 rounded-xl border-2 border-gray-300 focus:border-blue-500 transition-all duration-200"
+              className="py-3 px-4 rounded-xl border border-slate-300 focus:border-blue-500 transition-all duration-200"
               placeholder="Your Full Name *"
               value={userInfo.name}
               onChange={(e) => setUserInfo(prev => ({ ...prev, name: e.target.value }))}
               required
             />
             <Input
-              className="text-lg py-4 px-6 rounded-xl border-2 border-gray-300 focus:border-blue-500 transition-all duration-200"
+              className="py-3 px-4 rounded-xl border border-slate-300 focus:border-blue-500 transition-all duration-200"
               type="email"
               placeholder="Your Email Address *"
               value={userInfo.email}
@@ -330,7 +331,7 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
               required
             />
             <Input
-              className="text-lg py-4 px-6 rounded-xl border-2 border-gray-300 focus:border-blue-500 transition-all duration-200"
+              className="py-3 px-4 rounded-xl border border-slate-300 focus:border-blue-500 transition-all duration-200"
               type="tel"
               placeholder="Your Phone Number (Optional)"
               value={userInfo.phone}
@@ -338,7 +339,7 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
             />
             <Button 
               type="submit" 
-              className="w-full text-xl py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all duration-200 hover:scale-105 rounded-xl shadow-lg"
+              className="w-full py-3 bg-blue-500 hover:bg-blue-600 transition-all duration-200 hover:scale-105 rounded-xl shadow-md"
             >
               Get My Results 🎉
             </Button>
@@ -346,93 +347,86 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
         </div>
       )}
 
-      {/* Enhanced Results Section */}
+      {/* Results Section */}
       {phase === 'results' && quizResult && (
-        <div className="p-8 flex justify-center items-center bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-50 min-h-[500px]">
+        <div className="p-6 flex justify-center items-center bg-slate-50 min-h-[400px]">
           <div
             className={`transition-all duration-1000 ease-out transform ${
               showResult ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'
-            } w-full max-w-4xl`}
+            } w-full max-w-3xl`}
           >
-            <Card className="w-full shadow-2xl rounded-3xl border-0 overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 px-8 py-8 flex items-center gap-6 justify-between">
-                <div className="flex items-center gap-6">
-                  <div className="text-6xl">🎉</div>
+            <Card className="w-full shadow-lg rounded-2xl border-0 overflow-hidden bg-white">
+              <div className="bg-blue-500 px-6 py-6 flex items-center gap-4 justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="text-4xl">🎉</div>
                   <div>
-                    <CardTitle className="text-white text-3xl font-bold tracking-tight">
+                    <CardTitle className="text-white text-2xl font-bold">
                       Assessment Complete!
                     </CardTitle>
-                    <div className="text-blue-100 text-lg mt-2">{quiz.title}</div>
+                    <div className="text-blue-100 mt-1">{quiz.title}</div>
                   </div>
                 </div>
                 <Button
                   variant="outline"
-                  className="bg-white text-blue-700 border-blue-200 hover:bg-blue-50 px-6 py-3 text-lg rounded-xl transition-all duration-200 hover:scale-105"
+                  className="bg-white text-blue-600 border-blue-200 hover:bg-blue-50 px-4 py-2 rounded-xl transition-all duration-200 hover:scale-105"
                   onClick={() => window.print()}
                 >
                   🖨️ Print Results
                 </Button>
               </div>
-              <CardContent className="bg-white px-8 py-8">
-                {/* Enhanced Progress Bar */}
-                <div className="mb-8">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-gray-700 font-semibold text-lg">Your Score</span>
-                    <span className="text-blue-700 font-bold text-2xl">{quizResult.score} / {quiz.maxScore || 100}</span>
+              <CardContent className="bg-white px-6 py-6">
+                {/* Progress Bar */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-slate-700 font-semibold">Your Score</span>
+                    <span className="text-blue-600 font-bold text-xl">{quizResult.score} / {quiz.maxScore}</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-6 overflow-hidden shadow-inner">
+                  <div className="w-full bg-slate-200 rounded-full h-4 overflow-hidden">
                     <div
                       className={`
-                        h-6 rounded-full transition-all duration-1000 relative overflow-hidden
-                        ${quizResult.severity === 'normal' && 'bg-gradient-to-r from-green-400 to-green-500'}
-                        ${quizResult.severity === 'mild' && 'bg-gradient-to-r from-blue-400 to-blue-500'}
-                        ${quizResult.severity === 'moderate' && 'bg-gradient-to-r from-yellow-400 to-yellow-500'}
-                        ${quizResult.severity === 'severe' && 'bg-gradient-to-r from-red-400 to-red-500'}
+                        h-4 rounded-full transition-all duration-1000
+                        ${quizResult.severity === 'normal' && 'bg-green-500'}
+                        ${quizResult.severity === 'mild' && 'bg-blue-500'}
+                        ${quizResult.severity === 'moderate' && 'bg-yellow-500'}
+                        ${quizResult.severity === 'severe' && 'bg-red-500'}
                       `}
                       style={{
-                        width: `${Math.min(
-                          100,
-                          Math.round((quizResult.score / (quiz.maxScore || 100)) * 100)
-                        )}%`
+                        width: `${Math.min(100, Math.round((quizResult.score / quiz.maxScore) * 100))}%`
                       }}
-                    >
-                      <div className="absolute inset-0 bg-white opacity-20 animate-pulse"></div>
-                    </div>
+                    />
                   </div>
                 </div>
 
-                {/* Enhanced Severity Display */}
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8 mb-8">
-                  <div className={`flex items-center gap-4 p-6 rounded-2xl border-2 ${getSeverityColor(quizResult.severity)} transition-all duration-300 hover:scale-105`}>
+                {/* Severity Display */}
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-6">
+                  <div className={`flex items-center gap-3 p-4 rounded-xl border-2 ${getSeverityColor(quizResult.severity)}`}>
                     {getSeverityIcon(quizResult.severity)}
                     <div>
-                      <span className="text-2xl font-bold capitalize">
+                      <span className="text-xl font-bold capitalize">
                         {quizResult.severity}
                       </span>
-                      <p className="text-sm text-gray-600 mt-1">Severity Level</p>
+                      <p className="text-sm text-slate-600 mt-1">Severity Level</p>
                     </div>
                   </div>
                   
                   <div className="text-center">
-                    <div className="text-4xl font-bold text-gray-800 mb-2">
-                      {Math.round((quizResult.score / (quiz.maxScore || 100)) * 100)}%
+                    <div className="text-3xl font-bold text-slate-800 mb-1">
+                      {Math.round((quizResult.score / quiz.maxScore) * 100)}%
                     </div>
-                    <p className="text-gray-600">Completion Score</p>
+                    <p className="text-slate-600">Completion Score</p>
                   </div>
                 </div>
-
-                <hr className="my-8 border-gray-200" />
                 
-                <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl">
-                  <h4 className="text-xl font-semibold text-gray-800 mb-4">Your Results Summary</h4>
-                  <p className="text-gray-700 text-lg leading-relaxed">{quizResult.summary}</p>
+                <div className="mb-6 p-4 bg-slate-50 rounded-xl">
+                  <h4 className="text-lg font-semibold text-slate-800 mb-3">Your Results Summary</h4>
+                  <p className="text-slate-700 leading-relaxed">{quizResult.summary}</p>
                 </div>
                 
                 <div className="flex justify-between items-center">
-                  <Badge className="text-lg px-6 py-3 bg-blue-50 text-blue-700 border-blue-200 rounded-xl" variant="outline">
+                  <Badge className="px-4 py-2 bg-blue-50 text-blue-700 border-blue-200 rounded-xl" variant="outline">
                     {quiz.title}
                   </Badge>
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-slate-500">
                     Completed on {new Date().toLocaleDateString()}
                   </div>
                 </div>

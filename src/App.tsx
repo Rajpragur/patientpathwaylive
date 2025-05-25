@@ -17,6 +17,7 @@ import { QuizManagementPage } from '@/components/dashboard/QuizManagementPage';
 import { SettingsPage } from '@/components/dashboard/SettingsPage';
 import { SupportPage } from '@/components/dashboard/SupportPage';
 import { ProfilePage } from '@/components/dashboard/ProfilePage';
+import { SchedulePage } from '@/components/dashboard/SchedulePage';
 import { QuizSelector } from '@/components/quiz/QuizSelector';
 import { ChatBot } from '@/components/quiz/ChatBot';
 import { SNOT22Page } from '@/components/quiz/SNOT22Page';
@@ -38,30 +39,28 @@ function DoctorPortal() {
     switch (currentTab) {
       case 'leads':
         return <LeadsPage />;
-      case 'contact':
-        return <LeadsPage filterStatus="CONTACTED" />;
       case 'company':
-        return <div className="p-8">
+        return <div className="p-6">
           <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold text-gray-800 mb-6">Company Settings</h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-                <h3 className="text-xl font-semibold text-gray-800 mb-4">Practice Information</h3>
+            <h2 className="text-2xl font-bold text-slate-800 mb-6">Company Settings</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
+                <h3 className="text-lg font-semibold text-slate-800 mb-4">Practice Information</h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Practice Name</label>
-                    <input className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Enter practice name" />
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Practice Name</label>
+                    <input className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Enter practice name" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
-                    <textarea className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" rows={3} placeholder="Enter practice address"></textarea>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Address</label>
+                    <textarea className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" rows={3} placeholder="Enter practice address"></textarea>
                   </div>
                 </div>
               </div>
-              <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-                <h3 className="text-xl font-semibold text-gray-800 mb-4">Team Management</h3>
-                <p className="text-gray-600 mb-4">Manage your team members and their access levels.</p>
-                <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+              <div className="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
+                <h3 className="text-lg font-semibold text-slate-800 mb-4">Team Management</h3>
+                <p className="text-slate-600 mb-4">Manage your team members and their access levels.</p>
+                <button className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors">
                   Add Team Member
                 </button>
               </div>
@@ -69,32 +68,41 @@ function DoctorPortal() {
           </div>
         </div>;
       case 'lead-capture':
-        return <div className="p-8">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-3xl font-bold text-gray-800 mb-6">Lead Capture Tools</h2>
+        return <div className="p-6">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-2xl font-bold text-slate-800 mb-6">Lead Capture Tools</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-6 shadow-lg border border-blue-200">
-                <div className="text-4xl mb-4">📋</div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-3">Quiz Integration</h3>
-                <p className="text-gray-600 mb-4">Embed medical assessments on your website to capture qualified leads.</p>
-                <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all duration-200 hover:scale-105">
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+                <div className="text-3xl mb-4">📋</div>
+                <h3 className="text-lg font-semibold text-slate-800 mb-3">Quiz Integration</h3>
+                <p className="text-slate-600 mb-4 text-sm">Embed medical assessments on your website to capture qualified leads.</p>
+                <button 
+                  className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all duration-200 hover:scale-105 text-sm"
+                  onClick={() => setCurrentPage('quizzes')}
+                >
                   Configure Quizzes
                 </button>
               </div>
-              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-6 shadow-lg border border-green-200">
-                <div className="text-4xl mb-4">📊</div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-3">Analytics Tracking</h3>
-                <p className="text-gray-600 mb-4">Track conversion rates and optimize your lead capture performance.</p>
-                <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-all duration-200 hover:scale-105">
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+                <div className="text-3xl mb-4">📊</div>
+                <h3 className="text-lg font-semibold text-slate-800 mb-3">Analytics Tracking</h3>
+                <p className="text-slate-600 mb-4 text-sm">Track conversion rates and optimize your lead capture performance.</p>
+                <button 
+                  className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-all duration-200 hover:scale-105 text-sm"
+                  onClick={() => setCurrentPage('analytics')}
+                >
                   View Analytics
                 </button>
               </div>
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-2xl p-6 shadow-lg border border-purple-200">
-                <div className="text-4xl mb-4">🎯</div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-3">Targeted Campaigns</h3>
-                <p className="text-gray-600 mb-4">Create targeted campaigns for specific conditions and demographics.</p>
-                <button className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-all duration-200 hover:scale-105">
-                  Create Campaign
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+                <div className="text-3xl mb-4">🎯</div>
+                <h3 className="text-lg font-semibold text-slate-800 mb-3">Campaign Management</h3>
+                <p className="text-slate-600 mb-4 text-sm">Create and manage targeted campaigns for specific conditions.</p>
+                <button 
+                  className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-all duration-200 hover:scale-105 text-sm"
+                  onClick={() => setCurrentPage('trends')}
+                >
+                  Manage Campaigns
                 </button>
               </div>
             </div>
@@ -126,6 +134,8 @@ function DoctorPortal() {
         return <SettingsPage />;
       case 'support':
         return <SupportPage />;
+      case 'schedule':
+        return <SchedulePage />;
       default:
         return (
           <div>
@@ -137,7 +147,7 @@ function DoctorPortal() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-slate-50">
       <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <DashboardHeader />
@@ -158,22 +168,22 @@ function QuizApp() {
 
   if (selectedQuiz) {
     return (
-      <div className="min-h-screen h-screen bg-gradient-to-br from-gray-900 to-gray-800">
+      <div className="min-h-screen h-screen bg-slate-50">
         <div className="h-full flex flex-col">
-          <div className="border-b border-gray-700 bg-gray-800/80 backdrop-blur-sm">
-            <div className="w-full mx-auto px-8 py-3 flex items-center justify-between">
+          <div className="border-b border-slate-200 bg-white">
+            <div className="w-full mx-auto px-6 py-3 flex items-center justify-between">
               <button
                 onClick={() => setSelectedQuiz(null)}
-                className="text-blue-400 hover:text-blue-300 hover:underline transition-all duration-200 hover:scale-105 flex items-center gap-2"
+                className="text-blue-500 hover:text-blue-600 hover:underline transition-all duration-200 hover:scale-105 flex items-center gap-2"
               >
                 ← Back to Assessments
               </button>
-              <h1 className="text-lg font-semibold text-gray-200">
+              <h1 className="text-lg font-semibold text-slate-700">
                 {selectedQuiz.type} Assessment
               </h1>
             </div>
           </div>
-          <div className="flex-1 overflow-hidden flex flex-col bg-gradient-to-br from-gray-800 to-gray-900">
+          <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
             <div className="flex-1 h-[calc(100vh-4rem)]">
               <ChatBot quizType={selectedQuiz.type} shareKey={selectedQuiz.shareKey} />
             </div>
@@ -191,13 +201,13 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-4 border-blue-400 mx-auto"></div>
-          <h1 className="mt-6 text-2xl font-bold bg-gradient-to-r from-blue-400 to-pink-400 bg-clip-text text-transparent">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-500 mx-auto"></div>
+          <h1 className="mt-4 text-xl font-bold text-blue-600">
             Patient Pathway
           </h1>
-          <p className="mt-2 text-gray-400">Loading your medical assessment platform...</p>
+          <p className="mt-2 text-slate-600">Loading your medical assessment platform...</p>
         </div>
       </div>
     );

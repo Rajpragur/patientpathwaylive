@@ -1,37 +1,36 @@
 
-import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 interface TopTabsProps {
   currentTab: string;
   onTabChange: (tab: string) => void;
 }
 
-const tabs = [
-  { id: 'leads', label: 'Leads' },
-  { id: 'contact', label: 'Contact' },
-  { id: 'company', label: 'Company' },
-  { id: 'lead-capture', label: 'Lead Capture' },
-];
-
 export function TopTabs({ currentTab, onTabChange }: TopTabsProps) {
+  const tabs = [
+    { id: 'leads', label: 'Leads', description: 'View and manage patient leads' },
+    { id: 'company', label: 'Company', description: 'Company settings and team management' },
+    { id: 'lead-capture', label: 'Lead Capture', description: 'Configure lead capture tools' }
+  ];
+
   return (
-    <div className="border-b border-gray-200">
-      <nav className="flex space-x-8">
+    <div className="bg-white border-b border-slate-200 px-6 py-4">
+      <div className="flex space-x-1">
         {tabs.map((tab) => (
-          <button
+          <Button
             key={tab.id}
+            variant={currentTab === tab.id ? "default" : "ghost"}
+            className={`px-4 py-2 rounded-lg transition-all duration-200 hover:scale-105 ${
+              currentTab === tab.id 
+                ? 'bg-blue-500 text-white shadow-md' 
+                : 'text-slate-600 hover:text-slate-800 hover:bg-slate-100'
+            }`}
             onClick={() => onTabChange(tab.id)}
-            className={cn(
-              "py-4 px-1 border-b-2 font-medium text-sm transition-colors",
-              currentTab === tab.id
-                ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-            )}
           >
             {tab.label}
-          </button>
+          </Button>
         ))}
-      </nav>
+      </div>
     </div>
   );
 }

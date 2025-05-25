@@ -12,6 +12,7 @@ export interface Quiz {
   title: string;
   description: string;
   questions: QuizQuestion[];
+  maxScore: number; // Added maxScore property
 }
 
 export interface QuizAnswer {
@@ -23,6 +24,7 @@ export interface QuizResult {
   score: number;
   interpretation: string;
   severity: 'normal' | 'mild' | 'moderate' | 'severe';
+  summary: string; // Added summary property
 }
 
 export interface Lead {
@@ -30,14 +32,14 @@ export interface Lead {
   name: string;
   email?: string;
   phone?: string;
-  quiz_type: string; // Changed from QuizType to string to match database
+  quiz_type: string;
   score: number;
   answers: any;
   lead_source: string;
   lead_status: 'NEW' | 'CONTACTED' | 'SCHEDULED';
   submitted_at: string;
   created_at: string;
-  doctor_id: string; // Added missing field from database
+  doctor_id: string;
 }
 
 export interface DoctorProfile {
