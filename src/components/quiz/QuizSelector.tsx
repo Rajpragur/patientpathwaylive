@@ -17,13 +17,14 @@ export function QuizSelector({ onSelectQuiz }: QuizSelectorProps) {
   useEffect(() => {
     const quizType = searchParams.get('type') as QuizType;
     const shareKey = searchParams.get('key');
+    const doctorId = searchParams.get('doctor');
     const pageMode = searchParams.get('mode') || 'normal';
     
     setMode(pageMode);
     
     // If we have a specific quiz type from URL parameters, auto-select it
-    if (quizType && quizzes[quizType] && shareKey) {
-      onSelectQuiz(quizType, shareKey);
+    if (quizType && quizzes[quizType] && (shareKey || doctorId)) {
+      onSelectQuiz(quizType, shareKey || undefined);
       return;
     }
   }, [searchParams, onSelectQuiz]);
@@ -31,11 +32,20 @@ export function QuizSelector({ onSelectQuiz }: QuizSelectorProps) {
   // If in single mode but no valid quiz, show error
   if (mode === 'single' || mode === 'embed') {
     return (
-      <div className="min-h-screen bg-gray-50 py-12 flex items-center justify-center">
-        <Card className="max-w-md">
-          <CardContent className="p-6 text-center">
-            <h1 className="text-xl font-bold text-red-600 mb-4">Invalid Quiz Link</h1>
-            <p className="text-gray-600">This quiz link is not valid or has expired.</p>
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 py-12 flex items-center justify-center">
+        <Card className="max-w-md shadow-2xl border-0">
+          <CardContent className="p-8 text-center">
+            <div className="text-6xl mb-6">⚠️</div>
+            <h1 className="text-2xl font-bold text-red-600 mb-4">Invalid Quiz Link</h1>
+            <p className="text-gray-600 leading-relaxed">
+              This quiz link is not valid or has expired. Please contact your healthcare provider for a new assessment link.
+            </p>
+            <Button 
+              className="mt-6 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl transition-all duration-200 hover:scale-105"
+              onClick={() => window.location.href = '/quiz'}
+            >
+              View All Assessments
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -44,38 +54,70 @@ export function QuizSelector({ onSelectQuiz }: QuizSelectorProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 py-12">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="text-center mb-12">
-          <h1 className="text-6xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-6">
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="text-center mb-16">
+          <h1 className="text-7xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-8">
             Patient Pathway
           </h1>
-          <p className="text-2xl text-gray-700 mb-4">ENT Medical Assessment Platform</p>
-          <p className="text-gray-600 text-lg">Select an assessment to begin your health evaluation</p>
+          <p className="text-3xl text-gray-700 mb-6">ENT Medical Assessment Platform</p>
+          <p className="text-gray-600 text-xl max-w-3xl mx-auto leading-relaxed">
+            Select a medical assessment below to begin your personalized health evaluation. 
+            Each assessment is designed by healthcare professionals to provide accurate insights into your symptoms.
+          </p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {Object.values(quizzes).map((quiz) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+          {Object.values(quizzes).map((quiz, index) => (
             <Card 
               key={quiz.id} 
-              className="hover:shadow-2xl transition-all duration-300 cursor-pointer border-2 border-transparent hover:border-blue-300 transform hover:scale-105 bg-white"
+              className="hover:shadow-2xl transition-all duration-500 cursor-pointer border-2 border-transparent hover:border-blue-300 transform hover:scale-105 bg-white overflow-hidden animate-fade-in"
+              style={{ animationDelay: `${index * 100}ms` }}
             >
-              <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-t-lg">
-                <CardTitle className="text-xl">{quiz.title}</CardTitle>
+              <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-8">
+                <CardTitle className="text-2xl font-bold">{quiz.title}</CardTitle>
               </CardHeader>
-              <CardContent className="p-6">
-                <p className="text-gray-600 mb-4 text-sm leading-relaxed">{quiz.description}</p>
-                <p className="text-xs text-gray-500 mb-6 bg-gray-100 px-3 py-1 rounded-full inline-block">
-                  {quiz.questions.length} questions • 5-10 minutes
-                </p>
+              <CardContent className="p-8">
+                <p className="text-gray-600 mb-6 text-base leading-relaxed min-h-[60px]">{quiz.description}</p>
+                <div className="flex items-center justify-between mb-8">
+                  <div className="bg-gray-100 px-4 py-2 rounded-full">
+                    <span className="text-sm text-gray-600 font-medium">{quiz.questions.length} questions</span>
+                  </div>
+                  <div className="bg-blue-100 px-4 py-2 rounded-full">
+                    <span className="text-sm text-blue-600 font-medium">5-10 minutes</span>
+                  </div>
+                </div>
                 <Button 
                   onClick={() => onSelectQuiz(quiz.id)}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105 text-white font-semibold py-3"
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all duration-300 transform hover:scale-105 text-white font-semibold py-4 text-lg rounded-xl shadow-lg hover:shadow-xl"
                 >
-                  Start Assessment
+                  Start Assessment →
                 </Button>
               </CardContent>
             </Card>
           ))}
+        </div>
+        
+        <div className="text-center mt-16">
+          <div className="bg-white rounded-2xl shadow-lg p-8 max-w-4xl mx-auto">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Why Choose Patient Pathway?</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="text-center">
+                <div className="text-4xl mb-4">🏥</div>
+                <h3 className="font-semibold text-gray-800 mb-2">Clinically Validated</h3>
+                <p className="text-gray-600 text-sm">All assessments are based on established medical questionnaires used by healthcare professionals worldwide.</p>
+              </div>
+              <div className="text-center">
+                <div className="text-4xl mb-4">🔒</div>
+                <h3 className="font-semibold text-gray-800 mb-2">Secure & Private</h3>
+                <p className="text-gray-600 text-sm">Your health information is protected with enterprise-grade security and privacy measures.</p>
+              </div>
+              <div className="text-center">
+                <div className="text-4xl mb-4">⚡</div>
+                <h3 className="font-semibold text-gray-800 mb-2">Instant Results</h3>
+                <p className="text-gray-600 text-sm">Receive immediate, personalized results with detailed explanations and next steps.</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

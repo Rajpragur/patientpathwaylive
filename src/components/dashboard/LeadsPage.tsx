@@ -112,7 +112,6 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
   };
 
   const getSeverityColor = (score: number, quizType: string) => {
-    // Add severity logic based on quiz type and score
     if (score > 50) return 'text-red-600';
     if (score > 25) return 'text-yellow-600';
     return 'text-green-600';
@@ -147,7 +146,7 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Stats Cards with animations */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="shadow-lg border-0 bg-gradient-to-br from-blue-50 to-blue-100 transition-all duration-300 hover:scale-105">
           <CardHeader className="pb-2">
@@ -187,7 +186,7 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
         </Card>
       </div>
 
-      {/* Enhanced Filters */}
+      {/* Filters */}
       <Card className="shadow-lg border-0">
         <CardContent className="p-4">
           <div className="flex flex-wrap gap-4 items-center justify-between">
@@ -242,7 +241,7 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
         </CardContent>
       </Card>
 
-      {/* Enhanced Leads Table */}
+      {/* Leads Table */}
       <Card className="shadow-lg border-0">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -275,7 +274,6 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
                   <tr 
                     key={lead.id} 
                     className="border-b hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
-                    style={{ animationDelay: `${index * 50}ms` }}
                   >
                     <td className="p-4">
                       <Checkbox 

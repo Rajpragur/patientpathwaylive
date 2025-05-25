@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -18,6 +19,13 @@ import { SupportPage } from '@/components/dashboard/SupportPage';
 import { ProfilePage } from '@/components/dashboard/ProfilePage';
 import { QuizSelector } from '@/components/quiz/QuizSelector';
 import { ChatBot } from '@/components/quiz/ChatBot';
+import { SNOT22Page } from '@/components/quiz/SNOT22Page';
+import { NOSEPage } from '@/components/quiz/NOSEPage';
+import { HHIAPage } from '@/components/quiz/HHIAPage';
+import { EpworthPage } from '@/components/quiz/EpworthPage';
+import { DHIPage } from '@/components/quiz/DHIPage';
+import { STOPPage } from '@/components/quiz/STOPPage';
+import { TNSSPage } from '@/components/quiz/TNSSPage';
 import { QuizType } from '@/types/quiz';
 
 const queryClient = new QueryClient();
@@ -33,14 +41,64 @@ function DoctorPortal() {
       case 'contact':
         return <LeadsPage filterStatus="CONTACTED" />;
       case 'company':
-        return <div className="p-6">
-          <h2 className="text-2xl font-bold mb-4">Company Settings</h2>
-          <p className="text-gray-600">Manage your company information and team settings.</p>
+        return <div className="p-8">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-3xl font-bold text-gray-800 mb-6">Company Settings</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+                <h3 className="text-xl font-semibold text-gray-800 mb-4">Practice Information</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Practice Name</label>
+                    <input className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Enter practice name" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+                    <textarea className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" rows={3} placeholder="Enter practice address"></textarea>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+                <h3 className="text-xl font-semibold text-gray-800 mb-4">Team Management</h3>
+                <p className="text-gray-600 mb-4">Manage your team members and their access levels.</p>
+                <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                  Add Team Member
+                </button>
+              </div>
+            </div>
+          </div>
         </div>;
       case 'lead-capture':
-        return <div className="p-6">
-          <h2 className="text-2xl font-bold mb-4">Lead Capture Tools</h2>
-          <p className="text-gray-600">Configure your lead capture forms and conversion tracking.</p>
+        return <div className="p-8">
+          <div className="max-w-6xl mx-auto">
+            <h2 className="text-3xl font-bold text-gray-800 mb-6">Lead Capture Tools</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-6 shadow-lg border border-blue-200">
+                <div className="text-4xl mb-4">📋</div>
+                <h3 className="text-xl font-semibold text-gray-800 mb-3">Quiz Integration</h3>
+                <p className="text-gray-600 mb-4">Embed medical assessments on your website to capture qualified leads.</p>
+                <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all duration-200 hover:scale-105">
+                  Configure Quizzes
+                </button>
+              </div>
+              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-6 shadow-lg border border-green-200">
+                <div className="text-4xl mb-4">📊</div>
+                <h3 className="text-xl font-semibold text-gray-800 mb-3">Analytics Tracking</h3>
+                <p className="text-gray-600 mb-4">Track conversion rates and optimize your lead capture performance.</p>
+                <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-all duration-200 hover:scale-105">
+                  View Analytics
+                </button>
+              </div>
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-2xl p-6 shadow-lg border border-purple-200">
+                <div className="text-4xl mb-4">🎯</div>
+                <h3 className="text-xl font-semibold text-gray-800 mb-3">Targeted Campaigns</h3>
+                <p className="text-gray-600 mb-4">Create targeted campaigns for specific conditions and demographics.</p>
+                <button className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-all duration-200 hover:scale-105">
+                  Create Campaign
+                </button>
+              </div>
+            </div>
+          </div>
         </div>;
       default:
         return <LeadsPage />;
@@ -149,6 +207,13 @@ function AppContent() {
     <BrowserRouter basename="">
       <Routes>
         <Route path="/quiz" element={<QuizApp />} />
+        <Route path="/quiz/snot22" element={<SNOT22Page />} />
+        <Route path="/quiz/nose" element={<NOSEPage />} />
+        <Route path="/quiz/hhia" element={<HHIAPage />} />
+        <Route path="/quiz/epworth" element={<EpworthPage />} />
+        <Route path="/quiz/dhi" element={<DHIPage />} />
+        <Route path="/quiz/stop" element={<STOPPage />} />
+        <Route path="/quiz/tnss" element={<TNSSPage />} />
         <Route 
           path="/portal" 
           element={user ? <DoctorPortal /> : <Navigate to="/auth" />} 

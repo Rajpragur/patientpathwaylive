@@ -22,13 +22,30 @@ export function QuizManagementPage() {
   const { user } = useAuth();
   const [sharedQuizzes, setSharedQuizzes] = useState<SharedQuiz[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedQuiz, setSelectedQuiz] = useState<string | null>(null);
+  const [doctorId, setDoctorId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
+      fetchDoctorProfile();
       fetchSharedQuizzes();
     }
   }, [user]);
+
+  const fetchDoctorProfile = async () => {
+    try {
+      const { data: doctorProfile } = await supabase
+        .from('doctor_profiles')
+        .select('id')
+        .eq('user_id', user?.id)
+        .single();
+
+      if (doctorProfile) {
+        setDoctorId(doctorProfile.id);
+      }
+    } catch (error) {
+      console.error('Error fetching doctor profile:', error);
+    }
+  };
 
   const fetchSharedQuizzes = async () => {
     try {
@@ -79,130 +96,207 @@ export function QuizManagementPage() {
     
     switch (option) {
       case 'new-page':
-        return `${baseUrl}/quiz?type=${quizType}&key=${shareKey}&mode=single`;
+        return `${baseUrl}/quiz/${quizType.toLowerCase()}?key=${shareKey}&doctor=${doctorId}`;
       case 'embed':
-        return `<iframe src="${baseUrl}/quiz?type=${quizType}&key=${shareKey}&mode=embed" width="100%" height="600" frameborder="0"></iframe>`;
+        return `<iframe src="${baseUrl}/quiz?type=${quizType}&key=${shareKey}&doctor=${doctorId}&mode=embed" width="100%" height="600" frameborder="0"></iframe>`;
       case 'chat-embed':
-        return `<script src="${baseUrl}/chat-widget.js" data-quiz="${quizType}" data-key="${shareKey}"></script>`;
+        return `<script src="${baseUrl}/chat-widget.js" data-quiz="${quizType}" data-key="${shareKey}" data-doctor="${doctorId}"></script>`;
       default:
-        return `${baseUrl}/quiz?type=${quizType}&key=${shareKey}&mode=single`;
+        return `${baseUrl}/quiz/${quizType.toLowerCase()}?key=${shareKey}&doctor=${doctorId}`;
+    }
+  };
+
+  const createShareableQuiz = async (quizType: string) => {
+    if (!doctorId) return null;
+    
+    const shareKey = generateShareKey();
+    
+    try {
+      await supabase.from('quiz_leads').insert({
+        doctor_id: doctorId,
+        name: 'Shared Quiz Placeholder',
+        email: 'placeholder@example.com',
+        quiz_type: quizType,
+        score: 0,
+        answers: [],
+        lead_source: 'shared_link',
+        share_key: shareKey,
+        lead_status: 'NEW'
+      });
+      
+      return shareKey;
+    } catch (error) {
+      console.error('Error creating shareable quiz:', error);
+      return null;
     }
   };
 
   const handleShareOption = async (quizType: string, option: string) => {
-    const shareLink = generateShareLink(quizType, option);
+    const shareKey = await createShareableQuiz(quizType);
+    if (!shareKey) {
+      toast.error('Failed to create shareable link');
+      return;
+    }
+
+    const baseUrl = window.location.origin;
     
     if (option === 'qr-code') {
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(generateShareLink(quizType, 'new-page'))}`;
+      const shareUrl = `${baseUrl}/quiz/${quizType.toLowerCase()}?key=${shareKey}&doctor=${doctorId}`;
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(shareUrl)}`;
       window.open(qrUrl, '_blank');
       return;
     }
 
     if (option === 'facebook') {
-      const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(generateShareLink(quizType, 'new-page'))}`;
+      const shareUrl = `${baseUrl}/quiz/${quizType.toLowerCase()}?key=${shareKey}&doctor=${doctorId}`;
+      const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
       window.open(facebookUrl, '_blank');
       return;
     }
 
     if (option === 'email') {
+      const shareUrl = `${baseUrl}/quiz/${quizType.toLowerCase()}?key=${shareKey}&doctor=${doctorId}`;
       const emailSubject = `Take the ${quizzes[quizType as keyof typeof quizzes]?.title} Assessment`;
-      const emailBody = `Please take this medical assessment: ${generateShareLink(quizType, 'new-page')}`;
+      const emailBody = `Hi there,
+
+I'd like you to take this important medical assessment that will help evaluate your symptoms and provide valuable insights for your healthcare.
+
+Assessment: ${quizzes[quizType as keyof typeof quizzes]?.title}
+Time Required: 5-10 minutes
+Results: Instant and personalized
+
+Please click the link below to begin:
+${shareUrl}
+
+This assessment is confidential and your results will be reviewed by our medical team.
+
+Best regards`;
       window.location.href = `mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
       return;
     }
 
     if (option === 'sms') {
-      const smsBody = `Please take this medical assessment: ${generateShareLink(quizType, 'new-page')}`;
+      const shareUrl = `${baseUrl}/quiz/${quizType.toLowerCase()}?key=${shareKey}&doctor=${doctorId}`;
+      const smsBody = `Please take this ${quizzes[quizType as keyof typeof quizzes]?.title} assessment: ${shareUrl}`;
       window.location.href = `sms:?body=${encodeURIComponent(smsBody)}`;
       return;
     }
 
     if (option === 'print') {
-      const printContent = `
-        <h1>${quizzes[quizType as keyof typeof quizzes]?.title} Assessment</h1>
-        <p>Access the assessment at: ${generateShareLink(quizType, 'new-page')}</p>
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(generateShareLink(quizType, 'new-page'))}" />
-      `;
+      const shareUrl = `${baseUrl}/quiz/${quizType.toLowerCase()}?key=${shareKey}&doctor=${doctorId}`;
       const printWindow = window.open('', '_blank');
-      printWindow?.document.write(printContent);
-      printWindow?.print();
+      if (printWindow) {
+        printWindow.document.write(`
+          <html>
+            <head><title>Quiz Assessment Link</title></head>
+            <body style="font-family: Arial, sans-serif; padding: 20px;">
+              <h1>${quizzes[quizType as keyof typeof quizzes]?.title} Assessment</h1>
+              <p>Scan the QR code or visit the link below to take this assessment:</p>
+              <p style="font-size: 14px; word-break: break-all;">${shareUrl}</p>
+              <div style="margin-top: 20px;">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shareUrl)}" alt="QR Code" />
+              </div>
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+      }
       return;
     }
 
+    if (option === 'embed') {
+      const embedCode = `<iframe src="${baseUrl}/quiz?type=${quizType}&key=${shareKey}&doctor=${doctorId}&mode=embed" width="100%" height="600" frameborder="0"></iframe>`;
+      await navigator.clipboard.writeText(embedCode);
+      toast.success('Embed code copied to clipboard!');
+      return;
+    }
+
+    // Default: copy link
+    const shareLink = `${baseUrl}/quiz/${quizType.toLowerCase()}?key=${shareKey}&doctor=${doctorId}`;
     await navigator.clipboard.writeText(shareLink);
     toast.success('Link copied to clipboard!');
-    setSelectedQuiz(null);
+    
+    fetchSharedQuizzes(); // Refresh the shared quizzes list
   };
 
   const ShareOptionsDialog = ({ quizType }: { quizType: string }) => (
-    <DialogContent className="max-w-md">
+    <DialogContent className="max-w-2xl">
       <DialogHeader>
-        <DialogTitle>Share {quizzes[quizType as keyof typeof quizzes]?.title}</DialogTitle>
+        <DialogTitle className="text-2xl">Share {quizzes[quizType as keyof typeof quizzes]?.title}</DialogTitle>
       </DialogHeader>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-4">
         <Button
           variant="outline"
-          className="h-20 flex flex-col gap-2 transition-all duration-200 hover:scale-105"
+          className="h-24 flex flex-col gap-2 transition-all duration-200 hover:scale-105 hover:shadow-lg"
           onClick={() => handleShareOption(quizType, 'new-page')}
         >
-          <Globe className="w-6 h-6" />
-          <span className="text-xs">New Page</span>
+          <Globe className="w-8 h-8 text-blue-600" />
+          <span className="text-sm font-semibold">New Page</span>
+          <span className="text-xs text-gray-500">Dedicated assessment page</span>
         </Button>
         <Button
           variant="outline"
-          className="h-20 flex flex-col gap-2 transition-all duration-200 hover:scale-105"
+          className="h-24 flex flex-col gap-2 transition-all duration-200 hover:scale-105 hover:shadow-lg"
           onClick={() => handleShareOption(quizType, 'embed')}
         >
-          <Code className="w-6 h-6" />
-          <span className="text-xs">Embed Code</span>
+          <Code className="w-8 h-8 text-green-600" />
+          <span className="text-sm font-semibold">Embed Code</span>
+          <span className="text-xs text-gray-500">Add to your website</span>
         </Button>
         <Button
           variant="outline"
-          className="h-20 flex flex-col gap-2 transition-all duration-200 hover:scale-105"
+          className="h-24 flex flex-col gap-2 transition-all duration-200 hover:scale-105 hover:shadow-lg"
           onClick={() => handleShareOption(quizType, 'chat-embed')}
         >
-          <MessageCircle className="w-6 h-6" />
-          <span className="text-xs">Chat Widget</span>
+          <MessageCircle className="w-8 h-8 text-purple-600" />
+          <span className="text-sm font-semibold">Chat Widget</span>
+          <span className="text-xs text-gray-500">Interactive chat bot</span>
         </Button>
         <Button
           variant="outline"
-          className="h-20 flex flex-col gap-2 transition-all duration-200 hover:scale-105"
+          className="h-24 flex flex-col gap-2 transition-all duration-200 hover:scale-105 hover:shadow-lg"
           onClick={() => handleShareOption(quizType, 'print')}
         >
-          <Printer className="w-6 h-6" />
-          <span className="text-xs">Print</span>
+          <Printer className="w-8 h-8 text-gray-600" />
+          <span className="text-sm font-semibold">Print</span>
+          <span className="text-xs text-gray-500">Printable version</span>
         </Button>
         <Button
           variant="outline"
-          className="h-20 flex flex-col gap-2 transition-all duration-200 hover:scale-105"
+          className="h-24 flex flex-col gap-2 transition-all duration-200 hover:scale-105 hover:shadow-lg"
           onClick={() => handleShareOption(quizType, 'facebook')}
         >
-          <Share className="w-6 h-6" />
-          <span className="text-xs">Facebook</span>
+          <Share className="w-8 h-8 text-blue-700" />
+          <span className="text-sm font-semibold">Facebook</span>
+          <span className="text-xs text-gray-500">Share on social media</span>
         </Button>
         <Button
           variant="outline"
-          className="h-20 flex flex-col gap-2 transition-all duration-200 hover:scale-105"
+          className="h-24 flex flex-col gap-2 transition-all duration-200 hover:scale-105 hover:shadow-lg"
           onClick={() => handleShareOption(quizType, 'qr-code')}
         >
-          <QrCode className="w-6 h-6" />
-          <span className="text-xs">QR Code</span>
+          <QrCode className="w-8 h-8 text-indigo-600" />
+          <span className="text-sm font-semibold">QR Code</span>
+          <span className="text-xs text-gray-500">Generate QR code</span>
         </Button>
         <Button
           variant="outline"
-          className="h-20 flex flex-col gap-2 transition-all duration-200 hover:scale-105"
+          className="h-24 flex flex-col gap-2 transition-all duration-200 hover:scale-105 hover:shadow-lg"
           onClick={() => handleShareOption(quizType, 'email')}
         >
-          <Mail className="w-6 h-6" />
-          <span className="text-xs">Email</span>
+          <Mail className="w-8 h-8 text-red-600" />
+          <span className="text-sm font-semibold">Email</span>
+          <span className="text-xs text-gray-500">Send via email</span>
         </Button>
         <Button
           variant="outline"
-          className="h-20 flex flex-col gap-2 transition-all duration-200 hover:scale-105"
+          className="h-24 flex flex-col gap-2 transition-all duration-200 hover:scale-105 hover:shadow-lg"
           onClick={() => handleShareOption(quizType, 'sms')}
         >
-          <MessageSquare className="w-6 h-6" />
-          <span className="text-xs">Text/SMS</span>
+          <MessageSquare className="w-8 h-8 text-green-700" />
+          <span className="text-sm font-semibold">Text/SMS</span>
+          <span className="text-xs text-gray-500">Send via text message</span>
         </Button>
       </div>
     </DialogContent>
@@ -213,35 +307,35 @@ export function QuizManagementPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-8 space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
             Quiz Management
           </h1>
-          <p className="text-gray-600 mt-2">Create and share medical assessments with patients</p>
+          <p className="text-gray-600 mt-3 text-lg">Create and share medical assessments with patients</p>
         </div>
       </div>
 
       {/* Available Quizzes */}
-      <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-blue-50">
+      <Card className="shadow-xl border-0 bg-gradient-to-br from-white to-blue-50">
         <CardHeader>
-          <CardTitle className="text-xl text-blue-700">Available Medical Assessments</CardTitle>
+          <CardTitle className="text-2xl text-blue-700">Available Medical Assessments</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {Object.values(quizzes).map((quiz) => (
               <Dialog key={quiz.id}>
                 <DialogTrigger asChild>
-                  <Card className="border-2 border-blue-200 hover:border-blue-400 transition-all duration-300 hover:scale-105 cursor-pointer shadow-md hover:shadow-xl">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg text-blue-600">{quiz.title}</CardTitle>
+                  <Card className="border-2 border-blue-200 hover:border-blue-400 transition-all duration-300 hover:scale-105 cursor-pointer shadow-lg hover:shadow-2xl bg-white">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-xl text-blue-600">{quiz.title}</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-sm text-gray-600 mb-3">{quiz.description}</p>
-                      <p className="text-xs text-gray-500 mb-4">{quiz.questions.length} questions</p>
+                      <p className="text-sm text-gray-600 mb-4 leading-relaxed">{quiz.description}</p>
+                      <p className="text-xs text-gray-500 mb-6">{quiz.questions.length} questions • 5-10 minutes</p>
                       <Button 
-                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all duration-200"
+                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all duration-200 py-3"
                         size="sm"
                       >
                         <Share className="w-4 h-4 mr-2" />
@@ -259,35 +353,36 @@ export function QuizManagementPage() {
 
       {/* Shared Quizzes */}
       {sharedQuizzes.length > 0 && (
-        <Card className="shadow-lg border-0">
+        <Card className="shadow-xl border-0">
           <CardHeader>
-            <CardTitle className="text-xl text-green-700">Your Shared Assessments</CardTitle>
+            <CardTitle className="text-2xl text-green-700">Your Shared Assessments</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="space-y-6">
               {sharedQuizzes.map((sharedQuiz) => {
                 const quiz = Object.values(quizzes).find(q => q.id === sharedQuiz.quiz_type);
                 return (
-                  <div key={sharedQuiz.id} className="flex items-center justify-between p-4 border rounded-xl hover:shadow-md transition-all duration-200">
+                  <div key={sharedQuiz.id} className="flex items-center justify-between p-6 border rounded-2xl hover:shadow-lg transition-all duration-200 bg-gradient-to-r from-green-50 to-blue-50">
                     <div className="flex-1">
-                      <h3 className="font-medium text-lg">{quiz?.title}</h3>
-                      <p className="text-sm text-gray-600">
+                      <h3 className="font-semibold text-xl text-gray-800">{quiz?.title}</h3>
+                      <p className="text-sm text-gray-600 mt-1">
                         Created: {new Date(sharedQuiz.created_at).toLocaleDateString()}
                       </p>
-                      <div className="flex items-center gap-2 mt-2">
-                        <Badge variant="secondary" className="bg-green-100 text-green-700">
+                      <div className="flex items-center gap-3 mt-3">
+                        <Badge variant="secondary" className="bg-green-100 text-green-700 px-3 py-1">
                           <BarChart3 className="w-3 h-3 mr-1" />
                           {sharedQuiz.total_responses} responses
                         </Badge>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-3">
                       <Button
                         variant="outline"
                         size="sm"
-                        className="transition-all duration-200 hover:scale-105"
+                        className="transition-all duration-200 hover:scale-105 px-4 py-2"
                         onClick={() => {
-                          navigator.clipboard.writeText(`${window.location.origin}/quiz?type=${sharedQuiz.quiz_type}&key=${sharedQuiz.share_key}&mode=single`);
+                          const shareUrl = `${window.location.origin}/quiz/${sharedQuiz.quiz_type.toLowerCase()}?key=${sharedQuiz.share_key}&doctor=${doctorId}`;
+                          navigator.clipboard.writeText(shareUrl);
                           toast.success('Link copied to clipboard!');
                         }}
                       >
