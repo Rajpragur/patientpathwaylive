@@ -1,6 +1,8 @@
 import { QuizType, QuizAnswer, QuizResult } from '../types/quiz';
 
 export function calculateQuizScore(quizType: QuizType, answers: QuizAnswer[]): QuizResult {
+  console.log('Calculating score for quiz:', quizType, 'with answers:', answers);
+  
   switch (quizType) {
     case 'SNOT22':
       return calculateSNOT22Score(answers);
@@ -27,24 +29,35 @@ export function calculateQuizScore(quizType: QuizType, answers: QuizAnswer[]): Q
 }
 
 function mapSNOT22LabelToScore(label: string): number {
+  console.log('Mapping SNOT22 label:', label);
   const match = label.match(/\((\d+)\)/);
-  return match ? parseInt(match[1], 10) : 0;
+  const score = match ? parseInt(match[1], 10) : 0;
+  console.log('Extracted score:', score);
+  return score;
 }
 
 function calculateSNOT22Score(answers: QuizAnswer[]): QuizResult {
-  const scores = answers.map(answer => mapSNOT22LabelToScore(answer.answer));
-  const rawScore = scores.reduce((sum, score) => sum + score, 0);
-  const finalScore = rawScore * 5;
+  console.log('SNOT22 answers received:', answers);
+  const scores = answers.map(answer => {
+    const score = mapSNOT22LabelToScore(answer.answer);
+    console.log('Answer:', answer.answer, 'Score:', score);
+    return score;
+  });
+  const totalScore = scores.reduce((sum, score) => sum + score, 0);
+  console.log('SNOT22 calculated score:', totalScore, 'from scores:', scores);
+  
+  const maxPossible = answers.length * 5;
+  const percentage = Math.round((totalScore / maxPossible) * 100);
 
   let interpretation = "";
   let severity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
   let summary = "";
 
-  if (finalScore >= 45) {
+  if (percentage >= 41) {
     interpretation = "🚨 Your score suggests severe chronic rhinitis. We recommend consulting a specialist as soon as possible.";
     severity = 'severe';
     summary = "You scored in the severe range, indicating significant impact on your quality of life from nasal and sinus symptoms.";
-  } else if (finalScore >= 18) {
+  } else if (percentage >= 16) {
     interpretation = "⚠️ Your score indicates significant chronic rhinitis, a common but treatable condition.";
     severity = 'moderate';
     summary = "You scored in the moderate range, suggesting your symptoms may benefit from professional evaluation and treatment.";
@@ -54,32 +67,44 @@ function calculateSNOT22Score(answers: QuizAnswer[]): QuizResult {
     summary = "You scored in the normal range, indicating minimal impact from nasal and sinus symptoms.";
   }
 
-  return { score: finalScore, interpretation, severity, summary };
+  return { score: totalScore, interpretation, severity, summary };
 }
 
 function mapNOSELabelToScore(label: string): number {
+  console.log('Mapping NOSE label:', label);
   const match = label.match(/\((\d+)\)/);
-  return match ? parseInt(match[1], 10) : 0;
+  const score = match ? parseInt(match[1], 10) : 0;
+  console.log('Extracted score:', score);
+  return score;
 }
 
 function calculateNOSEScore(answers: QuizAnswer[]): QuizResult {
-  const scores = answers.map(answer => mapNOSELabelToScore(answer.answer));
-  const rawScore = scores.reduce((sum, score) => sum + score, 0);
-  const finalScore = rawScore * 5;
+  console.log('NOSE answers received:', answers);
+  const scores = answers.map(answer => {
+    const score = mapNOSELabelToScore(answer.answer);
+    console.log('Answer:', answer.answer, 'Score:', score);
+    return score;
+  });
+  const totalScore = scores.reduce((sum, score) => sum + score, 0);
+  console.log('NOSE calculated score:', totalScore, 'from scores:', scores);
+  
+  // NOSE max score is 20 (5 questions × 4 max points)
+  const maxPossible = 20;
+  const percentage = Math.round((totalScore / maxPossible) * 100);
 
   let interpretation = "";
   let severity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
   let summary = "";
 
-  if (finalScore >= 80) {
+  if (percentage >= 75) {
     interpretation = "🚨 Your score suggests severe nasal obstruction. We recommend consulting a specialist as soon as possible.";
     severity = 'severe';
     summary = "You scored in the severe range, indicating significant breathing difficulties through your nose.";
-  } else if (finalScore >= 55) {
+  } else if (percentage >= 50) {
     interpretation = "⚠️ Your score indicates significant nasal obstruction, a common but treatable condition.";
     severity = 'moderate';
     summary = "You scored in the moderate range, suggesting noticeable nasal breathing problems that may benefit from treatment.";
-  } else if (finalScore >= 30) {
+  } else if (percentage >= 25) {
     interpretation = "🙂 Your score shows moderate symptoms. Monitoring and early care may be helpful.";
     severity = 'mild';
     summary = "You scored in the mild range, indicating some nasal obstruction symptoms worth monitoring.";
@@ -89,12 +114,15 @@ function calculateNOSEScore(answers: QuizAnswer[]): QuizResult {
     summary = "You scored in the normal range, indicating minimal nasal breathing problems.";
   }
 
-  return { score: finalScore, interpretation, severity, summary };
+  return { score: totalScore, interpretation, severity, summary };
 }
 
 function mapHHIALabelToScore(label: string): number {
+  console.log('Mapping HHIA label:', label);
   const match = label.match(/\((\d+)\)/);
-  return match ? parseInt(match[1], 10) : 0;
+  const score = match ? parseInt(match[1], 10) : 0;
+  console.log('Extracted score:', score);
+  return score;
 }
 
 function calculateHHIAScore(answers: QuizAnswer[]): QuizResult {
@@ -124,8 +152,11 @@ function calculateHHIAScore(answers: QuizAnswer[]): QuizResult {
 }
 
 function mapEpworthLabelToScore(label: string): number {
+  console.log('Mapping Epworth label:', label);
   const match = label.match(/\((\d+)\)/);
-  return match ? parseInt(match[1], 10) : 0;
+  const score = match ? parseInt(match[1], 10) : 0;
+  console.log('Extracted score:', score);
+  return score;
 }
 
 function calculateEpworthScore(answers: QuizAnswer[]): QuizResult {
@@ -158,8 +189,11 @@ function calculateEpworthScore(answers: QuizAnswer[]): QuizResult {
 }
 
 function mapDHILabelToScore(label: string): number {
+  console.log('Mapping DHI label:', label);
   const match = label.match(/\((\d+)\)/);
-  return match ? parseInt(match[1], 10) : 0;
+  const score = match ? parseInt(match[1], 10) : 0;
+  console.log('Extracted score:', score);
+  return score;
 }
 
 function calculateDHIScore(answers: QuizAnswer[]): QuizResult {
@@ -215,9 +249,12 @@ function calculateSTOPScore(answers: QuizAnswer[]): QuizResult {
   return { score: yesCount, interpretation, severity, summary };
 }
 
-function mapTNSSLabelToScore(label: string): number {
+function mapSTOPSLabelToScore(label: string): number {
+  console.log('Mapping STOP label:', label);
   const match = label.match(/\((\d+)\)/);
-  return match ? parseInt(match[1], 10) : 0;
+  const score = match ? parseInt(match[1], 10) : 0;
+  console.log('Extracted score:', score);
+  return score;
 }
 
 function calculateTNSSScore(answers: QuizAnswer[]): QuizResult {
@@ -247,4 +284,12 @@ function calculateTNSSScore(answers: QuizAnswer[]): QuizResult {
   }
 
   return { score: finalScore, interpretation, severity, summary };
+}
+
+function mapTNSSLabelToScore(label: string): number {
+  console.log('Mapping TNSS label:', label);
+  const match = label.match(/\((\d+)\)/);
+  const score = match ? parseInt(match[1], 10) : 0;
+  console.log('Extracted score:', score);
+  return score;
 }
