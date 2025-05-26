@@ -1,4 +1,3 @@
-
 import { QuizType, QuizAnswer, QuizResult } from '../types/quiz';
 
 export function calculateQuizScore(quizType: QuizType, answers: QuizAnswer[]): QuizResult {
@@ -41,18 +40,19 @@ function mapSNOT22LabelToScore(label: string): number {
 
 function calculateSNOT22Score(answers: QuizAnswer[]): QuizResult {
   const scores = answers.map(answer => mapSNOT22LabelToScore(answer.answer));
-  const rawScore = scores.reduce((sum, score) => sum + score, 0);
-  const finalScore = rawScore * 5;
+  const totalScore = scores.reduce((sum, score) => sum + score, 0);
+  const maxPossible = answers.length * 5; // 22 questions × 5 max points = 110
+  const percentage = Math.round((totalScore / maxPossible) * 100);
 
   let interpretation = "";
   let severity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
   let summary = "";
 
-  if (finalScore >= 45) {
+  if (percentage >= 41) { // 45/110 = ~41%
     interpretation = "🚨 Your score suggests severe chronic rhinitis. We recommend consulting a specialist as soon as possible.";
     severity = 'severe';
     summary = "You scored in the severe range, indicating significant impact on your quality of life from nasal and sinus symptoms.";
-  } else if (finalScore >= 18) {
+  } else if (percentage >= 16) { // 18/110 = ~16%
     interpretation = "⚠️ Your score indicates significant chronic rhinitis, a common but treatable condition.";
     severity = 'moderate';
     summary = "You scored in the moderate range, suggesting your symptoms may benefit from professional evaluation and treatment.";
@@ -62,7 +62,7 @@ function calculateSNOT22Score(answers: QuizAnswer[]): QuizResult {
     summary = "You scored in the normal range, indicating minimal impact from nasal and sinus symptoms.";
   }
 
-  return { score: finalScore, interpretation, severity, summary };
+  return { score: totalScore, interpretation, severity, summary };
 }
 
 function mapNOSELabelToScore(label: string): number {
@@ -78,22 +78,24 @@ function mapNOSELabelToScore(label: string): number {
 
 function calculateNOSEScore(answers: QuizAnswer[]): QuizResult {
   const scores = answers.map(answer => mapNOSELabelToScore(answer.answer));
-  const rawScore = scores.reduce((sum, score) => sum + score, 0);
-  const finalScore = rawScore * 5;
+  const totalScore = scores.reduce((sum, score) => sum + score, 0);
+  const maxPossible = answers.length * 4; // 5 questions × 4 max points = 20
+  const scaledScore = totalScore * 5; // Scale to 100
+  const percentage = Math.round((totalScore / maxPossible) * 100);
 
   let interpretation = "";
   let severity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
   let summary = "";
 
-  if (finalScore >= 80) {
+  if (scaledScore >= 75) {
     interpretation = "🚨 Your score suggests severe nasal obstruction. We recommend consulting a specialist as soon as possible.";
     severity = 'severe';
     summary = "You scored in the severe range, indicating significant breathing difficulties through your nose.";
-  } else if (finalScore >= 55) {
+  } else if (scaledScore >= 50) {
     interpretation = "⚠️ Your score indicates significant nasal obstruction, a common but treatable condition.";
     severity = 'moderate';
     summary = "You scored in the moderate range, suggesting noticeable nasal breathing problems that may benefit from treatment.";
-  } else if (finalScore >= 30) {
+  } else if (scaledScore >= 25) {
     interpretation = "🙂 Your score shows moderate symptoms. Monitoring and early care may be helpful.";
     severity = 'mild';
     summary = "You scored in the mild range, indicating some nasal obstruction symptoms worth monitoring.";
@@ -103,7 +105,7 @@ function calculateNOSEScore(answers: QuizAnswer[]): QuizResult {
     summary = "You scored in the normal range, indicating minimal nasal breathing problems.";
   }
 
-  return { score: finalScore, interpretation, severity, summary };
+  return { score: totalScore, interpretation, severity, summary };
 }
 
 function mapHHIALabelToScore(label: string): number {

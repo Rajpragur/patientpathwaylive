@@ -1,6 +1,6 @@
 
 import { useAuth } from '@/hooks/useAuth';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { NotificationDropdown } from './NotificationDropdown';
 
 export function DashboardHeader() {
@@ -24,19 +24,34 @@ export function DashboardHeader() {
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-blue-600">
-            Patient Pathway Portal
-          </h1>
-          <p className="text-sm text-gray-600">Medical Assessment Management System</p>
+        {/* Left spacer for centering */}
+        <div className="w-32"></div>
+        
+        {/* Centered Logo and Title */}
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-gradient-to-br from-[#0E7C9D] to-[#FD904B] rounded-xl flex items-center justify-center shadow-lg">
+            <img 
+              src="/lovable-uploads/6b38df79-5ad8-494b-83ed-7dba6c54d4b1.png" 
+              alt="Patient Pathway"
+              className="w-8 h-8 object-contain"
+            />
+          </div>
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-[#0E7C9D]">
+              Patient Pathway Portal
+            </h1>
+            <p className="text-sm text-gray-600">Medical Assessment Management System</p>
+          </div>
         </div>
         
+        {/* Right side - Notifications and Profile */}
         <div className="flex items-center gap-4">
           <NotificationDropdown />
           
           <div className="flex items-center gap-3">
-            <Avatar className="h-8 w-8">
-              <AvatarFallback className="bg-blue-600 text-white text-xs">
+            <Avatar className="h-9 w-9 ring-2 ring-[#0E7C9D]/20">
+              <AvatarImage src="/placeholder-doctor.jpg" />
+              <AvatarFallback className="bg-[#0E7C9D] text-white text-sm">
                 {getInitials()}
               </AvatarFallback>
             </Avatar>
