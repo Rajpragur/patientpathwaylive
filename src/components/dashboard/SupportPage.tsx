@@ -4,14 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 import { 
   MessageCircle, 
   Phone, 
   Mail, 
-  Clock, 
-  CheckCircle, 
-  AlertCircle,
+  CheckCircle,
   HelpCircle,
   Book,
   Video,
@@ -29,7 +26,6 @@ export function SupportPage() {
 
   const handleTicketSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Here you would typically send the ticket to your support system
     toast.success('Support ticket submitted successfully! We\'ll get back to you within 24 hours.');
     setTicketForm({
       subject: '',
@@ -38,13 +34,6 @@ export function SupportPage() {
       description: ''
     });
   };
-
-  const supportStats = [
-    { label: 'Average Response Time', value: '< 2 hours', icon: Clock, color: 'text-blue-600' },
-    { label: 'Customer Satisfaction', value: '98%', icon: CheckCircle, color: 'text-green-600' },
-    { label: 'Tickets Resolved', value: '1,247', icon: MessageCircle, color: 'text-purple-600' },
-    { label: 'Active Users', value: '2,341', icon: AlertCircle, color: 'text-orange-600' }
-  ];
 
   const faqItems = [
     {
@@ -88,19 +77,6 @@ export function SupportPage() {
         </p>
       </div>
 
-      {/* Support Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {supportStats.map((stat, index) => (
-          <Card key={index} className="text-center border border-gray-200 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300">
-            <CardContent className="p-6">
-              <stat.icon className={`w-8 h-8 mx-auto mb-3 ${stat.color}`} />
-              <div className="text-2xl font-bold text-gray-800 mb-1">{stat.value}</div>
-              <p className="text-sm text-gray-600">{stat.label}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
       {/* Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Contact Options */}
@@ -128,7 +104,6 @@ export function SupportPage() {
               Call Us: 1-800-PATHWAY
             </Button>
             <div className="text-xs text-gray-500 text-center mt-4">
-              <Clock className="w-3 h-3 inline mr-1" />
               Monday - Friday, 9 AM - 6 PM EST
             </div>
           </CardContent>

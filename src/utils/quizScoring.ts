@@ -30,6 +30,7 @@ export function calculateQuizScore(quizType: QuizType, answers: QuizAnswer[]): Q
 }
 
 function mapSNOT22LabelToScore(label: string): number {
+  console.log('Mapping SNOT22 label:', label);
   switch(label) {
     case "0 - Not a problem": return 0;
     case "1 - Very Mild Problem": return 1;
@@ -37,14 +38,21 @@ function mapSNOT22LabelToScore(label: string): number {
     case "3 - Fairly Bad Problem": return 3;
     case "4 - Severe Problem": return 4;
     case "5 - Problem as bad as it can be": return 5;
-    default: return 0;
+    default: 
+      console.log('Unknown SNOT22 label, defaulting to 0');
+      return 0;
   }
 }
 
 function calculateSNOT22Score(answers: QuizAnswer[]): QuizResult {
-  const scores = answers.map(answer => mapSNOT22LabelToScore(answer.answer));
+  console.log('SNOT22 answers received:', answers);
+  const scores = answers.map(answer => {
+    const score = mapSNOT22LabelToScore(answer.answer);
+    console.log('Answer:', answer.answer, 'Score:', score);
+    return score;
+  });
   const totalScore = scores.reduce((sum, score) => sum + score, 0);
-  console.log('SNOT22 calculated score:', totalScore);
+  console.log('SNOT22 calculated score:', totalScore, 'from scores:', scores);
   
   const maxPossible = answers.length * 5;
   const percentage = Math.round((totalScore / maxPossible) * 100);
@@ -71,20 +79,28 @@ function calculateSNOT22Score(answers: QuizAnswer[]): QuizResult {
 }
 
 function mapNOSELabelToScore(label: string): number {
+  console.log('Mapping NOSE label:', label);
   switch(label) {
     case "0 - Not a problem": return 0;
     case "1 - Very Mild": return 1;
     case "2 - Moderate": return 2;
     case "3 - Fairly Bad": return 3;
     case "4 - Severe": return 4;
-    default: return 0;
+    default: 
+      console.log('Unknown NOSE label, defaulting to 0');
+      return 0;
   }
 }
 
 function calculateNOSEScore(answers: QuizAnswer[]): QuizResult {
-  const scores = answers.map(answer => mapNOSELabelToScore(answer.answer));
+  console.log('NOSE answers received:', answers);
+  const scores = answers.map(answer => {
+    const score = mapNOSELabelToScore(answer.answer);
+    console.log('Answer:', answer.answer, 'Score:', score);
+    return score;
+  });
   const totalScore = scores.reduce((sum, score) => sum + score, 0);
-  console.log('NOSE calculated score:', totalScore);
+  console.log('NOSE calculated score:', totalScore, 'from scores:', scores);
   
   // NOSE max score is 20 (5 questions × 4 max points)
   const maxPossible = 20;

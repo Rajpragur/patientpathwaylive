@@ -54,11 +54,11 @@ export function DashboardHeader() {
         <div className="w-32"></div>
         
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center shadow-lg border-2 border-[#0E7C9D]/20">
+          <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center shadow-lg">
             <img 
               src="/lovable-uploads/6b38df79-5ad8-494b-83ed-7dba6c54d4b1.png" 
               alt="Patient Pathway"
-              className="w-12 h-12 object-contain"
+              className="w-16 h-16 object-contain"
             />
           </div>
           <div className="text-center">
@@ -80,7 +80,7 @@ export function DashboardHeader() {
               </AvatarFallback>
             </Avatar>
             <span className="text-sm font-medium text-gray-700">
-              Dr. {getDoctorName()}
+              {getDoctorName()}
             </span>
           </div>
         </div>
