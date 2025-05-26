@@ -12,13 +12,10 @@ import {
   User, 
   Mail, 
   Phone, 
-  MapPin, 
   Building, 
   Calendar,
   Camera,
   Save,
-  Shield,
-  Key,
   Bell
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -35,7 +32,8 @@ export function ProfilePage() {
     phone: '',
     specialty: '',
     clinic_name: '',
-    avatar_url: ''
+    avatar_url: '',
+    doctor_id: ''
   });
 
   useEffect(() => {
@@ -66,10 +64,10 @@ export function ProfilePage() {
           phone: data.phone || '',
           specialty: data.specialty || '',
           clinic_name: data.clinic_name || '',
-          avatar_url: data.avatar_url || ''
+          avatar_url: data.avatar_url || '',
+          doctor_id: data.doctor_id || ''
         });
       } else {
-        // Create new profile if none exists
         setFormData(prev => ({
           ...prev,
           email: user.email || ''
@@ -96,7 +94,6 @@ export function ProfilePage() {
       };
 
       if (doctorProfile) {
-        // Update existing profile
         const { error } = await supabase
           .from('doctor_profiles')
           .update(profileData)
@@ -104,7 +101,6 @@ export function ProfilePage() {
 
         if (error) throw error;
       } else {
-        // Create new profile
         const { data, error } = await supabase
           .from('doctor_profiles')
           .insert([{
@@ -119,7 +115,7 @@ export function ProfilePage() {
       }
 
       toast.success('Profile updated successfully!');
-      fetchDoctorProfile(); // Refresh the profile
+      fetchDoctorProfile();
     } catch (error) {
       console.error('Error saving profile:', error);
       toast.error('Failed to update profile');
@@ -131,7 +127,6 @@ export function ProfilePage() {
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // For now, we'll use a placeholder. In a real app, you'd upload to Supabase Storage
       const imageUrl = URL.createObjectURL(file);
       setFormData(prev => ({ ...prev, avatar_url: imageUrl }));
       toast.success('Profile picture updated! Remember to save your changes.');
@@ -159,7 +154,6 @@ export function ProfilePage() {
 
   return (
     <div className="p-8 space-y-8">
-      {/* Header */}
       <div className="text-center">
         <h1 className="text-4xl font-bold bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] bg-clip-text text-transparent mb-4">
           Doctor Profile
@@ -170,7 +164,6 @@ export function ProfilePage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Profile Picture & Basic Info */}
         <Card className="rounded-3xl shadow-lg border-0 bg-gradient-to-br from-white to-blue-50">
           <CardContent className="p-8 text-center">
             <div className="relative inline-block mb-6">
@@ -200,9 +193,9 @@ export function ProfilePage() {
             </h2>
             <p className="text-gray-600 mb-4">{formData.specialty || 'Medical Professional'}</p>
             
-            {doctorProfile?.doctor_id && (
-              <Badge className="bg-[#0E7C9D] text-white px-4 py-2 rounded-2xl">
-                ID: {doctorProfile.doctor_id}
+            {formData.doctor_id && (
+              <Badge className="bg-[#0E7C9D] text-white px-4 py-2 rounded-2xl mb-4">
+                Doctor ID: {formData.doctor_id}
               </Badge>
             )}
             
@@ -231,7 +224,6 @@ export function ProfilePage() {
           </CardContent>
         </Card>
 
-        {/* Profile Form */}
         <div className="lg:col-span-2 space-y-6">
           <Card className="rounded-3xl shadow-lg">
             <CardHeader>
@@ -315,42 +307,6 @@ export function ProfilePage() {
             </CardContent>
           </Card>
 
-          {/* Quick Settings */}
-          <Card className="rounded-3xl shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-2xl text-[#0E7C9D] flex items-center gap-2">
-                <Shield className="w-6 h-6" />
-                Account Settings
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Button 
-                  variant="outline" 
-                  className="rounded-2xl border-[#0E7C9D] text-[#0E7C9D] hover:bg-[#0E7C9D] hover:text-white"
-                >
-                  <Key className="w-4 h-4 mr-2" />
-                  Change Password
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="rounded-2xl border-[#0E7C9D] text-[#0E7C9D] hover:bg-[#0E7C9D] hover:text-white"
-                >
-                  <Shield className="w-4 h-4 mr-2" />
-                  Enable 2FA
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="rounded-2xl border-[#0E7C9D] text-[#0E7C9D] hover:bg-[#0E7C9D] hover:text-white"
-                >
-                  <Bell className="w-4 h-4 mr-2" />
-                  Notifications
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Save Button */}
           <Button 
             onClick={handleSave}
             disabled={saving}

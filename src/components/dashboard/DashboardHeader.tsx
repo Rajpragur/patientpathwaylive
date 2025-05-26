@@ -51,16 +51,14 @@ export function DashboardHeader() {
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
       <div className="flex items-center justify-between">
-        {/* Left spacer for centering */}
         <div className="w-32"></div>
         
-        {/* Centered Logo and Title */}
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-[#0E7C9D] to-[#FD904B] rounded-2xl flex items-center justify-center shadow-lg">
+          <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center shadow-lg border-2 border-[#0E7C9D]/20">
             <img 
               src="/lovable-uploads/6b38df79-5ad8-494b-83ed-7dba6c54d4b1.png" 
               alt="Patient Pathway"
-              className="w-9 h-9 object-contain"
+              className="w-12 h-12 object-contain"
             />
           </div>
           <div className="text-center">
@@ -71,7 +69,6 @@ export function DashboardHeader() {
           </div>
         </div>
         
-        {/* Right side - Notifications and Profile */}
         <div className="flex items-center gap-4">
           <NotificationDropdown />
           
