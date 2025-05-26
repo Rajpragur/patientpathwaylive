@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { QuizType } from '@/types/quiz';
@@ -177,7 +176,7 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
     try {
       const leadSource = doctorShareKey ? 'shared_link' : 'website';
       
-      await supabase.from('quiz_leads').insert({
+      const { data, error } = await supabase.from('quiz_leads').insert({
         doctor_id: doctorId,
         name: userInfo.name,
         email: userInfo.email,
@@ -186,16 +185,20 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
         score: result.score,
         answers: answers,
         lead_source: leadSource,
-        share_key: doctorShareKey
-      });
+        share_key: doctorShareKey,
+        lead_status: 'NEW',
+        submitted_at: new Date().toISOString()
+      }).select();
+
+      if (error) throw error;
       
       toast.success('Results saved successfully!');
+      addBotMessage(`Perfect, ${userInfo.name}! 🎯 Your ${quiz.title} assessment is complete. Here are your personalized results:`);
     } catch (error) {
       console.error('Error saving lead:', error);
-      toast.error('Error saving results');
+      toast.error('Error saving results. Please try again.');
+      return;
     }
-
-    addBotMessage(`Perfect, ${userInfo.name}! 🎯 Your ${quiz.title} assessment is complete. Here are your personalized results:`);
   };
 
   const getSeverityIcon = (severity: string) => {
@@ -348,89 +351,51 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
 
       {/* Results Section */}
       {phase === 'results' && quizResult && (
-        <div className="p-6 flex justify-center items-center bg-slate-50 min-h-[400px]">
-          <div
-            className={`transition-all duration-1000 ease-out transform ${
-              showResult ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'
-            } w-full max-w-3xl`}
-          >
-            <Card className="w-full shadow-lg rounded-2xl border-0 overflow-hidden bg-white">
-              <div className="bg-blue-500 px-6 py-6 flex items-center gap-4 justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="text-4xl">🎉</div>
-                  <div>
-                    <CardTitle className="text-white text-2xl font-bold">
-                      Assessment Complete!
-                    </CardTitle>
-                    <div className="text-blue-100 mt-1">{quiz.title}</div>
-                  </div>
+        <div className="p-6 border-t bg-white">
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 mb-6">
+              <div className="flex items-center gap-4 mb-6">
+                {getSeverityIcon(quizResult.severity)}
+                <div>
+                  <h3 className="text-2xl font-bold text-slate-800">Your Results</h3>
+                  <p className="text-slate-600">Based on your responses</p>
                 </div>
-                <Button
-                  variant="outline"
-                  className="bg-white text-blue-600 border-blue-200 hover:bg-blue-50 px-4 py-2 rounded-xl transition-all duration-200 hover:scale-105"
-                  onClick={() => window.print()}
-                >
-                  🖨️ Print Results
-                </Button>
               </div>
-              <CardContent className="bg-white px-6 py-6">
-                {/* Progress Bar */}
-                <div className="mb-6">
-                  <div className="flex items-center justify-between mb-3">
+              
+              <div className="space-y-6">
+                <div className="bg-slate-50 rounded-xl p-6 border border-slate-200">
+                  <div className="flex justify-between items-center mb-2">
                     <span className="text-slate-700 font-semibold">Your Score</span>
                     <span className="text-blue-600 font-bold text-xl">{quizResult.score} / {quiz.maxScore}</span>
                   </div>
-                  <div className="w-full bg-slate-200 rounded-full h-4 overflow-hidden">
-                    <div
-                      className={`
-                        h-4 rounded-full transition-all duration-1000
-                        ${quizResult.severity === 'normal' && 'bg-green-500'}
-                        ${quizResult.severity === 'mild' && 'bg-blue-500'}
-                        ${quizResult.severity === 'moderate' && 'bg-yellow-500'}
-                        ${quizResult.severity === 'severe' && 'bg-red-500'}
-                      `}
-                      style={{
+                  <div className="w-full bg-slate-200 rounded-full h-2.5">
+                    <div 
+                      className="bg-blue-500 h-2.5 rounded-full transition-all duration-500 ease-out"
+                      style={{ 
                         width: `${Math.min(100, Math.round((quizResult.score / quiz.maxScore) * 100))}%`
                       }}
-                    />
+                    ></div>
                   </div>
-                </div>
-
-                {/* Severity Display */}
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-6">
-                  <div className={`flex items-center gap-3 p-4 rounded-xl border-2 ${getSeverityColor(quizResult.severity)}`}>
-                    {getSeverityIcon(quizResult.severity)}
-                    <div>
-                      <span className="text-xl font-bold capitalize">
-                        {quizResult.severity}
-                      </span>
-                      <p className="text-sm text-slate-600 mt-1">Severity Level</p>
-                    </div>
-                  </div>
-                  
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-slate-800 mb-1">
+                  <div className="mt-2 text-right">
+                    <span className="text-blue-600 font-semibold">
                       {Math.round((quizResult.score / quiz.maxScore) * 100)}%
-                    </div>
+                    </span>
                     <p className="text-slate-600">Completion Score</p>
                   </div>
                 </div>
-                
-                <div className="mb-6 p-4 bg-slate-50 rounded-xl">
-                  <h4 className="text-lg font-semibold text-slate-800 mb-3">Your Results Summary</h4>
-                  <p className="text-slate-700 leading-relaxed">{quizResult.summary}</p>
-                </div>
-                
-                <div className="flex justify-between items-center">
-                  <Badge className="px-4 py-2 bg-blue-50 text-blue-700 border-blue-200 rounded-xl" variant="outline">
-                    {quiz.title}
-                  </Badge>
-                  <div className="text-sm text-slate-500">
-                    Completed on {new Date().toLocaleDateString()}
+
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-lg font-semibold text-slate-800 mb-2">Interpretation</h4>
+                    <p className="text-slate-700 leading-relaxed">{quizResult.interpretation}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-slate-800 mb-2">Summary</h4>
+                    <p className="text-slate-700 leading-relaxed">{quizResult.summary}</p>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
         </div>
       )}
