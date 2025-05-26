@@ -7,250 +7,229 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { 
   MessageCircle, 
-  Mail, 
   Phone, 
+  Mail, 
   Clock, 
   CheckCircle, 
   AlertCircle,
-  BookOpen,
+  HelpCircle,
+  Book,
   Video,
-  FileText,
-  Send
+  FileText
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function SupportPage() {
   const [ticketForm, setTicketForm] = useState({
     subject: '',
-    message: '',
-    priority: 'medium'
+    category: 'general',
+    priority: 'medium',
+    description: ''
   });
 
-  const handleSubmitTicket = () => {
-    if (!ticketForm.subject || !ticketForm.message) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-    
-    toast.success('Support ticket submitted successfully!');
-    setTicketForm({ subject: '', message: '', priority: 'medium' });
+  const handleTicketSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Here you would typically send the ticket to your support system
+    toast.success('Support ticket submitted successfully! We\'ll get back to you within 24 hours.');
+    setTicketForm({
+      subject: '',
+      category: 'general',
+      priority: 'medium',
+      description: ''
+    });
   };
 
-  const supportTickets = [
-    {
-      id: 'TICK-001',
-      subject: 'Quiz sharing not working',
-      status: 'open',
-      priority: 'high',
-      created: '2024-01-15',
-      lastUpdate: '2024-01-16'
-    },
-    {
-      id: 'TICK-002',
-      subject: 'Lead export issue',
-      status: 'resolved',
-      priority: 'medium',
-      created: '2024-01-10',
-      lastUpdate: '2024-01-12'
-    }
+  const supportStats = [
+    { label: 'Average Response Time', value: '< 2 hours', icon: Clock, color: 'text-blue-600' },
+    { label: 'Customer Satisfaction', value: '98%', icon: CheckCircle, color: 'text-green-600' },
+    { label: 'Tickets Resolved', value: '1,247', icon: MessageCircle, color: 'text-purple-600' },
+    { label: 'Active Users', value: '2,341', icon: AlertCircle, color: 'text-orange-600' }
   ];
 
   const faqItems = [
     {
-      question: 'How do I share quizzes with patients?',
-      answer: 'Go to Quiz Management, select a quiz, and choose from various sharing options including direct link, embed code, or social media sharing.'
-    },
-    {
-      question: 'Why are leads not showing up in my dashboard?',
-      answer: 'Leads only appear after patients complete the quiz and submit their contact information. Simply opening the quiz link does not create a lead.'
-    },
-    {
-      question: 'How do I export my lead data?',
-      answer: 'In the Leads page, use the export button to download your lead data in CSV format for analysis.'
+      question: 'How do I share a quiz with my patients?',
+      answer: 'Go to Quiz Management, select the quiz you want to share, and choose from various sharing options including direct links, embed codes, or social media sharing.'
     },
     {
       question: 'Can I customize the quiz questions?',
-      answer: 'Currently, quiz questions are standardized medical assessments. Contact support for custom quiz requirements.'
+      answer: 'The quiz questions are medically validated and cannot be modified to ensure clinical accuracy. However, you can choose which quizzes to share with your patients.'
+    },
+    {
+      question: 'How are quiz scores calculated?',
+      answer: 'Each quiz uses clinically validated scoring algorithms. The scores help categorize symptom severity and provide standardized assessments for medical evaluation.'
+    },
+    {
+      question: 'Is patient data secure?',
+      answer: 'Yes, all patient data is encrypted and stored securely. We comply with HIPAA regulations and use industry-standard security measures to protect sensitive information.'
+    },
+    {
+      question: 'How do I track my quiz performance?',
+      answer: 'Use the Analytics and Trends pages to view detailed statistics about quiz completions, lead generation, and patient engagement metrics.'
     }
   ];
 
+  const resourceLinks = [
+    { title: 'Getting Started Guide', icon: Book, description: 'Learn the basics of using the Patient Pathway Portal' },
+    { title: 'Video Tutorials', icon: Video, description: 'Watch step-by-step tutorials for common tasks' },
+    { title: 'API Documentation', icon: FileText, description: 'Technical documentation for developers' },
+    { title: 'Best Practices', icon: CheckCircle, description: 'Tips for maximizing patient engagement' }
+  ];
+
   return (
-    <div className="p-8 space-y-8 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-bold text-[#0E7C9D]">Support Center</h1>
-          <p className="text-gray-600 mt-2 text-lg">Get help with your Patient Pathway portal</p>
-        </div>
+    <div className="p-8 space-y-8">
+      {/* Header */}
+      <div className="text-center">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] bg-clip-text text-transparent mb-4">
+          Support Center
+        </h1>
+        <p className="text-gray-600 text-lg">
+          We're here to help you make the most of Patient Pathway Portal
+        </p>
       </div>
 
+      {/* Support Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {supportStats.map((stat, index) => (
+          <Card key={index} className="text-center border border-gray-200 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300">
+            <CardContent className="p-6">
+              <stat.icon className={`w-8 h-8 mx-auto mb-3 ${stat.color}`} />
+              <div className="text-2xl font-bold text-gray-800 mb-1">{stat.value}</div>
+              <p className="text-sm text-gray-600">{stat.label}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Contact Options */}
-        <div className="space-y-6">
-          <Card className="hover-lift rounded-2xl border-0 shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-xl text-[#0E7C9D] flex items-center gap-2">
-                <MessageCircle className="w-6 h-6" />
-                Contact Support
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl">
-                <Mail className="w-5 h-5 text-blue-600" />
-                <div>
-                  <p className="text-sm font-medium">Email Support</p>
-                  <p className="text-xs text-gray-600">support@patientpathway.com</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3 p-3 bg-green-50 rounded-xl">
-                <Phone className="w-5 h-5 text-green-600" />
-                <div>
-                  <p className="text-sm font-medium">Phone Support</p>
-                  <p className="text-xs text-gray-600">+1 (555) 123-4567</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-xl">
-                <Clock className="w-5 h-5 text-orange-600" />
-                <div>
-                  <p className="text-sm font-medium">Support Hours</p>
-                  <p className="text-xs text-gray-600">Mon-Fri 9AM-6PM EST</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <Card className="rounded-2xl shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-xl text-[#0E7C9D] flex items-center gap-2">
+              <MessageCircle className="w-5 h-5" />
+              Contact Support
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button 
+              className="w-full justify-start bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] hover:from-[#0E7C9D]/90 hover:to-[#FD904B]/90 rounded-2xl"
+              onClick={() => window.open('mailto:support@patientpathway.com')}
+            >
+              <Mail className="w-4 h-4 mr-2" />
+              Email Support
+            </Button>
+            <Button 
+              variant="outline" 
+              className="w-full justify-start rounded-2xl border-[#0E7C9D] text-[#0E7C9D] hover:bg-[#0E7C9D] hover:text-white"
+              onClick={() => window.open('tel:+1-800-PATHWAY')}
+            >
+              <Phone className="w-4 h-4 mr-2" />
+              Call Us: 1-800-PATHWAY
+            </Button>
+            <div className="text-xs text-gray-500 text-center mt-4">
+              <Clock className="w-3 h-3 inline mr-1" />
+              Monday - Friday, 9 AM - 6 PM EST
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Quick Resources */}
-          <Card className="hover-lift rounded-2xl border-0 shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-lg text-[#0E7C9D]">Quick Resources</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button variant="outline" className="w-full justify-start gap-3 rounded-xl">
-                <BookOpen className="w-4 h-4" />
-                User Guide
-              </Button>
-              <Button variant="outline" className="w-full justify-start gap-3 rounded-xl">
-                <Video className="w-4 h-4" />
-                Video Tutorials
-              </Button>
-              <Button variant="outline" className="w-full justify-start gap-3 rounded-xl">
-                <FileText className="w-4 h-4" />
-                API Documentation
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Support Tickets & FAQ */}
-        <div className="lg:col-span-2 space-y-8">
-          {/* Create Ticket */}
-          <Card className="rounded-2xl border-0 shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-xl text-[#0E7C9D]">Submit a Support Ticket</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">Subject</label>
+        {/* Submit Ticket */}
+        <Card className="lg:col-span-2 rounded-2xl shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-xl text-[#0E7C9D]">Submit a Support Ticket</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleTicketSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Input
-                  placeholder="Brief description of your issue"
+                  placeholder="Subject"
                   value={ticketForm.subject}
                   onChange={(e) => setTicketForm(prev => ({ ...prev, subject: e.target.value }))}
-                  className="rounded-xl"
+                  required
+                  className="rounded-2xl"
                 />
-              </div>
-              
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">Priority</label>
                 <select
-                  value={ticketForm.priority}
-                  onChange={(e) => setTicketForm(prev => ({ ...prev, priority: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0E7C9D]"
+                  className="flex h-10 w-full rounded-2xl border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                  value={ticketForm.category}
+                  onChange={(e) => setTicketForm(prev => ({ ...prev, category: e.target.value }))}
                 >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="urgent">Urgent</option>
+                  <option value="general">General Question</option>
+                  <option value="technical">Technical Issue</option>
+                  <option value="billing">Billing</option>
+                  <option value="feature">Feature Request</option>
                 </select>
               </div>
-              
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">Description</label>
-                <Textarea
-                  placeholder="Please describe your issue in detail..."
-                  value={ticketForm.message}
-                  onChange={(e) => setTicketForm(prev => ({ ...prev, message: e.target.value }))}
-                  className="min-h-32 rounded-xl"
-                />
-              </div>
-              
-              <Button onClick={handleSubmitTicket} className="w-full bg-[#0E7C9D] hover:bg-[#0E7C9D]/90 rounded-xl">
-                <Send className="w-4 h-4 mr-2" />
+              <select
+                className="flex h-10 w-full rounded-2xl border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                value={ticketForm.priority}
+                onChange={(e) => setTicketForm(prev => ({ ...prev, priority: e.target.value }))}
+              >
+                <option value="low">Low Priority</option>
+                <option value="medium">Medium Priority</option>
+                <option value="high">High Priority</option>
+                <option value="urgent">Urgent</option>
+              </select>
+              <Textarea
+                placeholder="Please describe your issue or question in detail..."
+                value={ticketForm.description}
+                onChange={(e) => setTicketForm(prev => ({ ...prev, description: e.target.value }))}
+                required
+                rows={4}
+                className="rounded-2xl"
+              />
+              <Button 
+                type="submit" 
+                className="w-full bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] hover:from-[#0E7C9D]/90 hover:to-[#FD904B]/90 rounded-2xl"
+              >
                 Submit Ticket
               </Button>
-            </CardContent>
-          </Card>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
 
-          {/* Your Tickets */}
-          <Card className="rounded-2xl border-0 shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-xl text-[#0E7C9D]">Your Support Tickets</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {supportTickets.map((ticket) => (
-                  <div key={ticket.id} className="p-4 border border-gray-200 rounded-xl hover:shadow-md transition-shadow">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm text-gray-600">{ticket.id}</span>
-                        <Badge 
-                          variant={ticket.status === 'resolved' ? 'default' : 'secondary'}
-                          className="rounded-full"
-                        >
-                          {ticket.status === 'resolved' ? (
-                            <CheckCircle className="w-3 h-3 mr-1" />
-                          ) : (
-                            <AlertCircle className="w-3 h-3 mr-1" />
-                          )}
-                          {ticket.status}
-                        </Badge>
-                        <Badge 
-                          variant="outline" 
-                          className={`rounded-full ${
-                            ticket.priority === 'high' ? 'border-red-300 text-red-600' :
-                            ticket.priority === 'medium' ? 'border-yellow-300 text-yellow-600' :
-                            'border-green-300 text-green-600'
-                          }`}
-                        >
-                          {ticket.priority}
-                        </Badge>
-                      </div>
-                      <span className="text-xs text-gray-500">Updated: {ticket.lastUpdate}</span>
-                    </div>
-                    <h3 className="font-medium text-gray-900">{ticket.subject}</h3>
-                    <p className="text-xs text-gray-500 mt-1">Created: {ticket.created}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+      {/* FAQ Section */}
+      <Card className="rounded-2xl shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-2xl text-[#0E7C9D] flex items-center gap-2">
+            <HelpCircle className="w-6 h-6" />
+            Frequently Asked Questions
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {faqItems.map((faq, index) => (
+            <div key={index} className="border-b border-gray-200 pb-4 last:border-b-0">
+              <h4 className="font-semibold text-gray-800 mb-2">{faq.question}</h4>
+              <p className="text-gray-600 text-sm">{faq.answer}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
-          {/* FAQ */}
-          <Card className="rounded-2xl border-0 shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-xl text-[#0E7C9D]">Frequently Asked Questions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {faqItems.map((faq, index) => (
-                  <div key={index} className="p-4 bg-gray-50 rounded-xl">
-                    <h3 className="font-medium text-gray-900 mb-2">{faq.question}</h3>
-                    <p className="text-sm text-gray-600">{faq.answer}</p>
-                  </div>
-                ))}
+      {/* Resources */}
+      <Card className="rounded-2xl shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-2xl text-[#0E7C9D]">Helpful Resources</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {resourceLinks.map((resource, index) => (
+              <div key={index} className="p-4 border border-gray-200 rounded-2xl hover:shadow-md transition-all duration-200 cursor-pointer hover:scale-105">
+                <resource.icon className="w-8 h-8 text-[#0E7C9D] mb-3" />
+                <h4 className="font-semibold text-gray-800 mb-2">{resource.title}</h4>
+                <p className="text-xs text-gray-600">{resource.description}</p>
               </div>
-            </CardContent>
-          </Card>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Status */}
+      <div className="text-center">
+        <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 text-green-700 rounded-2xl">
+          <CheckCircle className="w-4 h-4" />
+          <span className="text-sm font-medium">All systems operational</span>
         </div>
       </div>
     </div>

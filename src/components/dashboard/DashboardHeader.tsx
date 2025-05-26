@@ -2,11 +2,35 @@
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { NotificationDropdown } from './NotificationDropdown';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export function DashboardHeader() {
   const { user } = useAuth();
+  const [doctorProfile, setDoctorProfile] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchDoctorProfile = async () => {
+      if (user) {
+        const { data } = await supabase
+          .from('doctor_profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (data) {
+          setDoctorProfile(data);
+        }
+      }
+    };
+    
+    fetchDoctorProfile();
+  }, [user]);
 
   const getInitials = () => {
+    if (doctorProfile?.first_name && doctorProfile?.last_name) {
+      return (doctorProfile.first_name.charAt(0) + doctorProfile.last_name.charAt(0)).toUpperCase();
+    }
     if (user?.email) {
       return user.email.substring(0, 2).toUpperCase();
     }
@@ -14,6 +38,9 @@ export function DashboardHeader() {
   };
 
   const getDoctorName = () => {
+    if (doctorProfile?.first_name && doctorProfile?.last_name) {
+      return `${doctorProfile.first_name} ${doctorProfile.last_name}`;
+    }
     if (user?.email) {
       const name = user.email.split('@')[0];
       return name.charAt(0).toUpperCase() + name.slice(1);
@@ -29,11 +56,11 @@ export function DashboardHeader() {
         
         {/* Centered Logo and Title */}
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-[#0E7C9D] to-[#FD904B] rounded-xl flex items-center justify-center shadow-lg">
+          <div className="w-12 h-12 bg-gradient-to-br from-[#0E7C9D] to-[#FD904B] rounded-2xl flex items-center justify-center shadow-lg">
             <img 
               src="/lovable-uploads/6b38df79-5ad8-494b-83ed-7dba6c54d4b1.png" 
               alt="Patient Pathway"
-              className="w-8 h-8 object-contain"
+              className="w-9 h-9 object-contain"
             />
           </div>
           <div className="text-center">
@@ -50,7 +77,7 @@ export function DashboardHeader() {
           
           <div className="flex items-center gap-3">
             <Avatar className="h-9 w-9 ring-2 ring-[#0E7C9D]/20">
-              <AvatarImage src="/placeholder-doctor.jpg" />
+              <AvatarImage src={doctorProfile?.avatar_url || "/placeholder-doctor.jpg"} />
               <AvatarFallback className="bg-[#0E7C9D] text-white text-sm">
                 {getInitials()}
               </AvatarFallback>

@@ -1,260 +1,374 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { User, Mail, Phone, Building, Stethoscope, Calendar, Save } from 'lucide-react';
+import { 
+  User, 
+  Mail, 
+  Phone, 
+  MapPin, 
+  Building, 
+  Calendar,
+  Camera,
+  Save,
+  Shield,
+  Key,
+  Bell
+} from 'lucide-react';
 import { toast } from 'sonner';
-
-interface DoctorProfile {
-  id: string;
-  first_name?: string;
-  last_name?: string;
-  email?: string;
-  phone?: string;
-  specialty?: string;
-  clinic_name?: string;
-  created_at: string;
-}
 
 export function ProfilePage() {
   const { user } = useAuth();
-  const [profile, setProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [doctorProfile, setDoctorProfile] = useState<any>(null);
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
     email: '',
     phone: '',
     specialty: '',
-    clinic_name: ''
+    clinic_name: '',
+    avatar_url: ''
   });
 
   useEffect(() => {
-    if (user) {
-      fetchProfile();
-    }
+    fetchDoctorProfile();
   }, [user]);
 
-  const fetchProfile = async () => {
+  const fetchDoctorProfile = async () => {
+    if (!user) return;
+
     try {
       const { data, error } = await supabase
         .from('doctor_profiles')
         .select('*')
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
         .single();
 
-      if (error) throw error;
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching profile:', error);
+        return;
+      }
 
-      setProfile(data);
-      setFormData({
-        first_name: data.first_name || '',
-        last_name: data.last_name || '',
-        email: data.email || user?.email || '',
-        phone: data.phone || '',
-        specialty: data.specialty || '',
-        clinic_name: data.clinic_name || ''
-      });
+      if (data) {
+        setDoctorProfile(data);
+        setFormData({
+          first_name: data.first_name || '',
+          last_name: data.last_name || '',
+          email: data.email || user.email || '',
+          phone: data.phone || '',
+          specialty: data.specialty || '',
+          clinic_name: data.clinic_name || '',
+          avatar_url: data.avatar_url || ''
+        });
+      } else {
+        // Create new profile if none exists
+        setFormData(prev => ({
+          ...prev,
+          email: user.email || ''
+        }));
+      }
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      console.error('Error:', error);
     } finally {
       setLoading(false);
     }
   };
 
+  const generateDoctorId = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('doctor_profiles')
-        .update(formData)
-        .eq('user_id', user?.id);
+      const profileData = {
+        user_id: user?.id,
+        ...formData,
+        updated_at: new Date().toISOString()
+      };
 
-      if (error) throw error;
+      if (doctorProfile) {
+        // Update existing profile
+        const { error } = await supabase
+          .from('doctor_profiles')
+          .update(profileData)
+          .eq('id', doctorProfile.id);
+
+        if (error) throw error;
+      } else {
+        // Create new profile
+        const { data, error } = await supabase
+          .from('doctor_profiles')
+          .insert([{
+            ...profileData,
+            doctor_id: generateDoctorId()
+          }])
+          .select()
+          .single();
+
+        if (error) throw error;
+        setDoctorProfile(data);
+      }
 
       toast.success('Profile updated successfully!');
-      fetchProfile();
+      fetchDoctorProfile(); // Refresh the profile
     } catch (error) {
-      console.error('Error updating profile:', error);
+      console.error('Error saving profile:', error);
       toast.error('Failed to update profile');
     } finally {
       setSaving(false);
     }
   };
 
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // For now, we'll use a placeholder. In a real app, you'd upload to Supabase Storage
+      const imageUrl = URL.createObjectURL(file);
+      setFormData(prev => ({ ...prev, avatar_url: imageUrl }));
+      toast.success('Profile picture updated! Remember to save your changes.');
+    }
+  };
+
   const getInitials = () => {
-    const first = formData.first_name || '';
-    const last = formData.last_name || '';
-    return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase() || 'DR';
+    if (formData.first_name && formData.last_name) {
+      return (formData.first_name.charAt(0) + formData.last_name.charAt(0)).toUpperCase();
+    }
+    if (formData.email) {
+      return formData.email.substring(0, 2).toUpperCase();
+    }
+    return 'DR';
   };
 
   if (loading) {
-    return <div className="p-6">Loading profile...</div>;
+    return (
+      <div className="p-8 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0E7C9D]"></div>
+        <span className="ml-2">Loading profile...</span>
+      </div>
+    );
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl">
-      <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+    <div className="p-8 space-y-8">
+      {/* Header */}
+      <div className="text-center">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] bg-clip-text text-transparent mb-4">
           Doctor Profile
         </h1>
-        <p className="text-gray-600 mt-2">Manage your professional information and account settings</p>
+        <p className="text-gray-600 text-lg">
+          Manage your professional information and account settings
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Profile Card */}
-        <Card className="lg:col-span-1 shadow-lg border-0 bg-gradient-to-br from-blue-50 to-purple-50">
-          <CardHeader className="text-center pb-4">
-            <div className="flex justify-center mb-4">
-              <Avatar className="h-24 w-24 border-4 border-white shadow-lg">
-                <AvatarFallback className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Profile Picture & Basic Info */}
+        <Card className="rounded-3xl shadow-lg border-0 bg-gradient-to-br from-white to-blue-50">
+          <CardContent className="p-8 text-center">
+            <div className="relative inline-block mb-6">
+              <Avatar className="w-32 h-32 ring-4 ring-[#0E7C9D]/20">
+                <AvatarImage src={formData.avatar_url} />
+                <AvatarFallback className="bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] text-white text-3xl">
                   {getInitials()}
                 </AvatarFallback>
               </Avatar>
+              <label 
+                htmlFor="avatar-upload" 
+                className="absolute bottom-2 right-2 bg-[#0E7C9D] text-white p-2 rounded-full cursor-pointer hover:bg-[#0E7C9D]/90 transition-colors shadow-lg"
+              >
+                <Camera className="w-4 h-4" />
+              </label>
+              <input
+                id="avatar-upload"
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
             </div>
-            <CardTitle className="text-xl text-gray-800">
+            
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">
               Dr. {formData.first_name} {formData.last_name}
-            </CardTitle>
-            {formData.specialty && (
-              <Badge className="mt-2 bg-blue-100 text-blue-700">
-                {formData.specialty}
+            </h2>
+            <p className="text-gray-600 mb-4">{formData.specialty || 'Medical Professional'}</p>
+            
+            {doctorProfile?.doctor_id && (
+              <Badge className="bg-[#0E7C9D] text-white px-4 py-2 rounded-2xl">
+                ID: {doctorProfile.doctor_id}
               </Badge>
             )}
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-3 text-sm text-gray-600">
-              <Mail className="w-4 h-4" />
-              <span>{formData.email}</span>
-            </div>
-            {formData.phone && (
-              <div className="flex items-center gap-3 text-sm text-gray-600">
-                <Phone className="w-4 h-4" />
-                <span>{formData.phone}</span>
+            
+            <div className="mt-6 space-y-3">
+              <div className="flex items-center gap-3 text-gray-600">
+                <Mail className="w-4 h-4" />
+                <span className="text-sm">{formData.email}</span>
               </div>
-            )}
-            {formData.clinic_name && (
-              <div className="flex items-center gap-3 text-sm text-gray-600">
-                <Building className="w-4 h-4" />
-                <span>{formData.clinic_name}</span>
-              </div>
-            )}
-            {profile?.created_at && (
-              <div className="flex items-center gap-3 text-sm text-gray-600">
+              {formData.phone && (
+                <div className="flex items-center gap-3 text-gray-600">
+                  <Phone className="w-4 h-4" />
+                  <span className="text-sm">{formData.phone}</span>
+                </div>
+              )}
+              {formData.clinic_name && (
+                <div className="flex items-center gap-3 text-gray-600">
+                  <Building className="w-4 h-4" />
+                  <span className="text-sm">{formData.clinic_name}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-3 text-gray-600">
                 <Calendar className="w-4 h-4" />
-                <span>Member since {new Date(profile.created_at).toLocaleDateString()}</span>
+                <span className="text-sm">Joined {new Date(doctorProfile?.created_at || Date.now()).toLocaleDateString()}</span>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Profile Form */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card className="rounded-3xl shadow-lg">
+            <CardHeader>
+              <CardTitle className="text-2xl text-[#0E7C9D] flex items-center gap-2">
+                <User className="w-6 h-6" />
+                Personal Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="first_name">First Name</Label>
+                  <Input
+                    id="first_name"
+                    value={formData.first_name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, first_name: e.target.value }))}
+                    className="rounded-2xl"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="last_name">Last Name</Label>
+                  <Input
+                    id="last_name"
+                    value={formData.last_name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, last_name: e.target.value }))}
+                    className="rounded-2xl"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="email">Email Address</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                  className="rounded-2xl"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  className="rounded-2xl"
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="specialty">Medical Specialty</Label>
+                  <select
+                    id="specialty"
+                    value={formData.specialty}
+                    onChange={(e) => setFormData(prev => ({ ...prev, specialty: e.target.value }))}
+                    className="flex h-10 w-full rounded-2xl border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                  >
+                    <option value="">Select Specialty</option>
+                    <option value="ENT">ENT (Otolaryngology)</option>
+                    <option value="Pulmonology">Pulmonology</option>
+                    <option value="Sleep Medicine">Sleep Medicine</option>
+                    <option value="Family Medicine">Family Medicine</option>
+                    <option value="Internal Medicine">Internal Medicine</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="clinic_name">Clinic/Hospital Name</Label>
+                  <Input
+                    id="clinic_name"
+                    value={formData.clinic_name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, clinic_name: e.target.value }))}
+                    className="rounded-2xl"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Quick Settings */}
+          <Card className="rounded-3xl shadow-lg">
+            <CardHeader>
+              <CardTitle className="text-2xl text-[#0E7C9D] flex items-center gap-2">
+                <Shield className="w-6 h-6" />
+                Account Settings
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Button 
+                  variant="outline" 
+                  className="rounded-2xl border-[#0E7C9D] text-[#0E7C9D] hover:bg-[#0E7C9D] hover:text-white"
+                >
+                  <Key className="w-4 h-4 mr-2" />
+                  Change Password
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="rounded-2xl border-[#0E7C9D] text-[#0E7C9D] hover:bg-[#0E7C9D] hover:text-white"
+                >
+                  <Shield className="w-4 h-4 mr-2" />
+                  Enable 2FA
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="rounded-2xl border-[#0E7C9D] text-[#0E7C9D] hover:bg-[#0E7C9D] hover:text-white"
+                >
+                  <Bell className="w-4 h-4 mr-2" />
+                  Notifications
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Save Button */}
+          <Button 
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full py-4 bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] hover:from-[#0E7C9D]/90 hover:to-[#FD904B]/90 rounded-2xl text-lg font-semibold shadow-lg"
+          >
+            {saving ? (
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Saving...
+              </div>
+            ) : (
+              <>
+                <Save className="w-5 h-5 mr-2" />
+                Save Profile
+              </>
             )}
-          </CardContent>
-        </Card>
-
-        {/* Edit Profile Form */}
-        <Card className="lg:col-span-2 shadow-lg border-0">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-blue-700">
-              <User className="w-5 h-5" />
-              Edit Profile Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="first_name" className="text-sm font-medium text-gray-700">
-                  First Name
-                </Label>
-                <Input
-                  id="first_name"
-                  value={formData.first_name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, first_name: e.target.value }))}
-                  className="mt-1 transition-all duration-200 focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter your first name"
-                />
-              </div>
-              <div>
-                <Label htmlFor="last_name" className="text-sm font-medium text-gray-700">
-                  Last Name
-                </Label>
-                <Input
-                  id="last_name"
-                  value={formData.last_name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, last_name: e.target.value }))}
-                  className="mt-1 transition-all duration-200 focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter your last name"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                Email Address
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                className="mt-1 transition-all duration-200 focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter your email address"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
-                Phone Number
-              </Label>
-              <Input
-                id="phone"
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                className="mt-1 transition-all duration-200 focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter your phone number"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="specialty" className="text-sm font-medium text-gray-700">
-                Medical Specialty
-              </Label>
-              <Input
-                id="specialty"
-                value={formData.specialty}
-                onChange={(e) => setFormData(prev => ({ ...prev, specialty: e.target.value }))}
-                className="mt-1 transition-all duration-200 focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g., ENT, Otolaryngology"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="clinic_name" className="text-sm font-medium text-gray-700">
-                Clinic/Hospital Name
-              </Label>
-              <Input
-                id="clinic_name"
-                value={formData.clinic_name}
-                onChange={(e) => setFormData(prev => ({ ...prev, clinic_name: e.target.value }))}
-                className="mt-1 transition-all duration-200 focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter your clinic or hospital name"
-              />
-            </div>
-
-            <div className="flex justify-end pt-4">
-              <Button
-                onClick={handleSave}
-                disabled={saving}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105"
-              >
-                <Save className="w-4 h-4 mr-2" />
-                {saving ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+          </Button>
+        </div>
       </div>
     </div>
   );

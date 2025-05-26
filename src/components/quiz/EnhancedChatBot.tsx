@@ -70,23 +70,20 @@ export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
     if (!doctorShareKey) return;
     
     try {
-      const { data: leads } = await supabase
+      // First try to find doctor by share key in existing leads
+      const { data: existingLeads } = await supabase
         .from('quiz_leads')
         .select('doctor_id')
         .eq('share_key', doctorShareKey)
         .limit(1);
       
-      if (leads && leads.length > 0) {
-        setDoctorId(leads[0].doctor_id);
+      if (existingLeads && existingLeads.length > 0) {
+        setDoctorId(existingLeads[0].doctor_id);
       } else {
-        // Fallback to first doctor if no lead found
-        const { data: doctorProfiles } = await supabase
-          .from('doctor_profiles')
-          .select('id')
-          .limit(1);
-        
-        if (doctorProfiles && doctorProfiles.length > 0) {
-          setDoctorId(doctorProfiles[0].id);
+        // If no existing lead, try to extract doctor from URL
+        const doctorParam = searchParams.get('doctor');
+        if (doctorParam) {
+          setDoctorId(doctorParam);
         }
       }
     } catch (error) {
@@ -198,15 +195,16 @@ export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
       return;
     }
 
-    setPhase('results');
+    // Calculate result before saving
     const result = calculateQuizScore(quizType, answers);
     setQuizResult(result);
+    setPhase('results');
 
-    // Only save to database when user actually submits with contact info
+    // ONLY NOW save to database when user actually submits with contact info
     try {
       const leadSource = doctorShareKey ? 'shared_link' : 'website';
       
-      await supabase.from('quiz_leads').insert({
+      const { error } = await supabase.from('quiz_leads').insert({
         doctor_id: doctorId,
         name: userInfo.name,
         email: userInfo.email,
@@ -215,13 +213,21 @@ export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
         score: result.score,
         answers: answers,
         lead_source: leadSource,
-        share_key: doctorShareKey
+        share_key: doctorShareKey,
+        lead_status: 'NEW'
       });
+
+      if (error) {
+        console.error('Error saving lead:', error);
+        toast.error('Error saving results. Please try again.');
+        return;
+      }
       
       toast.success('✅ Assessment completed! Results saved securely.');
     } catch (error) {
       console.error('Error saving assessment:', error);
       toast.error('Error saving results. Please try again.');
+      return;
     }
 
     addBotMessage(
@@ -249,45 +255,54 @@ export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
     }
   };
 
+  const getMaxScore = () => {
+    switch (quizType) {
+      case 'SNOT22': return 110; // 22 questions × 5 points
+      case 'NOSE': return 20; // 5 questions × 4 points
+      case 'HHIA': return 100; // Scaled score
+      case 'EPWORTH': return 24; // 8 questions × 3 points
+      case 'DHI': return 100; // 25 questions × 4 points
+      case 'STOP': return 8; // 8 yes/no questions
+      case 'TNSS': return 12; // 4 questions × 3 points
+      default: return 100;
+    }
+  };
+
   return (
     <div className="w-full h-full bg-gradient-to-br from-blue-50 via-white to-indigo-50 overflow-hidden flex flex-col">
       {/* Enhanced Header */}
-      <div className="bg-white border-b border-slate-200 text-slate-800 p-6 shadow-lg">
-        <div className="max-w-4xl mx-auto">
+      <div className="bg-white border-b border-slate-200 text-slate-800 p-6 shadow-lg rounded-b-2xl">
+        <div className="max-w-3xl mx-auto">
           <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] rounded-2xl flex items-center justify-center shadow-lg">
               <Brain className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] bg-clip-text text-transparent">
                 {quizType} Assessment
               </h2>
               <p className="text-slate-600 text-lg">{quiz.title}</p>
             </div>
           </div>
-          <div className="flex items-center gap-8 text-slate-500">
-            <div className="flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              <span className="font-medium">{quiz.questions.length} Questions</span>
+          <div className="flex items-center gap-6 text-slate-500">
+            <div className="flex items-center gap-2 bg-slate-100 px-3 py-2 rounded-xl">
+              <Users className="w-4 h-4" />
+              <span className="font-medium text-sm">{quiz.questions.length} Questions</span>
             </div>
-            <div className="flex items-center gap-2">
-              <Clock className="w-5 h-5" />
-              <span className="font-medium">5-10 Minutes</span>
+            <div className="flex items-center gap-2 bg-slate-100 px-3 py-2 rounded-xl">
+              <Clock className="w-4 h-4" />
+              <span className="font-medium text-sm">5-10 Minutes</span>
             </div>
-            <div className="flex items-center gap-2">
-              <Shield className="w-5 h-5" />
-              <span className="font-medium">Clinically Validated</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Award className="w-5 h-5" />
-              <span className="font-medium">Instant Results</span>
+            <div className="flex items-center gap-2 bg-slate-100 px-3 py-2 rounded-xl">
+              <Shield className="w-4 h-4" />
+              <span className="font-medium text-sm">Validated</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-4xl mx-auto w-full">
+      <div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-3xl mx-auto w-full">
         {messages.map((message, index) => (
           <div
             key={message.id}
@@ -296,28 +311,28 @@ export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
               animation: `fadeInSlide 0.6s ease-out ${index * 0.1}s both`
             }}
           >
-            <div className={`flex items-end gap-4 max-w-3xl`}>
+            <div className={`flex items-end gap-3 max-w-2xl`}>
               {message.type === 'bot' && (
-                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-lg">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] flex items-center justify-center text-white font-bold shadow-lg text-sm">
                   🤖
                 </div>
               )}
               <div
-                className={`px-6 py-5 rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl ${
+                className={`px-5 py-4 rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl ${
                   message.type === 'user'
-                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white ml-auto'
+                    ? 'bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] text-white ml-auto'
                     : 'bg-white text-slate-800 border border-slate-200'
                 }`}
               >
                 <p className="text-sm whitespace-pre-line leading-relaxed font-medium">{message.content}</p>
                 {message.options && (
-                  <div className="mt-5 space-y-3">
+                  <div className="mt-4 space-y-2">
                     {message.options.map((option, index) => (
                       <Button
                         key={index}
                         variant="outline"
                         size="sm"
-                        className="w-full text-left justify-start bg-slate-50 border border-slate-300 hover:border-blue-400 hover:bg-blue-50 transition-all duration-300 hover:scale-[1.02] text-slate-700 hover:text-blue-700 py-4 px-5 rounded-xl font-medium shadow-sm hover:shadow-md"
+                        className="w-full text-left justify-start bg-slate-50 border border-slate-300 hover:border-[#0E7C9D] hover:bg-blue-50 transition-all duration-300 hover:scale-[1.02] text-slate-700 hover:text-[#0E7C9D] py-3 px-4 rounded-xl font-medium shadow-sm hover:shadow-md"
                         onClick={() => handleOptionClick(option)}
                       >
                         {option}
@@ -327,7 +342,7 @@ export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
                 )}
               </div>
               {message.type === 'user' && (
-                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-green-500 to-emerald-600 flex items-center justify-center text-white font-bold shadow-lg">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 flex items-center justify-center text-white font-bold shadow-lg text-sm">
                   👤
                 </div>
               )}
@@ -337,15 +352,15 @@ export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
 
         {isTyping && (
           <div className="flex justify-start">
-            <div className="flex items-end gap-4">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-lg">
+            <div className="flex items-end gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] flex items-center justify-center text-white font-bold shadow-lg text-sm">
                 🤖
               </div>
-              <div className="bg-white text-slate-800 px-6 py-5 rounded-2xl shadow-lg border border-slate-200 flex items-center gap-3">
+              <div className="bg-white text-slate-800 px-5 py-4 rounded-2xl shadow-lg border border-slate-200 flex items-center gap-3">
                 <div className="flex gap-1">
-                  <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce"></div>
-                  <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  <div className="w-2 h-2 bg-[#0E7C9D] rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-[#0E7C9D] rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 bg-[#0E7C9D] rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                 </div>
                 <span className="text-sm font-medium text-slate-600">Analyzing your response...</span>
               </div>
@@ -358,24 +373,24 @@ export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
 
       {/* Enhanced User Info Form */}
       {phase === 'userInfo' && (
-        <div className="p-6 border-t bg-gradient-to-r from-blue-50 to-indigo-50">
-          <form onSubmit={handleUserInfoSubmit} className="space-y-5 max-w-lg mx-auto">
+        <div className="p-6 border-t bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-2xl">
+          <form onSubmit={handleUserInfoSubmit} className="space-y-4 max-w-lg mx-auto">
             <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <Target className="w-8 h-8 text-white" />
               </div>
               <h3 className="text-2xl font-bold text-slate-800 mb-3">Almost There! 🎯</h3>
               <p className="text-slate-600 leading-relaxed">Enter your details to receive your personalized health assessment results and recommendations.</p>
             </div>
             <Input
-              className="py-4 px-5 rounded-xl border-2 border-slate-300 focus:border-blue-500 transition-all duration-200 text-lg"
+              className="py-4 px-5 rounded-2xl border-2 border-slate-300 focus:border-[#0E7C9D] transition-all duration-200 text-lg"
               placeholder="Your Full Name *"
               value={userInfo.name}
               onChange={(e) => setUserInfo(prev => ({ ...prev, name: e.target.value }))}
               required
             />
             <Input
-              className="py-4 px-5 rounded-xl border-2 border-slate-300 focus:border-blue-500 transition-all duration-200 text-lg"
+              className="py-4 px-5 rounded-2xl border-2 border-slate-300 focus:border-[#0E7C9D] transition-all duration-200 text-lg"
               type="email"
               placeholder="Your Email Address *"
               value={userInfo.email}
@@ -383,7 +398,7 @@ export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
               required
             />
             <Input
-              className="py-4 px-5 rounded-xl border-2 border-slate-300 focus:border-blue-500 transition-all duration-200 text-lg"
+              className="py-4 px-5 rounded-2xl border-2 border-slate-300 focus:border-[#0E7C9D] transition-all duration-200 text-lg"
               type="tel"
               placeholder="Your Phone Number (Optional)"
               value={userInfo.phone}
@@ -391,7 +406,7 @@ export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
             />
             <Button 
               type="submit" 
-              className="w-full py-4 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 hover:scale-[1.02] rounded-xl shadow-lg hover:shadow-xl text-lg font-semibold"
+              className="w-full py-4 bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] hover:from-[#0E7C9D]/90 hover:to-[#FD904B]/90 transition-all duration-300 hover:scale-[1.02] rounded-2xl shadow-lg hover:shadow-xl text-lg font-semibold"
             >
               Get My Assessment Results 🎉
             </Button>
@@ -405,10 +420,10 @@ export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
           <div
             className={`transition-all duration-1000 ease-out transform ${
               showResult ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'
-            } w-full max-w-4xl`}
+            } w-full max-w-3xl`}
           >
             <Card className="w-full shadow-2xl rounded-3xl border-0 overflow-hidden bg-white">
-              <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-8 py-8 text-white">
+              <div className="bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] px-8 py-8 text-white">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-6">
                     <div className="text-6xl">🎉</div>
@@ -424,7 +439,7 @@ export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
                   </div>
                   <Button
                     variant="outline"
-                    className="bg-white text-blue-600 border-blue-200 hover:bg-blue-50 px-6 py-3 rounded-xl transition-all duration-200 hover:scale-105 font-semibold"
+                    className="bg-white text-[#0E7C9D] border-blue-200 hover:bg-blue-50 px-6 py-3 rounded-2xl transition-all duration-200 hover:scale-105 font-semibold"
                     onClick={() => window.print()}
                   >
                     🖨️ Print Results
@@ -437,7 +452,7 @@ export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
                 <div className="mb-8">
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-slate-700 font-bold text-xl">Your Assessment Score</span>
-                    <span className="text-blue-600 font-bold text-3xl">{quizResult.score} / {quiz.maxScore}</span>
+                    <span className="text-[#0E7C9D] font-bold text-3xl">{quizResult.score} / {getMaxScore()}</span>
                   </div>
                   <div className="w-full bg-slate-200 rounded-full h-6 overflow-hidden">
                     <div
@@ -451,7 +466,7 @@ export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
                         quizResult.severity === 'severe' && 'bg-gradient-to-r from-red-400 to-red-500'
                       }`}
                       style={{
-                        width: `${Math.min(100, Math.round((quizResult.score / quiz.maxScore) * 100))}%`
+                        width: `${Math.min(100, Math.round((quizResult.score / getMaxScore()) * 100))}%`
                       }}
                     />
                   </div>
@@ -471,9 +486,9 @@ export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
                   
                   <div className="flex flex-col justify-center items-center text-center bg-gradient-to-br from-slate-50 to-slate-100 p-6 rounded-2xl">
                     <div className="text-4xl font-bold text-slate-800 mb-2">
-                      {Math.round((quizResult.score / quiz.maxScore) * 100)}%
+                      {Math.round((quizResult.score / getMaxScore()) * 100)}%
                     </div>
-                    <p className="text-slate-600 font-medium">Assessment Completion</p>
+                    <p className="text-slate-600 font-medium">Score Percentage</p>
                     <div className="mt-3 flex items-center gap-2 text-sm text-slate-500">
                       <Award className="w-4 h-4" />
                       <span>Clinically Validated Result</span>
@@ -484,15 +499,15 @@ export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
                 {/* Results Summary */}
                 <div className="mb-8 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200">
                   <h4 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <Brain className="w-6 h-6 text-blue-600" />
+                    <Brain className="w-6 h-6 text-[#0E7C9D]" />
                     Your Personalized Analysis
                   </h4>
-                  <p className="text-slate-700 leading-relaxed text-lg">{quizResult.summary}</p>
+                  <p className="text-slate-700 leading-relaxed text-lg">{quizResult.interpretation}</p>
                 </div>
 
                 {/* Additional Info */}
                 <div className="flex flex-wrap justify-between items-center gap-4">
-                  <Badge className="px-4 py-2 bg-blue-50 text-blue-700 border-blue-200 rounded-xl text-lg font-medium" variant="outline">
+                  <Badge className="px-4 py-2 bg-blue-50 text-[#0E7C9D] border-blue-200 rounded-2xl text-lg font-medium" variant="outline">
                     {quiz.title}
                   </Badge>
                   <div className="flex items-center gap-2 text-sm text-slate-500">
