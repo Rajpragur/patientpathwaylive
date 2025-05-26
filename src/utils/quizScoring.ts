@@ -1,4 +1,3 @@
-
 import { QuizType, QuizAnswer, QuizResult } from '../types/quiz';
 
 export function calculateQuizScore(quizType: QuizType, answers: QuizAnswer[]): QuizResult {
@@ -28,15 +27,8 @@ export function calculateQuizScore(quizType: QuizType, answers: QuizAnswer[]): Q
 }
 
 function mapSNOT22LabelToScore(label: string): number {
-  switch(label) {
-    case "0 - Not a problem": return 0;
-    case "1 - Very Mild Problem": return 1;
-    case "2 - Moderate Problem": return 2;
-    case "3 - Fairly Bad Problem": return 3;
-    case "4 - Severe Problem": return 4;
-    case "5 - Problem as bad as it can be": return 5;
-    default: return 0;
-  }
+  const match = label.match(/\((\d+)\)/);
+  return match ? parseInt(match[1], 10) : 0;
 }
 
 function calculateSNOT22Score(answers: QuizAnswer[]): QuizResult {
@@ -66,14 +58,8 @@ function calculateSNOT22Score(answers: QuizAnswer[]): QuizResult {
 }
 
 function mapNOSELabelToScore(label: string): number {
-  switch(label) {
-    case "0 - Not a problem": return 0;
-    case "1 - Very Mild": return 1;
-    case "2 - Moderate": return 2;
-    case "3 - Fairly Bad": return 3;
-    case "4 - Severe": return 4;
-    default: return 0;
-  }
+  const match = label.match(/\((\d+)\)/);
+  return match ? parseInt(match[1], 10) : 0;
 }
 
 function calculateNOSEScore(answers: QuizAnswer[]): QuizResult {
@@ -107,12 +93,8 @@ function calculateNOSEScore(answers: QuizAnswer[]): QuizResult {
 }
 
 function mapHHIALabelToScore(label: string): number {
-  switch(label) {
-    case "0 - No": return 0;
-    case "2 - Sometimes": return 2;
-    case "4 - Yes": return 4;
-    default: return 0;
-  }
+  const match = label.match(/\((\d+)\)/);
+  return match ? parseInt(match[1], 10) : 0;
 }
 
 function calculateHHIAScore(answers: QuizAnswer[]): QuizResult {
@@ -142,13 +124,8 @@ function calculateHHIAScore(answers: QuizAnswer[]): QuizResult {
 }
 
 function mapEpworthLabelToScore(label: string): number {
-  switch(label) {
-    case "0 - Would never nod off": return 0;
-    case "1 - Slight chance of nodding off": return 1;
-    case "2 - Moderate chance of nodding off": return 2;
-    case "3 - High chance of nodding off": return 3;
-    default: return 0;
-  }
+  const match = label.match(/\((\d+)\)/);
+  return match ? parseInt(match[1], 10) : 0;
 }
 
 function calculateEpworthScore(answers: QuizAnswer[]): QuizResult {
@@ -181,12 +158,8 @@ function calculateEpworthScore(answers: QuizAnswer[]): QuizResult {
 }
 
 function mapDHILabelToScore(label: string): number {
-  switch(label) {
-    case "No": return 0;
-    case "Sometimes": return 2;
-    case "Yes": return 4;
-    default: return 0;
-  }
+  const match = label.match(/\((\d+)\)/);
+  return match ? parseInt(match[1], 10) : 0;
 }
 
 function calculateDHIScore(answers: QuizAnswer[]): QuizResult {
@@ -243,13 +216,8 @@ function calculateSTOPScore(answers: QuizAnswer[]): QuizResult {
 }
 
 function mapTNSSLabelToScore(label: string): number {
-  switch(label) {
-    case "NO symptoms": return 0;
-    case "MILD Symptoms present but easily tolerated": return 1;
-    case "MODERATE Symptoms present and bothersome": return 2;
-    case "SEVERE Symptoms present and interfere with activities of daily living and/or sleep": return 3;
-    default: return 0;
-  }
+  const match = label.match(/\((\d+)\)/);
+  return match ? parseInt(match[1], 10) : 0;
 }
 
 function calculateTNSSScore(answers: QuizAnswer[]): QuizResult {
