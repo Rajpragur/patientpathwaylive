@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Lead } from '@/types/quiz';
@@ -11,16 +10,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Download, Search, Plus, Trash2, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { LeadDetails } from './LeadDetails';
+import { useAuth } from '@/hooks/useAuth';
 
 interface LeadsPageProps {
   filterStatus?: string;
 }
 
 export function LeadsPage({ filterStatus }: LeadsPageProps) {
+  const { user } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [doctorId, setDoctorId] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     search: '',
     quizType: 'all',
@@ -29,34 +31,62 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
   });
 
   useEffect(() => {
-    fetchLeads();
-    
-    // Set up real-time subscription for new leads
-    const channel = supabase
-      .channel('leads')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'quiz_leads'
-        },
-        () => {
-          fetchLeads();
-        }
-      )
-      .subscribe();
+    if (user) {
+      fetchDoctorProfile();
+    }
+  }, [user]);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+  useEffect(() => {
+    if (doctorId) {
+      fetchLeads();
+      
+      // Set up real-time subscription for new leads
+      const channel = supabase
+        .channel('leads')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'quiz_leads',
+            filter: `doctor_id=eq.${doctorId}`
+          },
+          () => {
+            fetchLeads();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [doctorId]);
+
+  const fetchDoctorProfile = async () => {
+    try {
+      const { data } = await supabase
+        .from('doctor_profiles')
+        .select('id')
+        .eq('user_id', user?.id)
+        .maybeSingle();
+      
+      if (data) {
+        setDoctorId(data.id);
+      }
+    } catch (error) {
+      console.error('Error fetching doctor profile:', error);
+    }
+  };
 
   const fetchLeads = async () => {
+    if (!doctorId) return;
+
     try {
       const { data, error } = await supabase
         .from('quiz_leads')
         .select('*')
+        .eq('doctor_id', doctorId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -182,7 +212,7 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
   if (loading) {
     return (
       <div className="p-6 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0E7C9D]"></div>
         <span className="ml-2">Loading leads...</span>
       </div>
     );
@@ -194,29 +224,29 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="shadow-sm border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-blue-700">Total Leads</CardTitle>
+            <CardTitle className="text-sm font-medium text-[#0E7C9D]">Total Leads</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-600">{totalLeads}</div>
-            <p className="text-xs text-blue-600 mt-1">All time</p>
+            <div className="text-3xl font-bold text-[#0E7C9D]">{totalLeads}</div>
+            <p className="text-xs text-[#0E7C9D]/80 mt-1">All time</p>
           </CardContent>
         </Card>
         <Card className="shadow-sm border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-indigo-700">New Leads</CardTitle>
+            <CardTitle className="text-sm font-medium text-blue-700">New Leads</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-indigo-600">{newLeads}</div>
-            <p className="text-xs text-indigo-600 mt-1">Awaiting contact</p>
+            <div className="text-3xl font-bold text-blue-600">{newLeads}</div>
+            <p className="text-xs text-blue-600 mt-1">Awaiting contact</p>
           </CardContent>
         </Card>
         <Card className="shadow-sm border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-orange-700">Contacted</CardTitle>
+            <CardTitle className="text-sm font-medium text-[#FF6B35]">Contacted</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-orange-600">{contactedLeads}</div>
-            <p className="text-xs text-orange-600 mt-1">In progress</p>
+            <div className="text-3xl font-bold text-[#FF6B35]">{contactedLeads}</div>
+            <p className="text-xs text-[#FF6B35]/80 mt-1">In progress</p>
           </CardContent>
         </Card>
         <Card className="shadow-sm border">
@@ -339,7 +369,7 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                        <div className="w-10 h-10 bg-gradient-to-r from-[#FF6B35] to-[#0E7C9D] rounded-full flex items-center justify-center text-white font-bold">
                           {lead.name.charAt(0).toUpperCase()}
                         </div>
                         <span className="font-medium text-gray-800">{lead.name}</span>
@@ -374,7 +404,7 @@ export function LeadsPage({ filterStatus }: LeadsPageProps) {
                       </Select>
                     </td>
                     <td className="p-4">
-                      <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
+                      <Badge variant="outline" className="text-xs bg-[#0E7C9D]/10 text-[#0E7C9D]">
                         {lead.quiz_type}
                       </Badge>
                     </td>

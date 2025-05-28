@@ -10,10 +10,10 @@ interface EmailVerificationNoticeProps {
 
 export function EmailVerificationNotice({ email, onBack }: EmailVerificationNoticeProps) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-green-50 to-teal-50 px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-[#FF6B35] to-[#0E7C9D] bg-clip-text text-transparent mb-2">
             Patient Pathway
           </h1>
           <p className="text-gray-600">ENT Medical Assessment Platform</p>
@@ -27,12 +27,12 @@ export function EmailVerificationNotice({ email, onBack }: EmailVerificationNoti
             <CardTitle className="text-2xl text-center text-green-600">Account Created Successfully!</CardTitle>
           </CardHeader>
           <CardContent className="text-center space-y-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <Mail className="w-6 h-6 text-blue-600 mx-auto mb-2" />
-              <p className="text-sm text-blue-800 font-medium">
+            <div className="bg-[#0E7C9D]/10 border border-[#0E7C9D]/20 rounded-lg p-4">
+              <Mail className="w-6 h-6 text-[#0E7C9D] mx-auto mb-2" />
+              <p className="text-sm text-[#0E7C9D] font-medium">
                 Please check your email to verify your account
               </p>
-              <p className="text-xs text-blue-600 mt-1">
+              <p className="text-xs text-[#0E7C9D]/80 mt-1">
                 Verification email sent to: <strong>{email}</strong>
               </p>
             </div>
@@ -50,7 +50,7 @@ export function EmailVerificationNotice({ email, onBack }: EmailVerificationNoti
               <Button 
                 variant="outline" 
                 onClick={onBack}
-                className="w-full rounded-full"
+                className="w-full rounded-full border-[#0E7C9D] text-[#0E7C9D] hover:bg-[#0E7C9D] hover:text-white"
               >
                 Back to Login
               </Button>

@@ -18,6 +18,7 @@ import { SettingsPage } from '@/components/dashboard/SettingsPage';
 import { SupportPage } from '@/components/dashboard/SupportPage';
 import { ProfilePage } from '@/components/dashboard/ProfilePage';
 import { SchedulePage } from '@/components/dashboard/SchedulePage';
+import { ShareAssessmentsPage } from '@/components/dashboard/ShareAssessmentsPage';
 import { QuizSelector } from '@/components/quiz/QuizSelector';
 import { EnhancedChatBot } from '@/components/quiz/EnhancedChatBot';
 import { SNOT22Page } from '@/components/quiz/SNOT22Page';
@@ -50,7 +51,7 @@ function DoctorPortal() {
                 <h3 className="text-lg font-semibold text-slate-800 mb-3">Quiz Integration</h3>
                 <p className="text-slate-600 mb-4 text-sm">Embed medical assessments on your website to capture qualified leads.</p>
                 <button 
-                  className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors text-sm"
+                  className="bg-[#0E7C9D] text-white px-4 py-2 rounded-lg hover:bg-[#0E7C9D]/90 transition-colors text-sm"
                   onClick={() => setCurrentPage('quizzes')}
                 >
                   Configure Quizzes
@@ -61,7 +62,7 @@ function DoctorPortal() {
                 <h3 className="text-lg font-semibold text-slate-800 mb-3">Analytics Tracking</h3>
                 <p className="text-slate-600 mb-4 text-sm">Track conversion rates and optimize your lead capture performance.</p>
                 <button 
-                  className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors text-sm"
+                  className="bg-[#FF6B35] text-white px-4 py-2 rounded-lg hover:bg-[#FF6B35]/90 transition-colors text-sm"
                   onClick={() => setCurrentPage('analytics')}
                 >
                   View Analytics
@@ -72,7 +73,7 @@ function DoctorPortal() {
                 <h3 className="text-lg font-semibold text-slate-800 mb-3">Campaign Management</h3>
                 <p className="text-slate-600 mb-4 text-sm">Create and manage targeted campaigns for specific conditions.</p>
                 <button 
-                  className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors text-sm"
+                  className="bg-gradient-to-r from-[#FF6B35] to-[#0E7C9D] text-white px-4 py-2 rounded-lg hover:opacity-90 transition-opacity text-sm"
                   onClick={() => setCurrentPage('trends')}
                 >
                   Manage Campaigns
@@ -109,6 +110,8 @@ function DoctorPortal() {
         return <SupportPage />;
       case 'schedule':
         return <SchedulePage />;
+      case 'share':
+        return <ShareAssessmentsPage />;
       default:
         return (
           <div>
@@ -147,19 +150,14 @@ function QuizApp() {
             <div className="w-full mx-auto px-6 py-3 flex items-center justify-between">
               <button
                 onClick={() => setSelectedQuiz(null)}
-                className="text-blue-500 hover:text-blue-600 hover:underline transition-colors flex items-center gap-2"
+                className="text-[#0E7C9D] hover:text-[#0E7C9D]/80 hover:underline transition-colors flex items-center gap-2"
               >
                 ← Back to Assessments
               </button>
               <h1 className="text-lg font-semibold text-slate-700">
                 {selectedQuiz.type} Assessment
               </h1>
-              <button
-                onClick={() => window.location.href = '/portal'}
-                className="text-blue-500 hover:text-blue-600 hover:underline transition-colors flex items-center gap-2"
-              >
-                🏠 Home
-              </button>
+              <div className="w-24"></div>
             </div>
           </div>
           <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
@@ -180,10 +178,10 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-green-50 to-teal-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-500 mx-auto"></div>
-          <h1 className="mt-4 text-xl font-bold text-blue-600">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-[#0E7C9D] mx-auto"></div>
+          <h1 className="mt-4 text-xl font-bold bg-gradient-to-r from-[#FF6B35] to-[#0E7C9D] bg-clip-text text-transparent">
             Patient Pathway
           </h1>
           <p className="mt-2 text-slate-600">Loading your medical assessment platform...</p>

@@ -66,7 +66,7 @@ export function NotificationDropdown() {
         .from('doctor_profiles')
         .select('id')
         .eq('user_id', user?.id)
-        .single();
+        .maybeSingle();
       
       if (data) {
         setDoctorId(data.id);
@@ -93,6 +93,7 @@ export function NotificationDropdown() {
       setUnreadCount((data || []).filter(n => !n.read).length);
     } catch (error) {
       console.error('Error fetching notifications:', error);
+      toast.error('Failed to load notifications');
     }
   };
 
@@ -113,6 +114,7 @@ export function NotificationDropdown() {
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
       console.error('Error marking notification as read:', error);
+      toast.error('Failed to mark notification as read');
     }
   };
 
@@ -126,6 +128,10 @@ export function NotificationDropdown() {
       if (error) throw error;
 
       setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      setUnreadCount(prev => {
+        const deletedNotification = notifications.find(n => n.id === notificationId);
+        return deletedNotification && !deletedNotification.read ? Math.max(0, prev - 1) : prev;
+      });
       toast.success('Notification deleted');
     } catch (error) {
       console.error('Error deleting notification:', error);
@@ -172,7 +178,7 @@ export function NotificationDropdown() {
         <Button variant="outline" size="sm" className="relative rounded-2xl">
           <Bell className="w-4 h-4" />
           {unreadCount > 0 && (
-            <Badge className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-1 py-0 min-w-[1.2rem] h-5 rounded-full">
+            <Badge className="absolute -top-2 -right-2 bg-[#FF6B35] text-white text-xs px-1 py-0 min-w-[1.2rem] h-5 rounded-full">
               {unreadCount}
             </Badge>
           )}
@@ -235,7 +241,7 @@ export function NotificationDropdown() {
                           variant="ghost"
                           size="sm"
                           onClick={() => markAsRead(notification.id)}
-                          className="w-6 h-6 p-0 hover:bg-blue-100 rounded-lg"
+                          className="w-6 h-6 p-0 hover:bg-[#0E7C9D]/10 rounded-lg"
                         >
                           <span className="text-xs">✓</span>
                         </Button>

@@ -34,7 +34,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
   return (
     <Card className="w-full max-w-md shadow-xl border-0 bg-white/90 backdrop-blur">
       <CardHeader>
-        <CardTitle className="text-2xl text-center bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+        <CardTitle className="text-2xl text-center bg-gradient-to-r from-[#FF6B35] to-[#0E7C9D] bg-clip-text text-transparent">
           Login to Patient Pathway
         </CardTitle>
       </CardHeader>
@@ -47,7 +47,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="rounded-full border-gray-200 focus:border-blue-500 focus:ring-blue-200"
+              className="rounded-full border-gray-200 focus:border-[#0E7C9D] focus:ring-[#0E7C9D]/20"
             />
           </div>
           <div>
@@ -57,12 +57,12 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="rounded-full border-gray-200 focus:border-blue-500 focus:ring-blue-200"
+              className="rounded-full border-gray-200 focus:border-[#0E7C9D] focus:ring-[#0E7C9D]/20"
             />
           </div>
           <Button 
             type="submit" 
-            className="w-full rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium py-2.5"
+            className="w-full rounded-full bg-gradient-to-r from-[#FF6B35] to-[#0E7C9D] hover:from-[#FF6B35]/90 hover:to-[#0E7C9D]/90 text-white font-medium py-2.5"
             disabled={loading}
           >
             {loading ? 'Signing in...' : 'Sign In'}
@@ -73,7 +73,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
             Don't have an account?{' '}
             <button
               onClick={onToggleMode}
-              className="text-blue-600 hover:underline font-medium"
+              className="text-[#0E7C9D] hover:underline font-medium"
             >
               Sign up here
             </button>
