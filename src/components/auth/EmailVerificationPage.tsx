@@ -38,7 +38,7 @@ export function EmailVerificationPage() {
         
         // Redirect to dashboard after 2 seconds
         setTimeout(() => {
-          navigate('/dashboard');
+          navigate('/portal');
         }, 2000);
       } catch (error: any) {
         setVerificationStatus('error');

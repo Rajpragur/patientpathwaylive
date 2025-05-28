@@ -34,21 +34,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } else {
             navigate('/portal');
           }
+        } else if (event === 'USER_UPDATED') {
+          // Handle email verification
+          if (session?.user?.email_confirmed_at) {
+            navigate('/portal');
+          }
         }
       }
     );
 
+    // Check initial session and email verification status
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+
+      // If user is not verified, redirect to verification page
+      if (session?.user && !session.user.email_confirmed_at) {
+        navigate('/verify-email');
+      }
     });
 
     return () => subscription.unsubscribe();
   }, [navigate]);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    
+    if (!error && data.user && !data.user.email_confirmed_at) {
+      // If user is not verified, sign them out and show verification message
+      await supabase.auth.signOut();
+      return { 
+        error: { 
+          message: 'Please verify your email before signing in. Check your inbox for the verification link.' 
+        } 
+      };
+    }
+    
     return { error };
   };
 
