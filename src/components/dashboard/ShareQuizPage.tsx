@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,13 +31,30 @@ export function ShareQuizPage() {
   const [shareKey] = useState(`share_${Date.now()}`);
   const baseUrl = window.location.origin;
   
-  const quiz = Object.values(quizzes).find(q => q.id.toLowerCase() === quizType?.toLowerCase());
+  // Add comprehensive null checks
+  if (!quizzes || typeof quizzes !== 'object') {
+    return (
+      <div className="p-6">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Error Loading Quizzes</h1>
+          <p className="text-gray-600 mb-4">There was an error loading the quiz data. Please try refreshing the page.</p>
+          <Button onClick={() => navigate('/portal')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const quiz = Object.values(quizzes).find(q => q && q.id && q.id.toLowerCase() === quizType?.toLowerCase());
   
-  if (!quiz) {
+  if (!quiz || !quiz.title) {
     return (
       <div className="p-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Quiz Not Found</h1>
+          <p className="text-gray-600 mb-4">The requested quiz could not be found or is missing required data.</p>
           <Button onClick={() => navigate('/portal')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboard
@@ -158,7 +174,7 @@ function openAssessment() {
             className="flex items-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back
+            Back to Assessments
           </Button>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Share your assessment</h1>

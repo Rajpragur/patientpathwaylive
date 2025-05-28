@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -95,6 +96,11 @@ export function QuizManagementPage() {
     return <div className="p-6">Loading quiz management...</div>;
   }
 
+  // Add null check for quizzes object
+  if (!quizzes || typeof quizzes !== 'object') {
+    return <div className="p-6">Error loading quizzes. Please refresh the page.</div>;
+  }
+
   return (
     <div className="p-8 space-y-8">
       <div className="flex items-center justify-between">
@@ -113,14 +119,14 @@ export function QuizManagementPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {Object.values(quizzes).map((quiz) => (
+            {Object.values(quizzes).filter(quiz => quiz && quiz.title).map((quiz) => (
               <Card key={quiz.id} className="border-2 border-blue-200 hover:border-[#0E7C9D] transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-2xl bg-white rounded-3xl">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-xl text-[#0E7C9D]">{quiz.title}</CardTitle>
+                  <CardTitle className="text-xl text-[#0E7C9D]">{quiz.title || 'Untitled Quiz'}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-gray-600 mb-4 leading-relaxed">{quiz.description}</p>
-                  <p className="text-xs text-gray-500 mb-6">{quiz.questions.length} questions • 5-10 minutes</p>
+                  <p className="text-sm text-gray-600 mb-4 leading-relaxed">{quiz.description || 'No description available'}</p>
+                  <p className="text-xs text-gray-500 mb-6">{quiz.questions?.length || 0} questions • 5-10 minutes</p>
                   <Button 
                     className="w-full bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] hover:from-[#0E7C9D]/90 hover:to-[#FD904B]/90 transition-all duration-200 py-3 rounded-2xl"
                     size="sm"
@@ -145,11 +151,11 @@ export function QuizManagementPage() {
           <CardContent>
             <div className="space-y-6">
               {sharedQuizzes.map((sharedQuiz) => {
-                const quiz = Object.values(quizzes).find(q => q.id === sharedQuiz.quiz_type);
+                const quiz = Object.values(quizzes).find(q => q && q.id === sharedQuiz.quiz_type);
                 return (
                   <div key={sharedQuiz.id} className="flex items-center justify-between p-6 border rounded-2xl hover:shadow-lg transition-all duration-200 bg-gradient-to-r from-green-50 to-blue-50">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-xl text-gray-800">{quiz?.title}</h3>
+                      <h3 className="font-semibold text-xl text-gray-800">{quiz?.title || 'Unknown Quiz'}</h3>
                       <p className="text-sm text-gray-600 mt-1">
                         Created: {new Date(sharedQuiz.created_at).toLocaleDateString()}
                       </p>
@@ -166,9 +172,11 @@ export function QuizManagementPage() {
                         size="sm"
                         className="transition-all duration-200 hover:scale-105 px-4 py-2 rounded-2xl"
                         onClick={() => {
-                          const shareUrl = `${window.location.origin}/quiz/${sharedQuiz.quiz_type.toLowerCase()}?key=${sharedQuiz.share_key}&doctor=${doctorId}`;
-                          navigator.clipboard.writeText(shareUrl);
-                          toast.success('Link copied to clipboard!');
+                          if (doctorId) {
+                            const shareUrl = `${window.location.origin}/quiz/${sharedQuiz.quiz_type.toLowerCase()}?key=${sharedQuiz.share_key}&doctor=${doctorId}`;
+                            navigator.clipboard.writeText(shareUrl);
+                            toast.success('Link copied to clipboard!');
+                          }
                         }}
                       >
                         <Copy className="w-4 h-4 mr-2" />
