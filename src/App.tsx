@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -8,7 +7,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import { AuthPage } from '@/components/auth/AuthPage';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
-import { Sidebar } from '@/components/dashboard/Sidebar';
+import { CollapsibleSidebar } from '@/components/dashboard/CollapsibleSidebar';
 import { TopTabs } from '@/components/dashboard/TopTabs';
 import { LeadsPage } from '@/components/dashboard/LeadsPage';
 import { AnalyticsPage } from '@/components/dashboard/AnalyticsPage';
@@ -18,7 +17,7 @@ import { SettingsPage } from '@/components/dashboard/SettingsPage';
 import { SupportPage } from '@/components/dashboard/SupportPage';
 import { ProfilePage } from '@/components/dashboard/ProfilePage';
 import { SchedulePage } from '@/components/dashboard/SchedulePage';
-import { ShareAssessmentsPage } from '@/components/dashboard/ShareAssessmentsPage';
+import { ShareQuizPage } from '@/components/dashboard/ShareQuizPage';
 import { QuizSelector } from '@/components/quiz/QuizSelector';
 import { EnhancedChatBot } from '@/components/quiz/EnhancedChatBot';
 import { SNOT22Page } from '@/components/quiz/SNOT22Page';
@@ -110,8 +109,6 @@ function DoctorPortal() {
         return <SupportPage />;
       case 'schedule':
         return <SchedulePage />;
-      case 'share':
-        return <ShareAssessmentsPage />;
       default:
         return (
           <div>
@@ -124,7 +121,7 @@ function DoctorPortal() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
+      <CollapsibleSidebar currentPage={currentPage} onPageChange={setCurrentPage} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <DashboardHeader />
         <main className="flex-1 overflow-y-auto">
@@ -202,6 +199,7 @@ function AppContent() {
         <Route path="/quiz/stop" element={<STOPPage />} />
         <Route path="/quiz/tnss" element={<TNSSPage />} />
         <Route path="/embed/quiz/:quizType" element={<EmbeddedQuiz />} />
+        <Route path="/portal/share/:quizType" element={<ShareQuizPage />} />
         <Route 
           path="/portal" 
           element={user ? <DoctorPortal /> : <Navigate to="/auth" />} 

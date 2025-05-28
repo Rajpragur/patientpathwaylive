@@ -1,5 +1,5 @@
-
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import { Share, BarChart3, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { quizzes } from '@/data/quizzes';
-import { QuizShareDialog } from '@/components/quiz/QuizShareDialog';
 
 interface SharedQuiz {
   id: string;
@@ -20,20 +19,10 @@ interface SharedQuiz {
 
 export function QuizManagementPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [sharedQuizzes, setSharedQuizzes] = useState<SharedQuiz[]>([]);
   const [loading, setLoading] = useState(true);
   const [doctorId, setDoctorId] = useState<string | null>(null);
-  const [shareDialog, setShareDialog] = useState<{
-    isOpen: boolean;
-    quizType: string;
-    quizTitle: string;
-    shareKey: string;
-  }>({
-    isOpen: false,
-    quizType: '',
-    quizTitle: '',
-    shareKey: ''
-  });
 
   useEffect(() => {
     if (user) {
@@ -98,25 +87,8 @@ export function QuizManagementPage() {
     }
   };
 
-  const generateShareKey = () => {
-    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-  };
-
   const handleShareQuiz = (quizType: string) => {
-    if (!doctorId) {
-      toast.error('Doctor profile not found');
-      return;
-    }
-
-    const shareKey = generateShareKey();
-    const quiz = Object.values(quizzes).find(q => q.id === quizType);
-    
-    setShareDialog({
-      isOpen: true,
-      quizType,
-      quizTitle: quiz?.title || '',
-      shareKey
-    });
+    navigate(`/portal/share/${quizType.toLowerCase()}`);
   };
 
   if (loading) {
@@ -210,15 +182,6 @@ export function QuizManagementPage() {
           </CardContent>
         </Card>
       )}
-
-      <QuizShareDialog
-        isOpen={shareDialog.isOpen}
-        onClose={() => setShareDialog(prev => ({ ...prev, isOpen: false }))}
-        quizType={shareDialog.quizType}
-        quizTitle={shareDialog.quizTitle}
-        shareKey={shareDialog.shareKey}
-        doctorId={doctorId || ''}
-      />
     </div>
   );
 }
