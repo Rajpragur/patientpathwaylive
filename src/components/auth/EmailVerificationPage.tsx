@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -41,13 +42,21 @@ export function EmailVerificationPage() {
           navigate('/portal');
         }, 2000);
       } catch (error: any) {
+        console.error('Email verification error:', error);
         setVerificationStatus('error');
         setErrorMessage(error.message || 'Failed to verify email');
         toast.error('Failed to verify email');
       }
     };
 
-    verifyEmail();
+    // Only verify if we have search params
+    if (searchParams.get('token')) {
+      verifyEmail();
+    } else {
+      // If no token, show waiting state
+      setVerificationStatus('loading');
+      setErrorMessage('Please check your email for the verification link');
+    }
   }, [searchParams, navigate]);
 
   return (
@@ -61,7 +70,18 @@ export function EmailVerificationPage() {
             {verificationStatus === 'loading' && (
               <>
                 <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
-                <p className="text-gray-600 text-center">Verifying your email...</p>
+                <p className="text-gray-600 text-center">
+                  {searchParams.get('token') ? 'Verifying your email...' : 'Please check your email for the verification link'}
+                </p>
+                {!searchParams.get('token') && (
+                  <Button
+                    onClick={() => navigate('/auth')}
+                    variant="outline"
+                    className="mt-4"
+                  >
+                    Back to Login
+                  </Button>
+                )}
               </>
             )}
 
@@ -90,4 +110,4 @@ export function EmailVerificationPage() {
       </Card>
     </div>
   );
-} 
+}

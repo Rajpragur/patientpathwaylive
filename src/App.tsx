@@ -14,6 +14,7 @@ import { LeadsPage } from '@/components/dashboard/LeadsPage';
 import { AnalyticsPage } from '@/components/dashboard/AnalyticsPage';
 import { TrendsPage } from '@/components/dashboard/TrendsPage';
 import { QuizManagementPage } from '@/components/dashboard/QuizManagementPage';
+import { CustomQuizCreator } from '@/components/dashboard/CustomQuizCreator';
 import { SettingsPage } from '@/components/dashboard/SettingsPage';
 import { SupportPage } from '@/components/dashboard/SupportPage';
 import { ProfilePage } from '@/components/dashboard/ProfilePage';
@@ -30,6 +31,7 @@ import { STOPPage } from '@/components/quiz/STOPPage';
 import { TNSSPage } from '@/components/quiz/TNSSPage';
 import { EmbeddedQuiz } from '@/routes/EmbeddedQuiz';
 import { QuizType } from '@/types/quiz';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 const queryClient = new QueryClient();
 
@@ -88,35 +90,53 @@ function DoctorPortal() {
   };
 
   const renderPageContent = () => {
-    switch (currentPage) {
-      case 'dashboard':
-        return (
-          <div>
-            <TopTabs currentTab={currentTab} onTabChange={setCurrentTab} />
-            {renderTabContent()}
-          </div>
-        );
-      case 'analytics':
-        return <AnalyticsPage />;
-      case 'trends':
-        return <TrendsPage />;
-      case 'quizzes':
-        return <QuizManagementPage />;
-      case 'profile':
-        return <ProfilePage />;
-      case 'settings':
-        return <SettingsPage />;
-      case 'support':
-        return <SupportPage />;
-      case 'schedule':
-        return <SchedulePage />;
-      default:
-        return (
-          <div>
-            <TopTabs currentTab={currentTab} onTabChange={setCurrentTab} />
-            {renderTabContent()}
-          </div>
-        );
+    try {
+      switch (currentPage) {
+        case 'dashboard':
+          return (
+            <div>
+              <TopTabs currentTab={currentTab} onTabChange={setCurrentTab} />
+              {renderTabContent()}
+            </div>
+          );
+        case 'analytics':
+          return <AnalyticsPage />;
+        case 'trends':
+          return <TrendsPage />;
+        case 'quizzes':
+          return <QuizManagementPage />;
+        case 'custom-quiz':
+          return <CustomQuizCreator />;
+        case 'profile':
+          return <ProfilePage />;
+        case 'settings':
+          return <SettingsPage />;
+        case 'support':
+          return <SupportPage />;
+        case 'schedule':
+          return <SchedulePage />;
+        default:
+          return (
+            <div>
+              <TopTabs currentTab={currentTab} onTabChange={setCurrentTab} />
+              {renderTabContent()}
+            </div>
+          );
+      }
+    } catch (error) {
+      console.error('Error rendering page content:', error);
+      return (
+        <div className="p-6 text-center">
+          <h2 className="text-xl font-bold text-red-600 mb-4">Page Error</h2>
+          <p className="text-gray-600 mb-4">There was an error loading this page.</p>
+          <button 
+            onClick={() => setCurrentPage('dashboard')}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg"
+          >
+            Return to Dashboard
+          </button>
+        </div>
+      );
     }
   };
 
@@ -137,6 +157,7 @@ function QuizApp() {
   const [selectedQuiz, setSelectedQuiz] = useState<{ type: QuizType; shareKey?: string } | null>(null);
 
   const handleSelectQuiz = (quizType: QuizType, shareKey?: string) => {
+    console.log('Selected quiz:', quizType, shareKey);
     setSelectedQuiz({ type: quizType, shareKey });
   };
 
@@ -189,49 +210,48 @@ function AppContent() {
   }
 
   return (
-    <BrowserRouter basename="">
-      <Routes>
-        <Route path="/quiz" element={<QuizApp />} />
-        <Route path="/quiz/snot22" element={<SNOT22Page />} />
-        <Route path="/quiz/nose" element={<NOSEPage />} />
-        <Route path="/quiz/hhia" element={<HHIAPage />} />
-        <Route path="/quiz/epworth" element={<EpworthPage />} />
-        <Route path="/quiz/dhi" element={<DHIPage />} />
-        <Route path="/quiz/stop" element={<STOPPage />} />
-        <Route path="/quiz/tnss" element={<TNSSPage />} />
-        <Route path="/embed/quiz/:quizType" element={<EmbeddedQuiz />} />
-        <Route path="/portal/share/:quizType" element={<ShareQuizPage />} />
-        <Route 
-          path="/portal" 
-          element={user ? <DoctorPortal /> : <Navigate to="/auth" />} 
-        />
-        <Route 
-          path="/auth" 
-          element={!user ? <AuthPage /> : <Navigate to="/portal" />} 
-        />
-        <Route 
-          path="/verify-email" 
-          element={<EmailVerificationPage />} 
-        />
-        <Route 
-          path="/" 
-          element={<Navigate to={user ? "/portal" : "/quiz"} />} 
-        />
-      </Routes>
-    </BrowserRouter>
+    <Routes>
+      <Route path="/quiz" element={<QuizApp />} />
+      <Route path="/quiz/snot22" element={<SNOT22Page />} />
+      <Route path="/quiz/nose" element={<NOSEPage />} />
+      <Route path="/quiz/hhia" element={<HHIAPage />} />
+      <Route path="/quiz/epworth" element={<EpworthPage />} />
+      <Route path="/quiz/dhi" element={<DHIPage />} />
+      <Route path="/quiz/stop" element={<STOPPage />} />
+      <Route path="/quiz/tnss" element={<TNSSPage />} />
+      <Route path="/embed/quiz/:quizType" element={<EmbeddedQuiz />} />
+      <Route path="/portal/share/:quizType" element={<ShareQuizPage />} />
+      <Route path="/verify-email" element={<EmailVerificationPage />} />
+      <Route 
+        path="/portal" 
+        element={user ? <DoctorPortal /> : <Navigate to="/auth" />} 
+      />
+      <Route 
+        path="/auth" 
+        element={!user ? <AuthPage /> : <Navigate to="/portal" />} 
+      />
+      <Route 
+        path="/" 
+        element={<Navigate to={user ? "/portal" : "/quiz"} />} 
+      />
+    </Routes>
   );
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <AppContent />
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter basename="">
+        <AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <AppContent />
+          </TooltipProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

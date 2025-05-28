@@ -23,11 +23,34 @@ export function QuizSelector({ onSelectQuiz }: QuizSelectorProps) {
     setMode(pageMode);
     
     // If we have a specific quiz type from URL parameters, auto-select it
-    if (quizType && quizzes[quizType] && (shareKey || doctorId)) {
+    if (quizType && quizzes && quizzes[quizType] && (shareKey || doctorId)) {
       onSelectQuiz(quizType, shareKey || undefined);
       return;
     }
   }, [searchParams, onSelectQuiz]);
+
+  // Check if quizzes data is available
+  if (!quizzes || typeof quizzes !== 'object') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 py-12 flex items-center justify-center">
+        <Card className="max-w-md shadow-2xl border-0">
+          <CardContent className="p-8 text-center">
+            <div className="text-6xl mb-6">⚠️</div>
+            <h1 className="text-2xl font-bold text-red-600 mb-4">Loading Error</h1>
+            <p className="text-gray-600 leading-relaxed">
+              Unable to load quiz data. Please refresh the page or contact support.
+            </p>
+            <Button 
+              className="mt-6 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl transition-all duration-200 hover:scale-105"
+              onClick={() => window.location.reload()}
+            >
+              Refresh Page
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // If in single mode but no valid quiz, show error
   if (mode === 'single' || mode === 'embed') {
@@ -52,6 +75,32 @@ export function QuizSelector({ onSelectQuiz }: QuizSelectorProps) {
     );
   }
 
+  // Filter valid quizzes
+  const validQuizzes = Object.values(quizzes).filter(quiz => 
+    quiz && 
+    typeof quiz === 'object' && 
+    quiz.id && 
+    quiz.title && 
+    quiz.description &&
+    Array.isArray(quiz.questions)
+  );
+
+  if (validQuizzes.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 py-12 flex items-center justify-center">
+        <Card className="max-w-md shadow-2xl border-0">
+          <CardContent className="p-8 text-center">
+            <div className="text-6xl mb-6">📋</div>
+            <h1 className="text-2xl font-bold text-gray-800 mb-4">No Assessments Available</h1>
+            <p className="text-gray-600 leading-relaxed">
+              No medical assessments are currently available. Please check back later.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 py-12">
       <div className="max-w-7xl mx-auto px-6">
@@ -67,7 +116,7 @@ export function QuizSelector({ onSelectQuiz }: QuizSelectorProps) {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-          {Object.values(quizzes).map((quiz, index) => (
+          {validQuizzes.map((quiz, index) => (
             <Card 
               key={quiz.id} 
               className="hover:shadow-2xl transition-all duration-500 cursor-pointer border-2 border-transparent hover:border-blue-300 transform hover:scale-105 bg-white overflow-hidden animate-fade-in"
@@ -80,7 +129,7 @@ export function QuizSelector({ onSelectQuiz }: QuizSelectorProps) {
                 <p className="text-gray-600 mb-6 text-base leading-relaxed min-h-[60px]">{quiz.description}</p>
                 <div className="flex items-center justify-between mb-8">
                   <div className="bg-gray-100 px-4 py-2 rounded-full">
-                    <span className="text-sm text-gray-600 font-medium">{quiz.questions.length} questions</span>
+                    <span className="text-sm text-gray-600 font-medium">{quiz.questions?.length || 0} questions</span>
                   </div>
                   <div className="bg-blue-100 px-4 py-2 rounded-full">
                     <span className="text-sm text-blue-600 font-medium">5-10 minutes</span>
