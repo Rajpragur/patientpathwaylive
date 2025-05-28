@@ -8,9 +8,10 @@ import { toast } from 'sonner';
 
 interface SignUpFormProps {
   onToggleMode: () => void;
+  onSignUpSuccess: (email: string) => void;
 }
 
-export function SignUpForm({ onToggleMode }: SignUpFormProps) {
+export function SignUpForm({ onToggleMode, onSignUpSuccess }: SignUpFormProps) {
   const { signUp } = useAuth();
   const [formData, setFormData] = useState({
     firstName: '',
@@ -38,11 +39,10 @@ export function SignUpForm({ onToggleMode }: SignUpFormProps) {
     
     if (error) {
       toast.error(error.message);
+      setLoading(false);
     } else {
-      toast.success('Account created successfully! Please check your email to verify your account.');
+      onSignUpSuccess(formData.email);
     }
-    
-    setLoading(false);
   };
 
   const handleChange = (field: string, value: string) => {
@@ -50,9 +50,11 @@ export function SignUpForm({ onToggleMode }: SignUpFormProps) {
   };
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md shadow-xl border-0 bg-white/90 backdrop-blur">
       <CardHeader>
-        <CardTitle className="text-2xl text-center text-blue-600">Join Patient Pathway</CardTitle>
+        <CardTitle className="text-2xl text-center bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+          Join Patient Pathway
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -62,14 +64,14 @@ export function SignUpForm({ onToggleMode }: SignUpFormProps) {
               value={formData.firstName}
               onChange={(e) => handleChange('firstName', e.target.value)}
               required
-              className="rounded-full"
+              className="rounded-full border-gray-200 focus:border-blue-500 focus:ring-blue-200"
             />
             <Input
               placeholder="Last Name"
               value={formData.lastName}
               onChange={(e) => handleChange('lastName', e.target.value)}
               required
-              className="rounded-full"
+              className="rounded-full border-gray-200 focus:border-blue-500 focus:ring-blue-200"
             />
           </div>
           <div>
@@ -79,7 +81,7 @@ export function SignUpForm({ onToggleMode }: SignUpFormProps) {
               value={formData.email}
               onChange={(e) => handleChange('email', e.target.value)}
               required
-              className="rounded-full"
+              className="rounded-full border-gray-200 focus:border-blue-500 focus:ring-blue-200"
             />
           </div>
           <div>
@@ -89,7 +91,7 @@ export function SignUpForm({ onToggleMode }: SignUpFormProps) {
               value={formData.password}
               onChange={(e) => handleChange('password', e.target.value)}
               required
-              className="rounded-full"
+              className="rounded-full border-gray-200 focus:border-blue-500 focus:ring-blue-200"
             />
           </div>
           <div>
@@ -99,12 +101,12 @@ export function SignUpForm({ onToggleMode }: SignUpFormProps) {
               value={formData.confirmPassword}
               onChange={(e) => handleChange('confirmPassword', e.target.value)}
               required
-              className="rounded-full"
+              className="rounded-full border-gray-200 focus:border-blue-500 focus:ring-blue-200"
             />
           </div>
           <Button 
             type="submit" 
-            className="w-full rounded-full bg-blue-600 hover:bg-blue-700"
+            className="w-full rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium py-2.5"
             disabled={loading}
           >
             {loading ? 'Creating Account...' : 'Create Account'}
@@ -115,7 +117,7 @@ export function SignUpForm({ onToggleMode }: SignUpFormProps) {
             Already have an account?{' '}
             <button
               onClick={onToggleMode}
-              className="text-blue-600 hover:underline"
+              className="text-blue-600 hover:underline font-medium"
             >
               Sign in here
             </button>

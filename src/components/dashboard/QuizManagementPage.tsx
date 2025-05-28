@@ -5,10 +5,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Copy, Share, BarChart3, Globe, Code, MessageCircle, Printer, Mail, MessageSquare, QrCode } from 'lucide-react';
+import { Share, BarChart3, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { quizzes } from '@/data/quizzes';
+import { QuizShareDialog } from '@/components/quiz/QuizShareDialog';
 
 interface SharedQuiz {
   id: string;
@@ -23,6 +23,17 @@ export function QuizManagementPage() {
   const [sharedQuizzes, setSharedQuizzes] = useState<SharedQuiz[]>([]);
   const [loading, setLoading] = useState(true);
   const [doctorId, setDoctorId] = useState<string | null>(null);
+  const [shareDialog, setShareDialog] = useState<{
+    isOpen: boolean;
+    quizType: string;
+    quizTitle: string;
+    shareKey: string;
+  }>({
+    isOpen: false,
+    quizType: '',
+    quizTitle: '',
+    shareKey: ''
+  });
 
   useEffect(() => {
     if (user) {
@@ -56,7 +67,6 @@ export function QuizManagementPage() {
         .single();
 
       if (doctorProfile) {
-        // Only get leads that have actual user details (name and email)
         const { data: leads } = await supabase
           .from('quiz_leads')
           .select('quiz_type, share_key, created_at')
@@ -92,174 +102,22 @@ export function QuizManagementPage() {
     return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   };
 
-  const handleShareOption = async (quizType: string, option: string) => {
+  const handleShareQuiz = (quizType: string) => {
     if (!doctorId) {
       toast.error('Doctor profile not found');
       return;
     }
 
     const shareKey = generateShareKey();
-    const baseUrl = window.location.origin;
+    const quiz = Object.values(quizzes).find(q => q.id === quizType);
     
-    if (option === 'qr-code') {
-      const shareUrl = `${baseUrl}/quiz/${quizType.toLowerCase()}?key=${shareKey}&doctor=${doctorId}`;
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(shareUrl)}`;
-      window.open(qrUrl, '_blank');
-      return;
-    }
-
-    if (option === 'facebook') {
-      const shareUrl = `${baseUrl}/quiz/${quizType.toLowerCase()}?key=${shareKey}&doctor=${doctorId}`;
-      const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
-      window.open(facebookUrl, '_blank');
-      return;
-    }
-
-    if (option === 'email') {
-      const shareUrl = `${baseUrl}/quiz/${quizType.toLowerCase()}?key=${shareKey}&doctor=${doctorId}`;
-      const emailSubject = `Take the ${quizzes[quizType as keyof typeof quizzes]?.title} Assessment`;
-      const emailBody = `Hi there,
-
-I'd like you to take this important medical assessment that will help evaluate your symptoms and provide valuable insights for your healthcare.
-
-Assessment: ${quizzes[quizType as keyof typeof quizzes]?.title}
-Time Required: 5-10 minutes
-Results: Instant and personalized
-
-Please click the link below to begin:
-${shareUrl}
-
-This assessment is confidential and your results will be reviewed by our medical team.
-
-Best regards`;
-      window.location.href = `mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
-      return;
-    }
-
-    if (option === 'sms') {
-      const shareUrl = `${baseUrl}/quiz/${quizType.toLowerCase()}?key=${shareKey}&doctor=${doctorId}`;
-      const smsBody = `Please take this ${quizzes[quizType as keyof typeof quizzes]?.title} assessment: ${shareUrl}`;
-      window.location.href = `sms:?body=${encodeURIComponent(smsBody)}`;
-      return;
-    }
-
-    if (option === 'print') {
-      const shareUrl = `${baseUrl}/quiz/${quizType.toLowerCase()}?key=${shareKey}&doctor=${doctorId}`;
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(`
-          <html>
-            <head><title>Quiz Assessment Link</title></head>
-            <body style="font-family: Arial, sans-serif; padding: 20px;">
-              <h1>${quizzes[quizType as keyof typeof quizzes]?.title} Assessment</h1>
-              <p>Scan the QR code or visit the link below to take this assessment:</p>
-              <p style="font-size: 14px; word-break: break-all;">${shareUrl}</p>
-              <div style="margin-top: 20px;">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shareUrl)}" alt="QR Code" />
-              </div>
-            </body>
-          </html>
-        `);
-        printWindow.document.close();
-        printWindow.print();
-      }
-      return;
-    }
-
-    if (option === 'embed') {
-      const embedCode = `<iframe src="${baseUrl}/quiz?type=${quizType}&key=${shareKey}&doctor=${doctorId}&mode=embed" width="100%" height="600" frameborder="0"></iframe>`;
-      await navigator.clipboard.writeText(embedCode);
-      toast.success('Embed code copied to clipboard!');
-      return;
-    }
-
-    // Default: copy link
-    const shareLink = `${baseUrl}/quiz/${quizType.toLowerCase()}?key=${shareKey}&doctor=${doctorId}`;
-    await navigator.clipboard.writeText(shareLink);
-    toast.success('Link copied to clipboard!');
+    setShareDialog({
+      isOpen: true,
+      quizType,
+      quizTitle: quiz?.title || '',
+      shareKey
+    });
   };
-
-  const ShareOptionsDialog = ({ quizType }: { quizType: string }) => (
-    <DialogContent className="max-w-2xl">
-      <DialogHeader>
-        <DialogTitle className="text-2xl">Share {quizzes[quizType as keyof typeof quizzes]?.title}</DialogTitle>
-      </DialogHeader>
-      <div className="grid grid-cols-2 gap-4">
-        <Button
-          variant="outline"
-          className="h-24 flex flex-col gap-2 transition-all duration-200 hover:scale-105 hover:shadow-lg rounded-2xl"
-          onClick={() => handleShareOption(quizType, 'new-page')}
-        >
-          <Globe className="w-8 h-8 text-blue-600" />
-          <span className="text-sm font-semibold">New Page</span>
-          <span className="text-xs text-gray-500">Dedicated assessment page</span>
-        </Button>
-        <Button
-          variant="outline"
-          className="h-24 flex flex-col gap-2 transition-all duration-200 hover:scale-105 hover:shadow-lg rounded-2xl"
-          onClick={() => handleShareOption(quizType, 'embed')}
-        >
-          <Code className="w-8 h-8 text-green-600" />
-          <span className="text-sm font-semibold">Embed Code</span>
-          <span className="text-xs text-gray-500">Add to your website</span>
-        </Button>
-        <Button
-          variant="outline"
-          className="h-24 flex flex-col gap-2 transition-all duration-200 hover:scale-105 hover:shadow-lg rounded-2xl"
-          onClick={() => handleShareOption(quizType, 'chat-embed')}
-        >
-          <MessageCircle className="w-8 h-8 text-purple-600" />
-          <span className="text-sm font-semibold">Chat Widget</span>
-          <span className="text-xs text-gray-500">Interactive chat bot</span>
-        </Button>
-        <Button
-          variant="outline"
-          className="h-24 flex flex-col gap-2 transition-all duration-200 hover:scale-105 hover:shadow-lg rounded-2xl"
-          onClick={() => handleShareOption(quizType, 'print')}
-        >
-          <Printer className="w-8 h-8 text-gray-600" />
-          <span className="text-sm font-semibold">Print</span>
-          <span className="text-xs text-gray-500">Printable version</span>
-        </Button>
-        <Button
-          variant="outline"
-          className="h-24 flex flex-col gap-2 transition-all duration-200 hover:scale-105 hover:shadow-lg rounded-2xl"
-          onClick={() => handleShareOption(quizType, 'facebook')}
-        >
-          <Share className="w-8 h-8 text-blue-700" />
-          <span className="text-sm font-semibold">Facebook</span>
-          <span className="text-xs text-gray-500">Share on social media</span>
-        </Button>
-        <Button
-          variant="outline"
-          className="h-24 flex flex-col gap-2 transition-all duration-200 hover:scale-105 hover:shadow-lg rounded-2xl"
-          onClick={() => handleShareOption(quizType, 'qr-code')}
-        >
-          <QrCode className="w-8 h-8 text-indigo-600" />
-          <span className="text-sm font-semibold">QR Code</span>
-          <span className="text-xs text-gray-500">Generate QR code</span>
-        </Button>
-        <Button
-          variant="outline"
-          className="h-24 flex flex-col gap-2 transition-all duration-200 hover:scale-105 hover:shadow-lg rounded-2xl"
-          onClick={() => handleShareOption(quizType, 'email')}
-        >
-          <Mail className="w-8 h-8 text-red-600" />
-          <span className="text-sm font-semibold">Email</span>
-          <span className="text-xs text-gray-500">Send via email</span>
-        </Button>
-        <Button
-          variant="outline"
-          className="h-24 flex flex-col gap-2 transition-all duration-200 hover:scale-105 hover:shadow-lg rounded-2xl"
-          onClick={() => handleShareOption(quizType, 'sms')}
-        >
-          <MessageSquare className="w-8 h-8 text-green-700" />
-          <span className="text-sm font-semibold">Text/SMS</span>
-          <span className="text-xs text-gray-500">Send via text message</span>
-        </Button>
-      </div>
-    </DialogContent>
-  );
 
   if (loading) {
     return <div className="p-6">Loading quiz management...</div>;
@@ -284,27 +142,23 @@ Best regards`;
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {Object.values(quizzes).map((quiz) => (
-              <Dialog key={quiz.id}>
-                <DialogTrigger asChild>
-                  <Card className="border-2 border-blue-200 hover:border-[#0E7C9D] transition-all duration-300 hover:scale-105 cursor-pointer shadow-lg hover:shadow-2xl bg-white rounded-3xl">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-xl text-[#0E7C9D]">{quiz.title}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-gray-600 mb-4 leading-relaxed">{quiz.description}</p>
-                      <p className="text-xs text-gray-500 mb-6">{quiz.questions.length} questions • 5-10 minutes</p>
-                      <Button 
-                        className="w-full bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] hover:from-[#0E7C9D]/90 hover:to-[#FD904B]/90 transition-all duration-200 py-3 rounded-2xl"
-                        size="sm"
-                      >
-                        <Share className="w-4 h-4 mr-2" />
-                        Share Assessment
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </DialogTrigger>
-                <ShareOptionsDialog quizType={quiz.id} />
-              </Dialog>
+              <Card key={quiz.id} className="border-2 border-blue-200 hover:border-[#0E7C9D] transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-2xl bg-white rounded-3xl">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-xl text-[#0E7C9D]">{quiz.title}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600 mb-4 leading-relaxed">{quiz.description}</p>
+                  <p className="text-xs text-gray-500 mb-6">{quiz.questions.length} questions • 5-10 minutes</p>
+                  <Button 
+                    className="w-full bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] hover:from-[#0E7C9D]/90 hover:to-[#FD904B]/90 transition-all duration-200 py-3 rounded-2xl"
+                    size="sm"
+                    onClick={() => handleShareQuiz(quiz.id)}
+                  >
+                    <Share className="w-4 h-4 mr-2" />
+                    Share Assessment
+                  </Button>
+                </CardContent>
+              </Card>
             ))}
           </div>
         </CardContent>
@@ -356,6 +210,15 @@ Best regards`;
           </CardContent>
         </Card>
       )}
+
+      <QuizShareDialog
+        isOpen={shareDialog.isOpen}
+        onClose={() => setShareDialog(prev => ({ ...prev, isOpen: false }))}
+        quizType={shareDialog.quizType}
+        quizTitle={shareDialog.quizTitle}
+        shareKey={shareDialog.shareKey}
+        doctorId={doctorId || ''}
+      />
     </div>
   );
 }

@@ -32,9 +32,11 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
   };
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md shadow-xl border-0 bg-white/90 backdrop-blur">
       <CardHeader>
-        <CardTitle className="text-2xl text-center text-blue-600">Login to Patient Pathway</CardTitle>
+        <CardTitle className="text-2xl text-center bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+          Login to Patient Pathway
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -45,7 +47,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="rounded-full"
+              className="rounded-full border-gray-200 focus:border-blue-500 focus:ring-blue-200"
             />
           </div>
           <div>
@@ -55,12 +57,12 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="rounded-full"
+              className="rounded-full border-gray-200 focus:border-blue-500 focus:ring-blue-200"
             />
           </div>
           <Button 
             type="submit" 
-            className="w-full rounded-full bg-blue-600 hover:bg-blue-700"
+            className="w-full rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium py-2.5"
             disabled={loading}
           >
             {loading ? 'Signing in...' : 'Sign In'}
@@ -71,7 +73,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
             Don't have an account?{' '}
             <button
               onClick={onToggleMode}
-              className="text-blue-600 hover:underline"
+              className="text-blue-600 hover:underline font-medium"
             >
               Sign up here
             </button>

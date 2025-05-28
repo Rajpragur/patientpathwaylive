@@ -27,6 +27,7 @@ import { EpworthPage } from '@/components/quiz/EpworthPage';
 import { DHIPage } from '@/components/quiz/DHIPage';
 import { STOPPage } from '@/components/quiz/STOPPage';
 import { TNSSPage } from '@/components/quiz/TNSSPage';
+import { EmbeddedQuiz } from '@/routes/EmbeddedQuiz';
 import { QuizType } from '@/types/quiz';
 
 const queryClient = new QueryClient();
@@ -153,6 +154,12 @@ function QuizApp() {
               <h1 className="text-lg font-semibold text-slate-700">
                 {selectedQuiz.type} Assessment
               </h1>
+              <button
+                onClick={() => window.location.href = '/portal'}
+                className="text-blue-500 hover:text-blue-600 hover:underline transition-colors flex items-center gap-2"
+              >
+                🏠 Home
+              </button>
             </div>
           </div>
           <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
@@ -196,6 +203,7 @@ function AppContent() {
         <Route path="/quiz/dhi" element={<DHIPage />} />
         <Route path="/quiz/stop" element={<STOPPage />} />
         <Route path="/quiz/tnss" element={<TNSSPage />} />
+        <Route path="/embed/quiz/:quizType" element={<EmbeddedQuiz />} />
         <Route 
           path="/portal" 
           element={user ? <DoctorPortal /> : <Navigate to="/auth" />} 
