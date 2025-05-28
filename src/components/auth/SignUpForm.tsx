@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -32,16 +31,21 @@ export function SignUpForm({ onToggleMode, onSignUpSuccess }: SignUpFormProps) {
 
     setLoading(true);
 
-    const { error } = await signUp(formData.email, formData.password, {
-      first_name: formData.firstName,
-      last_name: formData.lastName
-    });
-    
-    if (error) {
-      toast.error(error.message);
+    try {
+      const { error } = await signUp(formData.email, formData.password, {
+        first_name: formData.firstName,
+        last_name: formData.lastName
+      });
+      
+      if (error) {
+        toast.error(error.message);
+      } else {
+        onSignUpSuccess(formData.email);
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'An error occurred during sign up');
+    } finally {
       setLoading(false);
-    } else {
-      onSignUpSuccess(formData.email);
     }
   };
 
