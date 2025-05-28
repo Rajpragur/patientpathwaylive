@@ -6,6 +6,7 @@ import { Toaster as Sonner } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import { AuthPage } from '@/components/auth/AuthPage';
+import { EmailVerificationPage } from '@/components/auth/EmailVerificationPage';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { CollapsibleSidebar } from '@/components/dashboard/CollapsibleSidebar';
 import { TopTabs } from '@/components/dashboard/TopTabs';
@@ -207,6 +208,10 @@ function AppContent() {
         <Route 
           path="/auth" 
           element={!user ? <AuthPage /> : <Navigate to="/portal" />} 
+        />
+        <Route 
+          path="/verify-email" 
+          element={<EmailVerificationPage />} 
         />
         <Route 
           path="/" 
