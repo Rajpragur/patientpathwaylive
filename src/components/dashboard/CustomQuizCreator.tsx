@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -43,7 +42,9 @@ interface CustomQuiz {
 export function CustomQuizCreator() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { id } = useParams();
   const [doctorId, setDoctorId] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [quiz, setQuiz] = useState<CustomQuiz>({
     title: '',
     description: '',
@@ -72,6 +73,13 @@ export function CustomQuizCreator() {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (id && doctorId) {
+      setIsEditing(true);
+      fetchQuiz();
+    }
+  }, [id, doctorId]);
+
   const fetchDoctorProfile = async () => {
     try {
       const { data: doctorProfile } = await supabase
@@ -85,6 +93,39 @@ export function CustomQuizCreator() {
       }
     } catch (error) {
       console.error('Error fetching doctor profile:', error);
+    }
+  };
+
+  const fetchQuiz = async () => {
+    try {
+      const { data: quizData, error } = await supabase
+        .from('custom_quizzes')
+        .select('*')
+        .eq('id', id)
+        .eq('doctor_id', doctorId)
+        .single();
+
+      if (error) throw error;
+
+      if (quizData) {
+        setQuiz({
+          id: quizData.id,
+          title: quizData.title,
+          description: quizData.description,
+          instructions: quizData.instructions || '',
+          questions: Array.isArray(quizData.questions) ? quizData.questions as CustomQuestion[] : [],
+          scoring: typeof quizData.scoring === 'object' ? quizData.scoring as any : {
+            mild_threshold: 25,
+            moderate_threshold: 50,
+            severe_threshold: 75
+          },
+          category: quizData.category || 'custom',
+          doctor_id: quizData.doctor_id
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching quiz:', error);
+      toast.error('Failed to load quiz');
     }
   };
 
@@ -243,20 +284,31 @@ export function CustomQuizCreator() {
         title: quiz.title,
         description: quiz.description,
         instructions: quiz.instructions,
-        questions: quiz.questions,
-        scoring: quiz.scoring,
+        questions: quiz.questions as any,
+        scoring: quiz.scoring as any,
         category: quiz.category,
         doctor_id: doctorId,
         max_score: maxScore
       };
 
-      const { error } = await supabase
-        .from('custom_quizzes')
-        .insert([quizData]);
+      if (isEditing && quiz.id) {
+        const { error } = await supabase
+          .from('custom_quizzes')
+          .update(quizData)
+          .eq('id', quiz.id)
+          .eq('doctor_id', doctorId);
 
-      if (error) throw error;
+        if (error) throw error;
+        toast.success('Custom quiz updated successfully!');
+      } else {
+        const { error } = await supabase
+          .from('custom_quizzes')
+          .insert([quizData]);
 
-      toast.success('Custom quiz saved successfully!');
+        if (error) throw error;
+        toast.success('Custom quiz saved successfully!');
+      }
+
       navigate('/portal');
       
     } catch (error) {
@@ -297,7 +349,9 @@ export function CustomQuizCreator() {
             Back to Portal
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Create Custom Assessment</h1>
+            <h1 className="text-3xl font-bold text-gray-900">
+              {isEditing ? 'Edit Custom Assessment' : 'Create Custom Assessment'}
+            </h1>
             <p className="text-gray-600 mt-2">Build your own medical assessment questionnaire</p>
           </div>
         </div>
@@ -308,7 +362,7 @@ export function CustomQuizCreator() {
           </Button>
           <Button onClick={saveQuiz} disabled={loading} className="bg-[#0E7C9D] hover:bg-[#0E7C9D]/90">
             <Save className="w-4 h-4 mr-2" />
-            {loading ? 'Saving...' : 'Save Quiz'}
+            {loading ? 'Saving...' : isEditing ? 'Update Quiz' : 'Save Quiz'}
           </Button>
         </div>
       </div>

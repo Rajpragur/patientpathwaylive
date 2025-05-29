@@ -114,7 +114,17 @@ export function QuizManagementPage() {
           .eq('doctor_id', doctorProfile.id)
           .order('created_at', { ascending: false });
 
-        setCustomQuizzes(customQuizData || []);
+        if (customQuizData) {
+          const transformedQuizzes = customQuizData.map(quiz => ({
+            id: quiz.id,
+            title: quiz.title,
+            description: quiz.description,
+            questions: Array.isArray(quiz.questions) ? quiz.questions : [],
+            created_at: quiz.created_at,
+            max_score: quiz.max_score || 0
+          }));
+          setCustomQuizzes(transformedQuizzes);
+        }
       }
     } catch (error) {
       console.error('Error fetching custom quizzes:', error);
@@ -226,7 +236,7 @@ export function QuizManagementPage() {
             ))}
           </div>
         </CardContent>
-      </Card>
+      )}
 
       {/* Shared Quizzes */}
       {sharedQuizzes.length > 0 && (

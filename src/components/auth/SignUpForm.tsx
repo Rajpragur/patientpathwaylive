@@ -10,9 +10,10 @@ import { toast } from 'sonner';
 
 interface SignUpFormProps {
   onToggleMode: () => void;
+  onSignUpSuccess?: (email: string) => void;
 }
 
-export function SignUpForm({ onToggleMode }: SignUpFormProps) {
+export function SignUpForm({ onToggleMode, onSignUpSuccess }: SignUpFormProps) {
   const { signUp } = useAuth();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -35,6 +36,9 @@ export function SignUpForm({ onToggleMode }: SignUpFormProps) {
         toast.error(error.message || 'Sign up failed');
       } else {
         toast.success('Please check your email to verify your account');
+        if (onSignUpSuccess) {
+          onSignUpSuccess(email);
+        }
       }
     } catch (error: any) {
       toast.error('An unexpected error occurred');
