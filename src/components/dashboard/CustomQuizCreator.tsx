@@ -113,7 +113,7 @@ export function CustomQuizCreator() {
           title: quizData.title,
           description: quizData.description,
           instructions: quizData.instructions || '',
-          questions: Array.isArray(quizData.questions) ? quizData.questions as CustomQuestion[] : [],
+          questions: Array.isArray(quizData.questions) ? (quizData.questions as unknown as CustomQuestion[]) : [],
           scoring: typeof quizData.scoring === 'object' ? quizData.scoring as any : {
             mild_threshold: 25,
             moderate_threshold: 50,

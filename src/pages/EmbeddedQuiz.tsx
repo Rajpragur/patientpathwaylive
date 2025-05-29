@@ -1,4 +1,4 @@
 
-import EmbeddedQuiz from '@/routes/EmbeddedQuiz';
+import { EmbeddedQuiz } from '@/routes/EmbeddedQuiz';
 
 export default EmbeddedQuiz;
