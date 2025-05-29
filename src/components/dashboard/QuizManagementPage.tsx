@@ -236,7 +236,7 @@ export function QuizManagementPage() {
             ))}
           </div>
         </CardContent>
-      )}
+      </Card>
 
       {/* Shared Quizzes */}
       {sharedQuizzes.length > 0 && (
