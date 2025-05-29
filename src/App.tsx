@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth';
@@ -19,8 +20,8 @@ import { ShareQuizPage } from './components/dashboard/ShareQuizPage';
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
+    <Router>
+      <AuthProvider>
         <div className="min-h-screen bg-gray-50">
           <Routes>
             <Route path="/" element={<Index />} />
@@ -47,8 +48,8 @@ function App() {
             <Route path="*" element={<NotFound />} />
           </Routes>
         </div>
-      </Router>
-    </AuthProvider>
+      </AuthProvider>
+    </Router>
   );
 }
 
