@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Share, BarChart3, Copy } from 'lucide-react';
+import { Share, BarChart3, Copy, Plus, Edit } from 'lucide-react';
 import { toast } from 'sonner';
 import { quizzes } from '@/data/quizzes';
 
@@ -18,10 +18,20 @@ interface SharedQuiz {
   total_responses: number;
 }
 
+interface CustomQuiz {
+  id: string;
+  title: string;
+  description: string;
+  questions: any[];
+  created_at: string;
+  max_score: number;
+}
+
 export function QuizManagementPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [sharedQuizzes, setSharedQuizzes] = useState<SharedQuiz[]>([]);
+  const [customQuizzes, setCustomQuizzes] = useState<CustomQuiz[]>([]);
   const [loading, setLoading] = useState(true);
   const [doctorId, setDoctorId] = useState<string | null>(null);
 
@@ -29,6 +39,7 @@ export function QuizManagementPage() {
     if (user) {
       fetchDoctorProfile();
       fetchSharedQuizzes();
+      fetchCustomQuizzes();
     }
   }, [user]);
 
@@ -88,8 +99,34 @@ export function QuizManagementPage() {
     }
   };
 
+  const fetchCustomQuizzes = async () => {
+    try {
+      const { data: doctorProfile } = await supabase
+        .from('doctor_profiles')
+        .select('id')
+        .eq('user_id', user?.id)
+        .single();
+
+      if (doctorProfile) {
+        const { data: customQuizData } = await supabase
+          .from('custom_quizzes')
+          .select('*')
+          .eq('doctor_id', doctorProfile.id)
+          .order('created_at', { ascending: false });
+
+        setCustomQuizzes(customQuizData || []);
+      }
+    } catch (error) {
+      console.error('Error fetching custom quizzes:', error);
+    }
+  };
+
   const handleShareQuiz = (quizType: string) => {
     navigate(`/portal/share/${quizType.toLowerCase()}`);
+  };
+
+  const handleShareCustomQuiz = (customQuizId: string) => {
+    navigate(`/portal/share/custom/${customQuizId}`);
   };
 
   if (loading) {
@@ -110,12 +147,61 @@ export function QuizManagementPage() {
           </h1>
           <p className="text-gray-600 mt-3 text-lg">Create and share medical assessments with patients</p>
         </div>
+        <Button 
+          onClick={() => navigate('/portal/create-quiz')}
+          className="bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] hover:from-[#0E7C9D]/90 hover:to-[#FD904B]/90"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Create Custom Quiz
+        </Button>
       </div>
 
-      {/* Available Quizzes */}
+      {/* Custom Quizzes */}
+      {customQuizzes.length > 0 && (
+        <Card className="shadow-xl border-0 bg-gradient-to-br from-white to-purple-50 rounded-3xl">
+          <CardHeader>
+            <CardTitle className="text-2xl text-purple-700">Your Custom Assessments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {customQuizzes.map((quiz) => (
+                <Card key={quiz.id} className="border-2 border-purple-200 hover:border-purple-500 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-2xl bg-white rounded-3xl">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-xl text-purple-700">{quiz.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-gray-600 mb-4 leading-relaxed">{quiz.description}</p>
+                    <p className="text-xs text-gray-500 mb-6">{quiz.questions?.length || 0} questions • Max Score: {quiz.max_score}</p>
+                    <div className="flex gap-2">
+                      <Button 
+                        className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 transition-all duration-200 py-3 rounded-2xl"
+                        size="sm"
+                        onClick={() => handleShareCustomQuiz(quiz.id)}
+                      >
+                        <Share className="w-4 h-4 mr-2" />
+                        Share
+                      </Button>
+                      <Button 
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/portal/edit-quiz/${quiz.id}`)}
+                        className="rounded-2xl"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Available Standard Quizzes */}
       <Card className="shadow-xl border-0 bg-gradient-to-br from-white to-blue-50 rounded-3xl">
         <CardHeader>
-          <CardTitle className="text-2xl text-[#0E7C9D]">Available Medical Assessments</CardTitle>
+          <CardTitle className="text-2xl text-[#0E7C9D]">Standard Medical Assessments</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">

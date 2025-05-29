@@ -1,9 +1,11 @@
 
 import { useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { Mail, Lock, Chrome } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface LoginFormProps {
@@ -20,64 +22,114 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await signIn(email, password);
-    
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success('Welcome to Patient Pathway!');
+    try {
+      const { error } = await signIn(email, password);
+      if (error) {
+        toast.error(error.message || 'Login failed');
+      }
+    } catch (error: any) {
+      toast.error('An unexpected error occurred');
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
+  };
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/portal`
+        }
+      });
+      
+      if (error) {
+        toast.error(error.message || 'Google sign-in failed');
+      }
+    } catch (error: any) {
+      toast.error('An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <Card className="w-full max-w-md shadow-xl border-0 bg-white/90 backdrop-blur">
-      <CardHeader>
-        <CardTitle className="text-2xl text-center bg-gradient-to-r from-[#FF6B35] to-[#0E7C9D] bg-clip-text text-transparent">
-          Login to Patient Pathway
-        </CardTitle>
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader className="space-y-1">
+        <CardTitle className="text-2xl font-bold text-center">Welcome back</CardTitle>
+        <CardDescription className="text-center">
+          Sign in to your account to continue
+        </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        <Button 
+          variant="outline" 
+          className="w-full" 
+          onClick={handleGoogleSignIn}
+          disabled={loading}
+        >
+          <Chrome className="w-4 h-4 mr-2" />
+          Continue with Google
+        </Button>
+        
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">
+              Or continue with email
+            </span>
+          </div>
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="rounded-full border-gray-200 focus:border-[#0E7C9D] focus:ring-[#0E7C9D]/20"
-            />
+          <div className="space-y-2">
+            <div className="relative">
+              <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Input
+                type="email"
+                placeholder="Email address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="pl-10"
+                required
+              />
+            </div>
           </div>
-          <div>
-            <Input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="rounded-full border-gray-200 focus:border-[#0E7C9D] focus:ring-[#0E7C9D]/20"
-            />
+          
+          <div className="space-y-2">
+            <div className="relative">
+              <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="pl-10"
+                required
+              />
+            </div>
           </div>
+
           <Button 
             type="submit" 
-            className="w-full rounded-full bg-gradient-to-r from-[#FF6B35] to-[#0E7C9D] hover:from-[#FF6B35]/90 hover:to-[#0E7C9D]/90 text-white font-medium py-2.5"
+            className="w-full bg-[#0E7C9D] hover:bg-[#0E7C9D]/90" 
             disabled={loading}
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Signing in...' : 'Sign in'}
           </Button>
         </form>
-        <div className="mt-4 text-center">
-          <p className="text-sm text-gray-600">
-            Don't have an account?{' '}
-            <button
-              onClick={onToggleMode}
-              className="text-[#0E7C9D] hover:underline font-medium"
-            >
-              Sign up here
-            </button>
-          </p>
+
+        <div className="text-center text-sm">
+          <span className="text-gray-600">Don't have an account? </span>
+          <button
+            onClick={onToggleMode}
+            className="text-[#0E7C9D] hover:underline font-medium"
+          >
+            Sign up
+          </button>
         </div>
       </CardContent>
     </Card>

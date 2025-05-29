@@ -1,257 +1,55 @@
-import { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Toaster } from '@/components/ui/toaster';
-import { Toaster as Sonner } from '@/components/ui/sonner';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import { AuthProvider, useAuth } from '@/hooks/useAuth';
-import { AuthPage } from '@/components/auth/AuthPage';
-import { EmailVerificationPage } from '@/components/auth/EmailVerificationPage';
-import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
-import { CollapsibleSidebar } from '@/components/dashboard/CollapsibleSidebar';
-import { TopTabs } from '@/components/dashboard/TopTabs';
-import { LeadsPage } from '@/components/dashboard/LeadsPage';
-import { AnalyticsPage } from '@/components/dashboard/AnalyticsPage';
-import { TrendsPage } from '@/components/dashboard/TrendsPage';
-import { QuizManagementPage } from '@/components/dashboard/QuizManagementPage';
-import { CustomQuizCreator } from '@/components/dashboard/CustomQuizCreator';
-import { SettingsPage } from '@/components/dashboard/SettingsPage';
-import { SupportPage } from '@/components/dashboard/SupportPage';
-import { ProfilePage } from '@/components/dashboard/ProfilePage';
-import { SchedulePage } from '@/components/dashboard/SchedulePage';
-import { ShareQuizPage } from '@/components/dashboard/ShareQuizPage';
-import { QuizSelector } from '@/components/quiz/QuizSelector';
-import { EnhancedChatBot } from '@/components/quiz/EnhancedChatBot';
-import { SNOT22Page } from '@/components/quiz/SNOT22Page';
-import { NOSEPage } from '@/components/quiz/NOSEPage';
-import { HHIAPage } from '@/components/quiz/HHIAPage';
-import { EpworthPage } from '@/components/quiz/EpworthPage';
-import { DHIPage } from '@/components/quiz/DHIPage';
-import { STOPPage } from '@/components/quiz/STOPPage';
-import { TNSSPage } from '@/components/quiz/TNSSPage';
-import { EmbeddedQuiz } from '@/routes/EmbeddedQuiz';
-import { QuizType } from '@/types/quiz';
-import { ErrorBoundary } from '@/components/ErrorBoundary';
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { AuthProvider } from './hooks/useAuth';
+import AuthPage from './pages/AuthPage';
+import Index from './pages/Index';
+import PortalPage from './pages/PortalPage';
+import SNOT22Page from './pages/quizzes/SNOT22Page';
+import NOSEPage from './pages/quizzes/NOSEPage';
+import HHIAPage from './pages/quizzes/HHIAPage';
+import EpworthPage from './pages/quizzes/EpworthPage';
+import DHIPage from './pages/quizzes/DHIPage';
+import STOPPage from './pages/quizzes/STOPPage';
+import TNSSPage from './pages/quizzes/TNSSPage';
+import EmbeddedQuiz from './pages/EmbeddedQuiz';
+import NotFound from './pages/NotFound';
+import EmailVerificationPage from './pages/EmailVerificationPage';
+import { CustomQuizCreator } from './components/dashboard/CustomQuizCreator';
+import { ShareQuizPage } from './components/dashboard/ShareQuizPage';
 
-const queryClient = new QueryClient();
-
-function DoctorPortal() {
-  const [currentPage, setCurrentPage] = useState('dashboard');
-  const [currentTab, setCurrentTab] = useState('leads');
-
-  const renderTabContent = () => {
-    switch (currentTab) {
-      case 'leads':
-        return <LeadsPage />;
-      case 'lead-capture':
-        return <div className="p-6">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-2xl font-bold text-slate-800 mb-6">Lead Capture Tools</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="bg-white rounded-xl p-6 shadow-sm border hover:shadow-md transition-shadow">
-                <div className="text-3xl mb-4">📋</div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-3">Quiz Integration</h3>
-                <p className="text-slate-600 mb-4 text-sm">Embed medical assessments on your website to capture qualified leads.</p>
-                <button 
-                  className="bg-[#0E7C9D] text-white px-4 py-2 rounded-lg hover:bg-[#0E7C9D]/90 transition-colors text-sm"
-                  onClick={() => setCurrentPage('quizzes')}
-                >
-                  Configure Quizzes
-                </button>
-              </div>
-              <div className="bg-white rounded-xl p-6 shadow-sm border hover:shadow-md transition-shadow">
-                <div className="text-3xl mb-4">📊</div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-3">Analytics Tracking</h3>
-                <p className="text-slate-600 mb-4 text-sm">Track conversion rates and optimize your lead capture performance.</p>
-                <button 
-                  className="bg-[#FF6B35] text-white px-4 py-2 rounded-lg hover:bg-[#FF6B35]/90 transition-colors text-sm"
-                  onClick={() => setCurrentPage('analytics')}
-                >
-                  View Analytics
-                </button>
-              </div>
-              <div className="bg-white rounded-xl p-6 shadow-sm border hover:shadow-md transition-shadow">
-                <div className="text-3xl mb-4">🎯</div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-3">Campaign Management</h3>
-                <p className="text-slate-600 mb-4 text-sm">Create and manage targeted campaigns for specific conditions.</p>
-                <button 
-                  className="bg-gradient-to-r from-[#FF6B35] to-[#0E7C9D] text-white px-4 py-2 rounded-lg hover:opacity-90 transition-opacity text-sm"
-                  onClick={() => setCurrentPage('trends')}
-                >
-                  Manage Campaigns
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>;
-      default:
-        return <LeadsPage />;
-    }
-  };
-
-  const renderPageContent = () => {
-    try {
-      switch (currentPage) {
-        case 'dashboard':
-          return (
-            <div>
-              <TopTabs currentTab={currentTab} onTabChange={setCurrentTab} />
-              {renderTabContent()}
-            </div>
-          );
-        case 'analytics':
-          return <AnalyticsPage />;
-        case 'trends':
-          return <TrendsPage />;
-        case 'quizzes':
-          return <QuizManagementPage />;
-        case 'custom-quiz':
-          return <CustomQuizCreator />;
-        case 'profile':
-          return <ProfilePage />;
-        case 'settings':
-          return <SettingsPage />;
-        case 'support':
-          return <SupportPage />;
-        case 'schedule':
-          return <SchedulePage />;
-        default:
-          return (
-            <div>
-              <TopTabs currentTab={currentTab} onTabChange={setCurrentTab} />
-              {renderTabContent()}
-            </div>
-          );
-      }
-    } catch (error) {
-      console.error('Error rendering page content:', error);
-      return (
-        <div className="p-6 text-center">
-          <h2 className="text-xl font-bold text-red-600 mb-4">Page Error</h2>
-          <p className="text-gray-600 mb-4">There was an error loading this page.</p>
-          <button 
-            onClick={() => setCurrentPage('dashboard')}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg"
-          >
-            Return to Dashboard
-          </button>
-        </div>
-      );
-    }
-  };
-
+function App() {
   return (
-    <div className="flex h-screen bg-gray-50">
-      <CollapsibleSidebar currentPage={currentPage} onPageChange={setCurrentPage} />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <DashboardHeader />
-        <main className="flex-1 overflow-y-auto">
-          {renderPageContent()}
-        </main>
-      </div>
-    </div>
+    <AuthProvider>
+      <Router>
+        <div className="min-h-screen bg-gray-50">
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/verify-email" element={<EmailVerificationPage />} />
+            <Route path="/portal" element={<PortalPage />} />
+            <Route path="/portal/create-quiz" element={<CustomQuizCreator />} />
+            <Route path="/portal/edit-quiz/:id" element={<CustomQuizCreator />} />
+            <Route path="/portal/share/:quizType" element={<ShareQuizPage />} />
+            <Route path="/portal/share/custom/:customQuizId" element={<ShareQuizPage />} />
+            
+            {/* Quiz routes */}
+            <Route path="/quiz/snot22" element={<SNOT22Page />} />
+            <Route path="/quiz/nose" element={<NOSEPage />} />
+            <Route path="/quiz/hhia" element={<HHIAPage />} />
+            <Route path="/quiz/epworth" element={<EpworthPage />} />
+            <Route path="/quiz/dhi" element={<DHIPage />} />
+            <Route path="/quiz/stop" element={<STOPPage />} />
+            <Route path="/quiz/tnss" element={<TNSSPage />} />
+            
+            {/* Embedded quiz routes */}
+            <Route path="/embed/quiz/:quizType" element={<EmbeddedQuiz />} />
+            
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </div>
+      </Router>
+    </AuthProvider>
   );
 }
-
-function QuizApp() {
-  const [selectedQuiz, setSelectedQuiz] = useState<{ type: QuizType; shareKey?: string } | null>(null);
-
-  const handleSelectQuiz = (quizType: QuizType, shareKey?: string) => {
-    console.log('Selected quiz:', quizType, shareKey);
-    setSelectedQuiz({ type: quizType, shareKey });
-  };
-
-  if (selectedQuiz) {
-    return (
-      <div className="min-h-screen h-screen bg-slate-50">
-        <div className="h-full flex flex-col">
-          <div className="border-b bg-white">
-            <div className="w-full mx-auto px-6 py-3 flex items-center justify-between">
-              <button
-                onClick={() => setSelectedQuiz(null)}
-                className="text-[#0E7C9D] hover:text-[#0E7C9D]/80 hover:underline transition-colors flex items-center gap-2"
-              >
-                ← Back to Assessments
-              </button>
-              <h1 className="text-lg font-semibold text-slate-700">
-                {selectedQuiz.type} Assessment
-              </h1>
-              <div className="w-24"></div>
-            </div>
-          </div>
-          <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
-            <div className="flex-1 h-[calc(100vh-4rem)]">
-              <EnhancedChatBot quizType={selectedQuiz.type} shareKey={selectedQuiz.shareKey} />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return <QuizSelector onSelectQuiz={handleSelectQuiz} />;
-}
-
-function AppContent() {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-green-50 to-teal-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-[#0E7C9D] mx-auto"></div>
-          <h1 className="mt-4 text-xl font-bold bg-gradient-to-r from-[#FF6B35] to-[#0E7C9D] bg-clip-text text-transparent">
-            Patient Pathway
-          </h1>
-          <p className="mt-2 text-slate-600">Loading your medical assessment platform...</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <Routes>
-      <Route path="/quiz" element={<QuizApp />} />
-      <Route path="/quiz/snot22" element={<SNOT22Page />} />
-      <Route path="/quiz/nose" element={<NOSEPage />} />
-      <Route path="/quiz/hhia" element={<HHIAPage />} />
-      <Route path="/quiz/epworth" element={<EpworthPage />} />
-      <Route path="/quiz/dhi" element={<DHIPage />} />
-      <Route path="/quiz/stop" element={<STOPPage />} />
-      <Route path="/quiz/tnss" element={<TNSSPage />} />
-      <Route path="/embed/quiz/:quizType" element={<EmbeddedQuiz />} />
-      <Route path="/portal/share/:quizType" element={<ShareQuizPage />} />
-      <Route path="/verify-email" element={<EmailVerificationPage />} />
-      <Route 
-        path="/portal" 
-        element={user ? <DoctorPortal /> : <Navigate to="/auth" />} 
-      />
-      <Route 
-        path="/auth" 
-        element={!user ? <AuthPage /> : <Navigate to="/portal" />} 
-      />
-      <Route 
-        path="/" 
-        element={<Navigate to={user ? "/portal" : "/quiz"} />} 
-      />
-    </Routes>
-  );
-}
-
-const App = () => (
-  <ErrorBoundary>
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter basename="">
-        <AuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <AppContent />
-          </TooltipProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
-  </ErrorBoundary>
-);
 
 export default App;

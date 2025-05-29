@@ -9,6 +9,56 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      custom_quizzes: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          doctor_id: string
+          id: string
+          instructions: string | null
+          max_score: number
+          questions: Json
+          scoring: Json
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description: string
+          doctor_id: string
+          id?: string
+          instructions?: string | null
+          max_score?: number
+          questions?: Json
+          scoring?: Json
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          doctor_id?: string
+          id?: string
+          instructions?: string | null
+          max_score?: number
+          questions?: Json
+          scoring?: Json
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_quizzes_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctor_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       doctor_notifications: {
         Row: {
           created_at: string

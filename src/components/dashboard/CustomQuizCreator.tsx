@@ -240,11 +240,14 @@ export function CustomQuizCreator() {
     try {
       const maxScore = calculateMaxScore();
       const quizData = {
-        ...quiz,
+        title: quiz.title,
+        description: quiz.description,
+        instructions: quiz.instructions,
+        questions: quiz.questions,
+        scoring: quiz.scoring,
+        category: quiz.category,
         doctor_id: doctorId,
-        max_score: maxScore,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        max_score: maxScore
       };
 
       const { error } = await supabase
