@@ -2,7 +2,6 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useAuth } from "@/hooks/useAuth";
 import {
   LayoutDashboard,
   BarChart3,
@@ -22,10 +21,10 @@ import { useState } from "react";
 interface CollapsibleSidebarProps {
   currentPage: string;
   onPageChange: (page: string) => void;
+  onSignOut: () => Promise<void>;
 }
 
-export function CollapsibleSidebar({ currentPage, onPageChange }: CollapsibleSidebarProps) {
-  const { signOut } = useAuth();
+export function CollapsibleSidebar({ currentPage, onPageChange, onSignOut }: CollapsibleSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const mainMenuItems = [
@@ -81,10 +80,6 @@ export function CollapsibleSidebar({ currentPage, onPageChange }: CollapsibleSid
       description: 'Help & support'
     }
   ];
-
-  const handleSignOut = async () => {
-    await signOut();
-  };
 
   const renderMenuItem = (item: any) => {
     const Icon = item.icon;
@@ -165,7 +160,7 @@ export function CollapsibleSidebar({ currentPage, onPageChange }: CollapsibleSid
             "w-full text-red-600 hover:text-red-700 hover:bg-red-50 transition-all duration-200",
             isCollapsed ? "justify-center p-2" : "justify-start"
           )}
-          onClick={handleSignOut}
+          onClick={onSignOut}
           title={isCollapsed ? "Sign Out" : undefined}
         >
           <LogOut className={cn("flex-shrink-0", isCollapsed ? "w-5 h-5" : "w-5 h-5 mr-3")} />
