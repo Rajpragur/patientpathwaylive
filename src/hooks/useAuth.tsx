@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,8 +22,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -39,39 +42,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (session?.user?.email_confirmed_at) {
             navigate('/portal');
           }
+        } else if (event === 'SIGNED_OUT') {
+          navigate('/auth');
         }
       }
     );
 
-    // Check initial session and email verification status
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-
-      // If user is not verified, redirect to verification page
-      if (session?.user && !session.user.email_confirmed_at) {
-        navigate('/verify-email');
+    // Check initial session
+    const getInitialSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('Error getting session:', error);
+        }
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        // If user is not verified, redirect to verification page
+        if (session?.user && !session.user.email_confirmed_at) {
+          navigate('/verify-email');
+        }
+      } catch (error) {
+        console.error('Error in getInitialSession:', error);
+      } finally {
+        setLoading(false);
       }
-    });
+    };
+
+    getInitialSession();
 
     return () => subscription.unsubscribe();
   }, [navigate]);
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    
-    if (!error && data.user && !data.user.email_confirmed_at) {
-      // If user is not verified, sign them out and show verification message
-      await supabase.auth.signOut();
-      return { 
-        error: { 
-          message: 'Please verify your email before signing in. Check your inbox for the verification link.' 
-        } 
-      };
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      
+      if (!error && data.user && !data.user.email_confirmed_at) {
+        // If user is not verified, sign them out and show verification message
+        await supabase.auth.signOut();
+        return { 
+          error: { 
+            message: 'Please verify your email before signing in. Check your inbox for the verification link.' 
+          } 
+        };
+      }
+      
+      return { error };
+    } catch (error: any) {
+      console.error('Sign in error:', error);
+      return { error };
     }
-    
-    return { error };
   };
 
   const signUp = async (email: string, password: string, metadata = {}) => {
@@ -100,8 +121,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    navigate('/auth');
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Sign out error:', error);
+        throw error;
+      }
+      // Clear state immediately
+      setUser(null);
+      setSession(null);
+      navigate('/auth');
+    } catch (error: any) {
+      console.error('Sign out error:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

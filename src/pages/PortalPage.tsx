@@ -11,9 +11,10 @@ import { SchedulePage } from '@/components/dashboard/SchedulePage';
 import { ProfilePage } from '@/components/dashboard/ProfilePage';
 import { SettingsPage } from '@/components/dashboard/SettingsPage';
 import { SupportPage } from '@/components/dashboard/SupportPage';
+import { toast } from 'sonner';
 
 export default function PortalPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState('dashboard');
 
@@ -22,6 +23,16 @@ export default function PortalPage() {
       navigate('/auth');
     }
   }, [user, loading, navigate]);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast.success('Signed out successfully');
+    } catch (error: any) {
+      console.error('Sign out error:', error);
+      toast.error('Failed to sign out. Please try again.');
+    }
+  };
 
   if (loading) {
     return (
@@ -60,7 +71,11 @@ export default function PortalPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <CollapsibleSidebar currentPage={currentPage} onPageChange={setCurrentPage} />
+      <CollapsibleSidebar 
+        currentPage={currentPage} 
+        onPageChange={setCurrentPage}
+        onSignOut={handleSignOut}
+      />
       <main className="flex-1 overflow-auto">
         {renderCurrentPage()}
       </main>

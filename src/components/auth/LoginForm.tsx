@@ -40,15 +40,21 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/portal`
+          redirectTo: `${window.location.origin}/portal`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         }
       });
       
       if (error) {
-        toast.error(error.message || 'Google sign-in failed');
+        console.error('Google sign-in error:', error);
+        toast.error('Google sign-in is not configured. Please use email/password login or contact support.');
       }
     } catch (error: any) {
-      toast.error('An unexpected error occurred');
+      console.error('Google sign-in error:', error);
+      toast.error('Google sign-in temporarily unavailable. Please use email/password login.');
     } finally {
       setLoading(false);
     }
@@ -95,6 +101,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
                 onChange={(e) => setEmail(e.target.value)}
                 className="pl-10"
                 required
+                autoComplete="email"
               />
             </div>
           </div>
@@ -109,6 +116,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
                 onChange={(e) => setPassword(e.target.value)}
                 className="pl-10"
                 required
+                autoComplete="current-password"
               />
             </div>
           </div>

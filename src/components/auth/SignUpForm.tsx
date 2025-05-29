@@ -53,15 +53,21 @@ export function SignUpForm({ onToggleMode, onSignUpSuccess }: SignUpFormProps) {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/portal`
+          redirectTo: `${window.location.origin}/portal`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         }
       });
       
       if (error) {
-        toast.error(error.message || 'Google sign-up failed');
+        console.error('Google sign-up error:', error);
+        toast.error('Google sign-up is not configured. Please use email/password registration or contact support.');
       }
     } catch (error: any) {
-      toast.error('An unexpected error occurred');
+      console.error('Google sign-up error:', error);
+      toast.error('Google sign-up temporarily unavailable. Please use email/password registration.');
     } finally {
       setLoading(false);
     }
@@ -108,6 +114,7 @@ export function SignUpForm({ onToggleMode, onSignUpSuccess }: SignUpFormProps) {
                 onChange={(e) => setFirstName(e.target.value)}
                 className="pl-10"
                 required
+                autoComplete="given-name"
               />
             </div>
             <div className="relative">
@@ -119,6 +126,7 @@ export function SignUpForm({ onToggleMode, onSignUpSuccess }: SignUpFormProps) {
                 onChange={(e) => setLastName(e.target.value)}
                 className="pl-10"
                 required
+                autoComplete="family-name"
               />
             </div>
           </div>
@@ -133,6 +141,7 @@ export function SignUpForm({ onToggleMode, onSignUpSuccess }: SignUpFormProps) {
                 onChange={(e) => setEmail(e.target.value)}
                 className="pl-10"
                 required
+                autoComplete="email"
               />
             </div>
           </div>
@@ -142,12 +151,13 @@ export function SignUpForm({ onToggleMode, onSignUpSuccess }: SignUpFormProps) {
               <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
                 type="password"
-                placeholder="Password (min. 6 characters)"
+                placeholder="Password (min. 8 characters)"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="pl-10"
                 required
-                minLength={6}
+                minLength={8}
+                autoComplete="new-password"
               />
             </div>
           </div>
