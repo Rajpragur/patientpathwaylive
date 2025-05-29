@@ -1,6 +1,5 @@
-
-import React from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth';
 import AuthPage from './pages/AuthPage';
 import Index from './pages/Index';
@@ -17,6 +16,9 @@ import NotFound from './pages/NotFound';
 import EmailVerificationPage from './pages/EmailVerificationPage';
 import { CustomQuizCreator } from './components/dashboard/CustomQuizCreator';
 import { ShareQuizPage } from './components/dashboard/ShareQuizPage';
+import { EmbeddedQuiz as EmbeddedQuizRoute } from './routes/EmbeddedQuiz';
+import { supabase } from './integrations/supabase/client';
+import UniversalQuizPage from './pages/UniversalQuizPage';
 
 function App() {
   return (
@@ -34,16 +36,12 @@ function App() {
             <Route path="/portal/share/custom/:customQuizId" element={<ShareQuizPage />} />
             
             {/* Quiz routes */}
-            <Route path="/quiz/snot22" element={<SNOT22Page />} />
-            <Route path="/quiz/nose" element={<NOSEPage />} />
-            <Route path="/quiz/hhia" element={<HHIAPage />} />
-            <Route path="/quiz/epworth" element={<EpworthPage />} />
-            <Route path="/quiz/dhi" element={<DHIPage />} />
-            <Route path="/quiz/stop" element={<STOPPage />} />
-            <Route path="/quiz/tnss" element={<TNSSPage />} />
+            <Route path="/quiz/:quizType" element={<UniversalQuizPage />} />
             
             {/* Embedded quiz routes */}
-            <Route path="/embed/quiz/:quizType" element={<EmbeddedQuiz />} />
+            <Route path="/embed/quiz/:quizType" element={<UniversalQuizPage />} />
+            
+            <Route path="/q/:shareKey" element={<ShortLinkRedirect />} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
@@ -51,6 +49,40 @@ function App() {
       </AuthProvider>
     </Router>
   );
+}
+
+function ShortLinkRedirect() {
+  const { shareKey } = useParams();
+  const navigate = useNavigate();
+  useEffect(() => {
+    async function resolveShareKey() {
+      // Try to fetch from quiz_leads (normal quizzes)
+      const { data, error } = await supabase
+        .from('quiz_leads')
+        .select('quiz_type, share_key')
+        .eq('share_key', shareKey)
+        .single();
+      if (data && data.quiz_type) {
+        // Normal quiz
+        navigate(`/embed/quiz/${data.quiz_type}?key=${shareKey}`, { replace: true });
+        return;
+      }
+      // Try to fetch from custom_quizzes (custom quizzes)
+      const { data: customData, error: customError } = await supabase
+        .from('custom_quizzes')
+        .select('id')
+        .eq('id', shareKey.replace('custom_', ''))
+        .single();
+      if (customData && customData.id) {
+        navigate(`/embed/quiz/custom_${customData.id}?key=${shareKey}`, { replace: true });
+        return;
+      }
+      // Not found
+      navigate('/not-found', { replace: true });
+    }
+    resolveShareKey();
+  }, [shareKey, navigate]);
+  return <div className="flex items-center justify-center h-screen text-lg">Redirecting...</div>;
 }
 
 export default App;

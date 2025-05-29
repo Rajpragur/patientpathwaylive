@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +11,7 @@ import { ProfilePage } from '@/components/dashboard/ProfilePage';
 import { SettingsPage } from '@/components/dashboard/SettingsPage';
 import { SupportPage } from '@/components/dashboard/SupportPage';
 import { toast } from 'sonner';
+import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 
 export default function PortalPage() {
   const { user, loading, signOut } = useAuth();
@@ -80,6 +80,7 @@ export default function PortalPage() {
         onSignOut={handleSignOut}
       />
       <main className="flex-1 overflow-auto">
+        <DashboardHeader />
         {renderCurrentPage()}
       </main>
     </div>

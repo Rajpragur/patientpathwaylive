@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Copy, QrCode, Mail, Share2, Globe, MessageSquare, Maximize, Eye } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 interface ShareAssessmentsPageProps {
   quizType?: string;
@@ -14,6 +14,7 @@ interface ShareAssessmentsPageProps {
 export function ShareAssessmentsPage({ quizType = 'SNOT22' }: ShareAssessmentsPageProps) {
   const [shareKey] = useState(`share_${Date.now()}`);
   const baseUrl = window.location.origin;
+  const navigate = useNavigate();
   
   const shareOptions = [
     {

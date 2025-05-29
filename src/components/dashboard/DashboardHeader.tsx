@@ -1,4 +1,3 @@
-
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { NotificationDropdown } from './NotificationDropdown';
@@ -54,16 +53,14 @@ export function DashboardHeader() {
         <div className="w-32"></div>
         
         <div className="flex items-center gap-4">
-          <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center shadow-lg">
+          <div className="flex flex-col items-center flex-1">
             <img 
-              src="/lovable-uploads/6b38df79-5ad8-494b-83ed-7dba6c54d4b1.png" 
-              alt="Patient Pathway"
-              className="w-16 h-16 object-contain"
+              src="/patient-pathway-logo.jpeg" 
+              alt="Patient Pathway Logo"
+              className="w-28 h-28 object-contain mb-2"
             />
-          </div>
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-[#0E7C9D]">
-              Patient Pathway Portal
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-[#FF6B35] to-[#0E7C9D] bg-clip-text text-transparent">
+              Patient Pathway
             </h1>
             <p className="text-sm text-gray-600">Medical Assessment Management System</p>
           </div>

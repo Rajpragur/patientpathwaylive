@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -212,7 +211,7 @@ export function QuizManagementPage() {
                       <Button 
                         className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 transition-all duration-200 py-3 rounded-2xl"
                         size="sm"
-                        onClick={() => handleShareCustomQuiz(quiz)}
+                        onClick={() => navigate(`/portal/share/custom/${quiz.id}`)}
                       >
                         <Share className="w-4 h-4 mr-2" />
                         Share
@@ -252,7 +251,7 @@ export function QuizManagementPage() {
                   <Button 
                     className="w-full bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] hover:from-[#0E7C9D]/90 hover:to-[#FD904B]/90 transition-all duration-200 py-3 rounded-2xl"
                     size="sm"
-                    onClick={() => handleShareQuiz(quiz.id)}
+                    onClick={() => navigate(`/portal/share/${quiz.id}`)}
                   >
                     <Share className="w-4 h-4 mr-2" />
                     Share Assessment

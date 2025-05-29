@@ -36,8 +36,35 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
   const [score, setScore] = useState(0);
   const [maxScore, setMaxScore] = useState(0);
   const [showBackButton, setShowBackButton] = useState(true);
+  const [customQuiz, setCustomQuiz] = useState<any>(null);
+  const [customQuizLoading, setCustomQuizLoading] = useState(false);
 
-  const quiz = quizzes[quizType as keyof typeof quizzes];
+  useEffect(() => {
+    const fetchCustomQuiz = async () => {
+      if (quizType && quizType.startsWith('custom')) {
+        setCustomQuizLoading(true);
+        const { data, error } = await supabase
+          .from('custom_quizzes')
+          .select('*')
+          .eq('id', quizType.replace('custom_', ''))
+          .single();
+        if (data) setCustomQuiz(data);
+        setCustomQuizLoading(false);
+      }
+    };
+    fetchCustomQuiz();
+  }, [quizType]);
+
+  let quiz: any = null;
+  if (quizType && quizType.startsWith('custom')) {
+    quiz = customQuiz ? {
+      ...customQuiz,
+      title: customQuiz.title,
+      questions: customQuiz.questions || [],
+    } : null;
+  } else {
+    quiz = quizzes[quizType as keyof typeof quizzes];
+  }
 
   useEffect(() => {
     if (quiz) {
@@ -154,6 +181,10 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
       window.location.href = '/';
     }
   };
+
+  if (customQuizLoading) {
+    return <div className="flex items-center justify-center h-full">Loading custom quiz...</div>;
+  }
 
   if (!quiz) {
     return (
