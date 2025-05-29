@@ -1,18 +1,16 @@
 
 import { useParams, useSearchParams } from 'react-router-dom';
 import { EmbeddedChatBot } from '@/components/quiz/EmbeddedChatBot';
-import { QuizType } from '@/types/quiz';
 import { Button } from '@/components/ui/button';
 import { Home, ArrowLeft } from 'lucide-react';
 
-export function EmbeddedQuiz() {
-  const { quizType } = useParams<{ quizType: QuizType }>();
+export default function CustomQuizPage() {
+  const { quizId } = useParams<{ quizId: string }>();
   const [searchParams] = useSearchParams();
   const shareKey = searchParams.get('key');
   const doctorId = searchParams.get('doctor');
-  const mode = searchParams.get('mode') || 'standard';
 
-  if (!quizType) {
+  if (!quizId) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -27,40 +25,35 @@ export function EmbeddedQuiz() {
     );
   }
 
-  const isFullPage = mode === 'fullpage';
-  const isCustomQuiz = quizType.startsWith('custom');
-
   return (
-    <div className={`min-h-screen ${isFullPage ? 'bg-gray-50' : 'bg-transparent'}`}>
-      {isFullPage && (
-        <div className="bg-white shadow-sm border-b px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.location.href = '/'}
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to Home
-            </Button>
-            <h1 className="text-lg font-semibold text-gray-900">
-              {isCustomQuiz ? 'Custom Assessment' : `${quizType.toUpperCase()} Assessment`}
-            </h1>
-          </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="bg-white shadow-sm border-b px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
           <Button
             variant="outline"
             size="sm"
             onClick={() => window.location.href = '/'}
             className="flex items-center gap-2"
           >
-            <Home className="w-4 h-4" />
-            Home
+            <ArrowLeft className="w-4 h-4" />
+            Back to Home
           </Button>
+          <h1 className="text-lg font-semibold text-gray-900">
+            Custom Assessment
+          </h1>
         </div>
-      )}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => window.location.href = '/'}
+          className="flex items-center gap-2"
+        >
+          <Home className="w-4 h-4" />
+          Home
+        </Button>
+      </div>
       <EmbeddedChatBot 
-        quizType={quizType} 
+        quizType={`custom_${quizId}`} 
         shareKey={shareKey || undefined}
         doctorId={doctorId || undefined}
       />

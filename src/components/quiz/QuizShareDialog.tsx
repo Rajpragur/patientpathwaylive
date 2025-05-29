@@ -13,6 +13,7 @@ interface QuizShareDialogProps {
   quizTitle: string;
   shareKey: string;
   doctorId: string;
+  isCustom?: boolean;
 }
 
 export function QuizShareDialog({ 
@@ -21,15 +22,24 @@ export function QuizShareDialog({
   quizType, 
   quizTitle, 
   shareKey, 
-  doctorId 
+  doctorId,
+  isCustom = false
 }: QuizShareDialogProps) {
   const [copied, setCopied] = useState<string | null>(null);
   const baseUrl = window.location.origin;
   
-  const fullPageUrl = `${baseUrl}/quiz/${quizType.toLowerCase()}?key=${shareKey}&doctor=${doctorId}`;
+  // Generate URLs based on whether it's a custom quiz or standard quiz
+  const fullPageUrl = isCustom 
+    ? `${baseUrl}/quiz/custom/${quizType}?key=${shareKey}&doctor=${doctorId}`
+    : `${baseUrl}/quiz/${quizType.toLowerCase()}?key=${shareKey}&doctor=${doctorId}`;
+  
   const shortUrl = `${baseUrl.replace('https://', '').replace('http://', '')}/q/${shareKey}`;
   
-  const embedCode = `<iframe src="${baseUrl}/embed/quiz/${quizType}?key=${shareKey}" width="100%" height="600" frameborder="0" style="border: none; border-radius: 16px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);"></iframe>`;
+  const embedUrl = isCustom
+    ? `${baseUrl}/embed/quiz/custom/${quizType}?key=${shareKey}`
+    : `${baseUrl}/embed/quiz/${quizType}?key=${shareKey}`;
+  
+  const embedCode = `<iframe src="${embedUrl}" width="100%" height="600" frameborder="0" style="border: none; border-radius: 16px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);"></iframe>`;
 
   const handleCopy = async (text: string, type: string) => {
     try {
@@ -96,7 +106,7 @@ export function QuizShareDialog({
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl">Share your assessment</DialogTitle>
-          <p className="text-gray-600">Embedding options for {quizTitle}</p>
+          <p className="text-gray-600">Embedding options for {quizTitle} {isCustom && '(Custom Quiz)'}</p>
         </DialogHeader>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

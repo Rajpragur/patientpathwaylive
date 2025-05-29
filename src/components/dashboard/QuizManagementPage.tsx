@@ -325,6 +325,7 @@ export function QuizManagementPage() {
           quizTitle={selectedQuiz.title}
           shareKey={selectedQuiz.shareKey}
           doctorId={doctorId}
+          isCustom={selectedQuiz.isCustom || false}
         />
       )}
     </div>
