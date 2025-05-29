@@ -17,6 +17,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,9 +26,13 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
     try {
       const { error } = await signIn(email, password);
       if (error) {
+        console.error('Login error:', error);
         toast.error(error.message || 'Login failed');
+      } else {
+        toast.success('Signed in successfully');
       }
     } catch (error: any) {
+      console.error('Login error:', error);
       toast.error('An unexpected error occurred');
     } finally {
       setLoading(false);
@@ -35,12 +40,18 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
   };
 
   const handleGoogleSignIn = async () => {
-    setLoading(true);
+    setGoogleLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      console.log('Starting Google sign-in...');
+      
+      // Get the current origin for redirect
+      const currentOrigin = window.location.origin;
+      console.log('Current origin:', currentOrigin);
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/portal`,
+          redirectTo: `${currentOrigin}/portal`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -50,13 +61,20 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
       
       if (error) {
         console.error('Google sign-in error:', error);
-        toast.error('Google sign-in is not configured. Please use email/password login or contact support.');
+        if (error.message.includes('OAuth')) {
+          toast.error('Google sign-in is not properly configured. Please contact support or use email/password login.');
+        } else {
+          toast.error('Google sign-in failed. Please try again or use email/password login.');
+        }
+      } else {
+        console.log('Google sign-in initiated successfully');
+        // Don't show success message here as the redirect will happen
       }
     } catch (error: any) {
       console.error('Google sign-in error:', error);
       toast.error('Google sign-in temporarily unavailable. Please use email/password login.');
     } finally {
-      setLoading(false);
+      setGoogleLoading(false);
     }
   };
 
@@ -73,10 +91,10 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
           variant="outline" 
           className="w-full" 
           onClick={handleGoogleSignIn}
-          disabled={loading}
+          disabled={loading || googleLoading}
         >
           <Chrome className="w-4 h-4 mr-2" />
-          Continue with Google
+          {googleLoading ? 'Connecting...' : 'Continue with Google'}
         </Button>
         
         <div className="relative">
@@ -102,6 +120,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
                 className="pl-10"
                 required
                 autoComplete="email"
+                disabled={loading || googleLoading}
               />
             </div>
           </div>
@@ -117,6 +136,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
                 className="pl-10"
                 required
                 autoComplete="current-password"
+                disabled={loading || googleLoading}
               />
             </div>
           </div>
@@ -124,7 +144,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
           <Button 
             type="submit" 
             className="w-full bg-[#0E7C9D] hover:bg-[#0E7C9D]/90" 
-            disabled={loading}
+            disabled={loading || googleLoading}
           >
             {loading ? 'Signing in...' : 'Sign in'}
           </Button>
@@ -135,6 +155,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
           <button
             onClick={onToggleMode}
             className="text-[#0E7C9D] hover:underline font-medium"
+            disabled={loading || googleLoading}
           >
             Sign up
           </button>

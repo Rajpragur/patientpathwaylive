@@ -43,6 +43,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             navigate('/portal');
           }
         } else if (event === 'SIGNED_OUT') {
+          console.log('User signed out, redirecting to auth page');
+          setUser(null);
+          setSession(null);
           navigate('/auth');
         }
       }
@@ -76,6 +79,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
+      setLoading(true);
+      console.log('Attempting to sign in with email:', email);
+      
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       
       if (!error && data.user && !data.user.email_confirmed_at) {
@@ -88,15 +94,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
       }
       
+      if (!error) {
+        console.log('Sign in successful');
+      }
+      
       return { error };
     } catch (error: any) {
       console.error('Sign in error:', error);
       return { error };
+    } finally {
+      setLoading(false);
     }
   };
 
   const signUp = async (email: string, password: string, metadata = {}) => {
     try {
+      setLoading(true);
+      console.log('Attempting to sign up with email:', email);
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -110,6 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // If signup is successful but email confirmation is required
       if (data?.user && !data.user.email_confirmed_at) {
+        console.log('Sign up successful, email verification required');
         return { error: null };
       }
 
@@ -117,23 +133,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error: any) {
       console.error('Signup error:', error);
       return { error };
+    } finally {
+      setLoading(false);
     }
   };
 
   const signOut = async () => {
     try {
+      console.log('Starting sign out process...');
       setLoading(true);
+      
+      // Clear local state first
+      setUser(null);
+      setSession(null);
+      
+      // Then sign out from Supabase
       const { error } = await supabase.auth.signOut();
+      
       if (error) {
         console.error('Sign out error:', error);
         throw error;
       }
-      // Clear state immediately
-      setUser(null);
-      setSession(null);
-      navigate('/auth');
+      
+      console.log('Sign out completed successfully');
+      
+      // Force navigation to auth page
+      navigate('/auth', { replace: true });
+      
     } catch (error: any) {
       console.error('Sign out error:', error);
+      // Even if there's an error, clear local state and redirect
+      setUser(null);
+      setSession(null);
+      navigate('/auth', { replace: true });
       throw error;
     } finally {
       setLoading(false);

@@ -26,8 +26,11 @@ export default function PortalPage() {
 
   const handleSignOut = async () => {
     try {
+      console.log('Starting sign out process...');
       await signOut();
+      console.log('Sign out completed successfully');
       toast.success('Signed out successfully');
+      navigate('/auth');
     } catch (error: any) {
       console.error('Sign out error:', error);
       toast.error('Failed to sign out. Please try again.');

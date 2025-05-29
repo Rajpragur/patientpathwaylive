@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Share, BarChart3, Copy, Plus, Edit } from 'lucide-react';
 import { toast } from 'sonner';
 import { quizzes } from '@/data/quizzes';
+import { QuizShareDialog } from '@/components/quiz/QuizShareDialog';
 
 interface SharedQuiz {
   id: string;
@@ -34,6 +35,13 @@ export function QuizManagementPage() {
   const [customQuizzes, setCustomQuizzes] = useState<CustomQuiz[]>([]);
   const [loading, setLoading] = useState(true);
   const [doctorId, setDoctorId] = useState<string | null>(null);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [selectedQuiz, setSelectedQuiz] = useState<{
+    type: string;
+    title: string;
+    shareKey: string;
+    isCustom?: boolean;
+  } | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -132,18 +140,36 @@ export function QuizManagementPage() {
   };
 
   const handleShareQuiz = (quizType: string) => {
-    navigate(`/portal/share/${quizType.toLowerCase()}`);
+    const quiz = Object.values(quizzes).find(q => q && q.id === quizType);
+    if (quiz && doctorId) {
+      const shareKey = `share_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      setSelectedQuiz({
+        type: quizType,
+        title: quiz.title,
+        shareKey: shareKey,
+        isCustom: false
+      });
+      setShareDialogOpen(true);
+    }
   };
 
-  const handleShareCustomQuiz = (customQuizId: string) => {
-    navigate(`/portal/share/custom/${customQuizId}`);
+  const handleShareCustomQuiz = (customQuiz: CustomQuiz) => {
+    if (doctorId) {
+      const shareKey = `custom_${customQuiz.id}_${Date.now()}`;
+      setSelectedQuiz({
+        type: customQuiz.id,
+        title: customQuiz.title,
+        shareKey: shareKey,
+        isCustom: true
+      });
+      setShareDialogOpen(true);
+    }
   };
 
   if (loading) {
     return <div className="p-6">Loading quiz management...</div>;
   }
 
-  // Add null check for quizzes object
   if (!quizzes || typeof quizzes !== 'object') {
     return <div className="p-6">Error loading quizzes. Please refresh the page.</div>;
   }
@@ -186,7 +212,7 @@ export function QuizManagementPage() {
                       <Button 
                         className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 transition-all duration-200 py-3 rounded-2xl"
                         size="sm"
-                        onClick={() => handleShareCustomQuiz(quiz.id)}
+                        onClick={() => handleShareCustomQuiz(quiz)}
                       >
                         <Share className="w-4 h-4 mr-2" />
                         Share
@@ -285,6 +311,21 @@ export function QuizManagementPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Share Dialog */}
+      {selectedQuiz && doctorId && (
+        <QuizShareDialog
+          isOpen={shareDialogOpen}
+          onClose={() => {
+            setShareDialogOpen(false);
+            setSelectedQuiz(null);
+          }}
+          quizType={selectedQuiz.type}
+          quizTitle={selectedQuiz.title}
+          shareKey={selectedQuiz.shareKey}
+          doctorId={doctorId}
+        />
       )}
     </div>
   );
