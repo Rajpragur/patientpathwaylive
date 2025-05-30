@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,25 +39,60 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
   const [showBackButton, setShowBackButton] = useState(true);
   const [customQuiz, setCustomQuiz] = useState<any>(null);
   const [customQuizLoading, setCustomQuizLoading] = useState(false);
+  const [quizNotFound, setQuizNotFound] = useState(false);
 
   useEffect(() => {
-    const fetchCustomQuiz = async () => {
-      if (quizType && quizType.startsWith('custom')) {
+    const fetchQuizData = async () => {
+      console.log('Fetching quiz data for quizType:', quizType);
+      
+      if (quizType && quizType.startsWith('custom_')) {
         setCustomQuizLoading(true);
-        const { data, error } = await supabase
-          .from('custom_quizzes')
-          .select('*')
-          .eq('id', quizType.replace('custom_', ''))
-          .single();
-        if (data) setCustomQuiz(data);
-        setCustomQuizLoading(false);
+        const customQuizId = quizType.replace('custom_', '');
+        console.log('Fetching custom quiz with ID:', customQuizId);
+        
+        try {
+          const { data, error } = await supabase
+            .from('custom_quizzes')
+            .select('*')
+            .eq('id', customQuizId)
+            .single();
+          
+          console.log('Custom quiz fetch result:', { data, error });
+          
+          if (error) {
+            console.error('Error fetching custom quiz:', error);
+            setQuizNotFound(true);
+          } else if (data) {
+            setCustomQuiz(data);
+            console.log('Custom quiz loaded:', data);
+          } else {
+            console.log('No custom quiz found');
+            setQuizNotFound(true);
+          }
+        } catch (error) {
+          console.error('Exception fetching custom quiz:', error);
+          setQuizNotFound(true);
+        } finally {
+          setCustomQuizLoading(false);
+        }
+      } else {
+        // Check if it's a valid standard quiz
+        const standardQuiz = quizzes[quizType as keyof typeof quizzes];
+        console.log('Standard quiz lookup for', quizType, ':', standardQuiz);
+        
+        if (!standardQuiz) {
+          console.log('Standard quiz not found for type:', quizType);
+          setQuizNotFound(true);
+        }
       }
     };
-    fetchCustomQuiz();
+
+    fetchQuizData();
   }, [quizType]);
 
+  // Determine the current quiz object
   let quiz: any = null;
-  if (quizType && quizType.startsWith('custom')) {
+  if (quizType && quizType.startsWith('custom_')) {
     quiz = customQuiz ? {
       ...customQuiz,
       title: customQuiz.title,
@@ -68,8 +102,12 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
     quiz = quizzes[quizType as keyof typeof quizzes];
   }
 
+  console.log('Current quiz object:', quiz);
+  console.log('Quiz not found state:', quizNotFound);
+  console.log('Custom quiz loading state:', customQuizLoading);
+
   useEffect(() => {
-    if (quiz) {
+    if (quiz && quiz.questions && quiz.questions.length > 0) {
       const welcomeMessage: Message = {
         id: '1',
         text: `Hello! I'm here to help you complete the ${quiz.title}. This assessment will help evaluate your symptoms. Let's get started!`,
@@ -77,7 +115,8 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
         timestamp: new Date()
       };
       setMessages([welcomeMessage]);
-    } else {
+    } else if (!customQuizLoading && !quiz && !quizNotFound) {
+      // Only show error if we're not loading and truly have no quiz
       const errorMessage: Message = {
         id: '1',
         text: 'Sorry, I couldn\'t find this assessment. Please contact support if this issue persists.',
@@ -86,7 +125,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
       };
       setMessages([errorMessage]);
     }
-  }, [quiz]);
+  }, [quiz, customQuizLoading, quizNotFound]);
 
   useEffect(() => {
     // Scroll to bottom on new message
@@ -94,7 +133,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (!userInput.trim()) return;
+    if (!userInput.trim() || !quiz || !quiz.questions) return;
 
     const newMessage: Message = {
       id: Date.now().toString(),
@@ -106,7 +145,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
     setMessages(prevMessages => [...prevMessages, newMessage]);
     
     // Create proper QuizAnswer object
-    const currentQuestion = quiz?.questions[currentQuestionIndex];
+    const currentQuestion = quiz.questions[currentQuestionIndex];
     if (currentQuestion) {
       const newAnswer: QuizAnswer = {
         questionId: currentQuestion.id,
@@ -117,7 +156,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
     
     setUserInput('');
 
-    if (quiz && currentQuestionIndex < quiz.questions.length) {
+    if (currentQuestionIndex < quiz.questions.length - 1) {
       setLoading(true);
       setTimeout(() => {
         const botResponse: Message = {
@@ -141,9 +180,14 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
       return;
     }
 
+    if (!quiz) {
+      toast.error('Quiz not found. Cannot submit results.');
+      return;
+    }
+
     setLoading(true);
     try {
-      const quizQuestions = quiz?.questions || [];
+      const quizQuestions = quiz.questions || [];
       const currentMaxScore = quizQuestions.reduce((acc: number, question: any) => acc + (question.options?.length || 0), 0);
       setMaxScore(currentMaxScore);
 
@@ -196,10 +240,17 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
   };
 
   if (customQuizLoading) {
-    return <div className="flex items-center justify-center h-full">Loading custom quiz...</div>;
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p>Loading custom quiz...</p>
+        </div>
+      </div>
+    );
   }
 
-  if (!quiz) {
+  if (quizNotFound || (!quiz && !customQuizLoading)) {
     return (
       <div className="flex flex-col h-screen bg-gray-50">
         {showBackButton && (
@@ -253,7 +304,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
               Back
             </Button>
             <h1 className="text-lg font-semibold text-gray-900">
-              {quiz.title}
+              {quiz?.title || 'Assessment'}
             </h1>
           </div>
           <Button
@@ -286,8 +337,16 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
         <div ref={chatBottomRef} />
       </div>
 
-      {!quizCompleted ? (
+      {!quizCompleted && quiz && quiz.questions && quiz.questions.length > 0 ? (
         <div className="p-4 bg-white border-t">
+          <div className="mb-2">
+            <p className="text-sm text-gray-600">
+              Question {currentQuestionIndex + 1} of {quiz.questions.length}
+            </p>
+            <h3 className="font-medium text-gray-800">
+              {quiz.questions[currentQuestionIndex]?.text || 'Loading question...'}
+            </h3>
+          </div>
           <div className="flex items-center">
             <Input
               type="text"
@@ -307,7 +366,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
             </Button>
           </div>
         </div>
-      ) : (
+      ) : quizCompleted ? (
         <div className="p-4 bg-white border-t">
           {showCaptureForm && !leadCaptured ? (
             <Card className="shadow-sm">
@@ -359,7 +418,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
             </Card>
           )}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -31,13 +31,13 @@ export function QuizShareDialog({
   // Generate URLs based on whether it's a custom quiz or standard quiz
   const fullPageUrl = isCustom 
     ? `${baseUrl}/quiz/custom/${quizType}?key=${shareKey}&doctor=${doctorId}`
-    : `${baseUrl}/quiz/${quizType.toLowerCase()}?key=${shareKey}&doctor=${doctorId}`;
+    : `${baseUrl}/quiz/${quizType}?key=${shareKey}&doctor=${doctorId}`;
   
-  const shortUrl = `${baseUrl.replace('https://', '').replace('http://', '')}/q/${shareKey}`;
+  const shortUrl = `${baseUrl}/q/${shareKey}`;
   
   const embedUrl = isCustom
-    ? `${baseUrl}/embed/quiz/custom/${quizType}?key=${shareKey}`
-    : `${baseUrl}/embed/quiz/${quizType}?key=${shareKey}`;
+    ? `${baseUrl}/embed/quiz/custom/${quizType}?key=${shareKey}&doctor=${doctorId}`
+    : `${baseUrl}/embed/quiz/${quizType}?key=${shareKey}&doctor=${doctorId}`;
   
   const embedCode = `<iframe src="${embedUrl}" width="100%" height="600" frameborder="0" style="border: none; border-radius: 16px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);"></iframe>`;
 

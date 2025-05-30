@@ -62,45 +62,57 @@ function ShortLinkRedirect() {
   useEffect(() => {
     async function resolveShareKey() {
       if (!shareKey) {
-        navigate('/not-found', { replace: true });
+        navigate('/', { replace: true });
         return;
       }
+
+      console.log('Resolving share key:', shareKey);
 
       try {
         // Try to fetch from quiz_leads (normal quizzes)
         const { data, error } = await supabase
           .from('quiz_leads')
-          .select('quiz_type, share_key')
+          .select('quiz_type, doctor_id')
           .eq('share_key', shareKey)
+          .limit(1)
           .single();
           
+        console.log('Quiz leads lookup result:', { data, error });
+          
         if (data && data.quiz_type) {
+          const doctorParam = data.doctor_id ? `&doctor=${data.doctor_id}` : '';
+          
           // Check if it's a custom quiz
           if (data.quiz_type.startsWith('custom_')) {
-            navigate(`/quiz/custom/${data.quiz_type.replace('custom_', '')}?key=${shareKey}`, { replace: true });
+            const customQuizId = data.quiz_type.replace('custom_', '');
+            navigate(`/quiz/custom/${customQuizId}?key=${shareKey}${doctorParam}`, { replace: true });
           } else {
-            navigate(`/quiz/${data.quiz_type}?key=${shareKey}`, { replace: true });
+            navigate(`/quiz/${data.quiz_type}?key=${shareKey}${doctorParam}`, { replace: true });
           }
           return;
         }
         
-        // Try to fetch from custom_quizzes
+        // If not found in quiz_leads, try to fetch from custom_quizzes directly
         const { data: customData, error: customError } = await supabase
           .from('custom_quizzes')
-          .select('id')
+          .select('id, doctor_id')
           .eq('id', shareKey.replace('custom_', ''))
           .single();
           
+        console.log('Custom quiz lookup result:', { customData, customError });
+          
         if (customData && customData.id) {
-          navigate(`/quiz/custom/${customData.id}?key=${shareKey}`, { replace: true });
+          const doctorParam = customData.doctor_id ? `&doctor=${customData.doctor_id}` : '';
+          navigate(`/quiz/custom/${customData.id}?key=${shareKey}${doctorParam}`, { replace: true });
           return;
         }
         
         // Not found
-        navigate('/not-found', { replace: true });
+        console.log('Share key not found, redirecting to home');
+        navigate('/', { replace: true });
       } catch (error) {
         console.error('Error resolving share key:', error);
-        navigate('/not-found', { replace: true });
+        navigate('/', { replace: true });
       }
     }
     
