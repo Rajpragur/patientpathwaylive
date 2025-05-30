@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { quizzes } from '@/data/quizzes';
 import { calculateQuizScore } from '@/utils/quizScoring';
 import { toast } from 'sonner';
+import { QuizAnswer } from '@/types/quiz';
 
 interface Message {
   id: string;
@@ -25,7 +25,7 @@ interface EmbeddedChatBotProps {
 export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBotProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [userAnswers, setUserAnswers] = useState<string[]>([]);
+  const [userAnswers, setUserAnswers] = useState<QuizAnswer[]>([]);
   const [userInput, setUserInput] = useState('');
   const [loading, setLoading] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
@@ -103,7 +103,17 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
     };
 
     setMessages(prevMessages => [...prevMessages, newMessage]);
-    setUserAnswers([...userAnswers, userInput]);
+    
+    // Create proper QuizAnswer object
+    const currentQuestion = quiz?.questions[currentQuestionIndex];
+    if (currentQuestion) {
+      const newAnswer: QuizAnswer = {
+        questionId: currentQuestion.id,
+        answer: userInput
+      };
+      setUserAnswers([...userAnswers, newAnswer]);
+    }
+    
     setUserInput('');
 
     if (quiz && currentQuestionIndex < quiz.questions.length) {
