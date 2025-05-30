@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -110,7 +111,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
       setTimeout(() => {
         const botResponse: Message = {
           id: Date.now().toString(),
-          text: quiz.questions[currentQuestionIndex].response,
+          text: `Thank you for your answer. Let's continue with the next question.`,
           sender: 'bot',
           timestamp: new Date()
         };
@@ -132,26 +133,24 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
     setLoading(true);
     try {
       const quizQuestions = quiz?.questions || [];
-      const currentMaxScore = quizQuestions.reduce((acc, question) => acc + question.options.length, 0);
+      const currentMaxScore = quizQuestions.reduce((acc: number, question: any) => acc + (question.options?.length || 0), 0);
       setMaxScore(currentMaxScore);
 
-      const calculatedScore = calculateQuizScore(quizType, userAnswers);
-      setScore(calculatedScore);
+      const calculatedScore = calculateQuizScore(quizType as any, userAnswers);
+      const scoreValue = typeof calculatedScore === 'object' ? calculatedScore.score : calculatedScore;
+      setScore(scoreValue);
 
       const { data, error } = await supabase
         .from('quiz_leads')
-        .insert([
-          {
-            quiz_type: quizType,
-            name: userName,
-            email: userEmail,
-            answers: userAnswers,
-            score: calculatedScore,
-            max_score: currentMaxScore,
-            share_key: shareKey || null,
-            doctor_id: doctorId || null
-          }
-        ]);
+        .insert({
+          quiz_type: quizType,
+          name: userName,
+          email: userEmail,
+          answers: userAnswers,
+          score: scoreValue,
+          share_key: shareKey || null,
+          doctor_id: doctorId || null
+        });
 
       if (error) {
         console.error('Error saving lead:', error);
@@ -171,14 +170,14 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
   };
 
   const handleGoHome = () => {
-    window.location.href = '/';
+    window.location.href = '/portal';
   };
 
   const handleGoBack = () => {
     if (window.history.length > 1) {
       window.history.back();
     } else {
-      window.location.href = '/';
+      window.location.href = '/portal';
     }
   };
 
@@ -207,7 +206,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
               className="flex items-center gap-2"
             >
               <Home className="w-4 h-4" />
-              Home
+              Portal
             </Button>
           </div>
         )}
@@ -217,7 +216,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
             <p className="text-gray-600 mb-4">The requested assessment could not be found.</p>
             <Button onClick={handleGoHome}>
               <Home className="w-4 h-4 mr-2" />
-              Go to Home
+              Go to Portal
             </Button>
           </div>
         </div>
@@ -250,7 +249,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
             className="flex items-center gap-2"
           >
             <Home className="w-4 h-4" />
-            Home
+            Portal
           </Button>
         </div>
       )}
@@ -299,7 +298,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
           {showCaptureForm && !leadCaptured ? (
             <Card className="shadow-sm">
               <CardHeader>
-                <CardTitle> প্রায় শেষ! </CardTitle>
+                <CardTitle>Almost There!</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-4">
                 <p className="text-sm text-gray-600">

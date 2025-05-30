@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth';
@@ -19,6 +20,7 @@ import { ShareQuizPage } from './components/dashboard/ShareQuizPage';
 import { EmbeddedQuiz as EmbeddedQuizRoute } from './routes/EmbeddedQuiz';
 import { supabase } from './integrations/supabase/client';
 import UniversalQuizPage from './pages/UniversalQuizPage';
+import CustomQuizPage from './pages/CustomQuizPage';
 
 function App() {
   return (
@@ -37,9 +39,11 @@ function App() {
             
             {/* Quiz routes */}
             <Route path="/quiz/:quizType" element={<UniversalQuizPage />} />
+            <Route path="/quiz/custom/:customQuizId" element={<CustomQuizPage />} />
             
             {/* Embedded quiz routes */}
             <Route path="/embed/quiz/:quizType" element={<UniversalQuizPage />} />
+            <Route path="/embed/quiz/custom/:customQuizId" element={<CustomQuizPage />} />
             
             <Route path="/q/:shareKey" element={<ShortLinkRedirect />} />
             
@@ -54,34 +58,55 @@ function App() {
 function ShortLinkRedirect() {
   const { shareKey } = useParams();
   const navigate = useNavigate();
+  
   useEffect(() => {
     async function resolveShareKey() {
-      // Try to fetch from quiz_leads (normal quizzes)
-      const { data, error } = await supabase
-        .from('quiz_leads')
-        .select('quiz_type, share_key')
-        .eq('share_key', shareKey)
-        .single();
-      if (data && data.quiz_type) {
-        // Normal quiz
-        navigate(`/embed/quiz/${data.quiz_type}?key=${shareKey}`, { replace: true });
+      if (!shareKey) {
+        navigate('/not-found', { replace: true });
         return;
       }
-      // Try to fetch from custom_quizzes (custom quizzes)
-      const { data: customData, error: customError } = await supabase
-        .from('custom_quizzes')
-        .select('id')
-        .eq('id', shareKey.replace('custom_', ''))
-        .single();
-      if (customData && customData.id) {
-        navigate(`/embed/quiz/custom_${customData.id}?key=${shareKey}`, { replace: true });
-        return;
+
+      try {
+        // Try to fetch from quiz_leads (normal quizzes)
+        const { data, error } = await supabase
+          .from('quiz_leads')
+          .select('quiz_type, share_key')
+          .eq('share_key', shareKey)
+          .single();
+          
+        if (data && data.quiz_type) {
+          // Check if it's a custom quiz
+          if (data.quiz_type.startsWith('custom_')) {
+            navigate(`/quiz/custom/${data.quiz_type.replace('custom_', '')}?key=${shareKey}`, { replace: true });
+          } else {
+            navigate(`/quiz/${data.quiz_type}?key=${shareKey}`, { replace: true });
+          }
+          return;
+        }
+        
+        // Try to fetch from custom_quizzes
+        const { data: customData, error: customError } = await supabase
+          .from('custom_quizzes')
+          .select('id')
+          .eq('id', shareKey.replace('custom_', ''))
+          .single();
+          
+        if (customData && customData.id) {
+          navigate(`/quiz/custom/${customData.id}?key=${shareKey}`, { replace: true });
+          return;
+        }
+        
+        // Not found
+        navigate('/not-found', { replace: true });
+      } catch (error) {
+        console.error('Error resolving share key:', error);
+        navigate('/not-found', { replace: true });
       }
-      // Not found
-      navigate('/not-found', { replace: true });
     }
+    
     resolveShareKey();
   }, [shareKey, navigate]);
+  
   return <div className="flex items-center justify-center h-screen text-lg">Redirecting...</div>;
 }
 
