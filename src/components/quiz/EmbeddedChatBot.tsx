@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -150,13 +151,16 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
       const scoreValue = typeof calculatedScore === 'object' ? calculatedScore.score : calculatedScore;
       setScore(scoreValue);
 
+      // Convert userAnswers to JSON format for Supabase
+      const answersJson = userAnswers as any;
+
       const { data, error } = await supabase
         .from('quiz_leads')
         .insert({
           quiz_type: quizType,
           name: userName,
           email: userEmail,
-          answers: userAnswers,
+          answers: answersJson,
           score: scoreValue,
           share_key: shareKey || null,
           doctor_id: doctorId || null
