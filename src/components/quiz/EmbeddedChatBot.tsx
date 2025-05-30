@@ -34,6 +34,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
   const [leadCaptured, setLeadCaptured] = useState(false);
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
+  const [userPhone, setUserPhone] = useState('');
   const [showCaptureForm, setShowCaptureForm] = useState(false);
   const [score, setScore] = useState(0);
   const [maxScore, setMaxScore] = useState(0);
@@ -79,7 +80,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
         }
       } else {
         // Check if it's a valid standard quiz
-        const standardQuiz = quizzes[quizType as keyof typeof quizzes];
+        const standardQuiz = quizzes[quizType.toUpperCase() as keyof typeof quizzes];
         console.log('Standard quiz lookup for', quizType, ':', standardQuiz);
         
         if (!standardQuiz) {
@@ -101,8 +102,27 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
       questions: customQuiz.questions || [],
     } : null;
   } else {
-    quiz = quizzes[quizType as keyof typeof quizzes];
+    quiz = quizzes[quizType.toUpperCase() as keyof typeof quizzes];
   }
+
+  // Set max score based on quiz type
+  useEffect(() => {
+    if (quiz && quiz.questions) {
+      let calculatedMaxScore = 0;
+      
+      if (quizType.toLowerCase() === 'nose') {
+        calculatedMaxScore = 100; // NOSE max score is 100
+      } else if (quizType.toLowerCase() === 'snot22') {
+        calculatedMaxScore = quiz.questions.length * 5; // SNOT-22: 5 points per question
+      } else if (quiz.maxScore) {
+        calculatedMaxScore = quiz.maxScore;
+      } else {
+        calculatedMaxScore = quiz.questions.length * 5; // Default: 5 points per question
+      }
+      
+      setMaxScore(calculatedMaxScore);
+    }
+  }, [quiz, quizType]);
 
   console.log('Current quiz object:', quiz);
   console.log('Quiz not found state:', quizNotFound);
@@ -112,7 +132,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
     if (quiz && quiz.questions && quiz.questions.length > 0 && !quizStarted) {
       const welcomeMessage: Message = {
         id: '1',
-        text: `Hello! Welcome to the ${quiz.title}. This assessment will help evaluate your symptoms and takes about 5-10 minutes to complete. Are you ready to begin?`,
+        text: `🎯 Welcome to the **${quiz.title}**!\n\nThis assessment helps evaluate your symptoms and takes about 5-10 minutes to complete.\n\n📋 **${quiz.questions.length} questions** • ⏱️ **5-10 minutes** • 📊 **Instant results**\n\nAre you ready to begin?`,
         sender: 'bot',
         timestamp: new Date()
       };
@@ -120,7 +140,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
     } else if (!customQuizLoading && !quiz && !quizNotFound) {
       const errorMessage: Message = {
         id: '1',
-        text: 'Sorry, I couldn\'t find this assessment. Please contact support if this issue persists.',
+        text: '❌ Sorry, I couldn\'t find this assessment. Please contact support if this issue persists.',
         sender: 'bot',
         timestamp: new Date()
       };
@@ -137,7 +157,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
     if (quiz && quiz.questions && quiz.questions.length > 0) {
       const firstQuestionMessage: Message = {
         id: Date.now().toString(),
-        text: `Great! Let's begin with question 1 of ${quiz.questions.length}:\n\n${quiz.questions[0].text}`,
+        text: `🚀 **Question ${currentQuestionIndex + 1} of ${quiz.questions.length}**\n\n${quiz.questions[0].text}`,
         sender: 'bot',
         timestamp: new Date()
       };
@@ -169,9 +189,10 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
       setLoading(true);
       setTimeout(() => {
         const nextIndex = currentQuestionIndex + 1;
+        const progress = Math.round(((nextIndex + 1) / quiz.questions.length) * 100);
         const nextQuestionMessage: Message = {
           id: Date.now().toString(),
-          text: `Question ${nextIndex + 1} of ${quiz.questions.length}:\n\n${quiz.questions[nextIndex].text}`,
+          text: `📊 **Progress: ${progress}%**\n\n🚀 **Question ${nextIndex + 1} of ${quiz.questions.length}**\n\n${quiz.questions[nextIndex].text}`,
           sender: 'bot',
           timestamp: new Date()
         };
@@ -185,7 +206,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
       setTimeout(() => {
         const completionMessage: Message = {
           id: Date.now().toString(),
-          text: "Excellent! You've completed all the questions. Please provide your contact information below to receive your personalized results.",
+          text: "🎉 **Excellent!** You've completed all the questions.\n\nPlease provide your contact information below to receive your personalized results and connect with our medical team.",
           sender: 'bot',
           timestamp: new Date()
         };
@@ -207,15 +228,11 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
 
     setLoading(true);
     try {
-      const quizQuestions = quiz.questions || [];
-      const currentMaxScore = quizQuestions.length * 5; // Assuming max 5 points per question
-      setMaxScore(currentMaxScore);
-
-      const calculatedScore = calculateQuizScore(quizType as any, userAnswers);
+      const calculatedScore = calculateQuizScore(quizType.toUpperCase() as any, userAnswers);
       const scoreValue = typeof calculatedScore === 'object' ? calculatedScore.score : calculatedScore;
       setScore(scoreValue);
 
-      // Convert userAnswers to a plain object format for Supabase
+      // Convert userAnswers to a format compatible with Supabase JSONB
       const answersForDb = userAnswers.map(answer => ({
         questionId: answer.questionId,
         answer: answer.answer
@@ -224,13 +241,16 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
       const { data, error } = await supabase
         .from('quiz_leads')
         .insert({
-          quiz_type: quizType,
+          quiz_type: quizType.toUpperCase(),
           name: userName,
           email: userEmail,
-          answers: answersForDb as any,
+          phone: userPhone || null,
+          answers: answersForDb,
           score: scoreValue,
           share_key: shareKey || null,
-          doctor_id: doctorId || null
+          doctor_id: doctorId || null,
+          lead_source: shareKey ? 'shared_link' : 'website',
+          lead_status: 'NEW'
         });
 
       if (error) {
@@ -244,7 +264,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
         
         const resultsMessage: Message = {
           id: Date.now().toString(),
-          text: `Thank you, ${userName}! Your assessment is complete. Your score: ${scoreValue}/${currentMaxScore}`,
+          text: `🎯 **Thank you, ${userName}!** Your assessment is complete.\n\n📊 **Your Score: ${scoreValue}/${maxScore}**\n\n🔔 Our medical team will review your results and contact you soon with personalized recommendations.`,
           sender: 'bot',
           timestamp: new Date()
         };
@@ -259,23 +279,23 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
   };
 
   const handleGoHome = () => {
-    window.location.href = '/portal';
+    window.location.href = '/';
   };
 
   const handleGoBack = () => {
     if (window.history.length > 1) {
       window.history.back();
     } else {
-      window.location.href = '/portal';
+      window.location.href = '/';
     }
   };
 
   if (customQuizLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-          <p>Loading quiz...</p>
+      <div className="flex items-center justify-center h-full bg-gradient-to-br from-orange-50 to-green-50">
+        <div className="text-center bg-white p-8 rounded-3xl shadow-lg">
+          <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-orange-500" />
+          <p className="text-lg font-semibold text-gray-700">Loading your assessment...</p>
         </div>
       </div>
     );
@@ -283,14 +303,14 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
 
   if (quizNotFound || (!quiz && !customQuizLoading)) {
     return (
-      <div className="flex flex-col h-screen bg-gray-50">
+      <div className="flex flex-col h-screen bg-gradient-to-br from-orange-50 to-green-50">
         {showBackButton && (
-          <div className="bg-white shadow-sm border-b px-4 py-3 flex items-center justify-between">
+          <div className="bg-white shadow-lg border-b px-6 py-4 flex items-center justify-between">
             <Button
               variant="outline"
               size="sm"
               onClick={handleGoBack}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 border-orange-200 hover:bg-orange-50"
             >
               <ArrowLeft className="w-4 h-4" />
               Back
@@ -299,20 +319,20 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
               variant="outline"
               size="sm"
               onClick={handleGoHome}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 border-green-200 hover:bg-green-50"
             >
               <Home className="w-4 h-4" />
-              Portal
+              Home
             </Button>
           </div>
         )}
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">Assessment Not Found</h1>
-            <p className="text-gray-600 mb-4">The requested assessment could not be found.</p>
-            <Button onClick={handleGoHome}>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="text-center bg-white p-8 rounded-3xl shadow-lg max-w-md">
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">Assessment Not Found</h1>
+            <p className="text-gray-600 mb-6">The requested assessment could not be found.</p>
+            <Button onClick={handleGoHome} className="bg-gradient-to-r from-orange-500 to-green-500 hover:from-orange-600 hover:to-green-600 text-white px-6 py-3 rounded-2xl">
               <Home className="w-4 h-4 mr-2" />
-              Go to Portal
+              Go to Home
             </Button>
           </div>
         </div>
@@ -321,20 +341,20 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="flex flex-col h-screen bg-gradient-to-br from-orange-50 to-green-50">
       {showBackButton && (
-        <div className="bg-white shadow-sm border-b px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="bg-white shadow-lg border-b px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
             <Button
               variant="outline"
               size="sm"
               onClick={handleGoBack}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 border-orange-200 hover:bg-orange-50"
             >
               <ArrowLeft className="w-4 h-4" />
               Back
             </Button>
-            <h1 className="text-lg font-semibold text-gray-900">
+            <h1 className="text-xl font-bold bg-gradient-to-r from-orange-600 to-green-600 bg-clip-text text-transparent">
               {quiz?.title || 'Assessment'}
             </h1>
           </div>
@@ -342,105 +362,148 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
             variant="outline"
             size="sm"
             onClick={handleGoHome}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 border-green-200 hover:bg-green-50"
           >
             <Home className="w-4 h-4" />
-            Portal
+            Home
           </Button>
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-4">
-        {messages.map((message) => (
-          <div key={message.id} className={`mb-4 flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-xs lg:max-w-md xl:max-w-lg rounded-lg px-4 py-2 ${
-              message.sender === 'user' 
-                ? 'bg-blue-500 text-white' 
-                : 'bg-white text-gray-800 border border-gray-200'
-            }`}>
-              <p className="text-sm whitespace-pre-line">{message.text}</p>
-            </div>
-          </div>
-        ))}
-
-        {!quizStarted && quiz && quiz.questions && quiz.questions.length > 0 && (
-          <div className="flex justify-center mt-4">
-            <Button 
-              onClick={startQuiz}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg"
-            >
-              Start Assessment
-            </Button>
-          </div>
-        )}
-
-        {quizStarted && !quizCompleted && quiz && quiz.questions && quiz.questions.length > 0 && (
-          <div className="mt-4">
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <div className="space-y-2">
-                {quiz.questions[currentQuestionIndex]?.options?.map((option: string, index: number) => (
-                  <Button
-                    key={index}
-                    variant="outline"
-                    className="w-full text-left justify-start hover:bg-blue-50 hover:border-blue-300"
-                    onClick={() => handleOptionClick(option)}
-                    disabled={loading}
-                  >
-                    {option}
-                  </Button>
-                ))}
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="max-w-4xl mx-auto space-y-6">
+          {messages.map((message) => (
+            <div key={message.id} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`flex items-end gap-3 max-w-2xl ${message.sender === 'user' ? 'flex-row-reverse' : ''}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-lg ${
+                  message.sender === 'bot' 
+                    ? 'bg-gradient-to-r from-orange-500 to-green-500' 
+                    : 'bg-gradient-to-r from-blue-500 to-purple-500'
+                }`}>
+                  {message.sender === 'bot' ? <Bot className="w-5 h-5" /> : <User className="w-5 h-5" />}
+                </div>
+                <div className={`px-6 py-4 rounded-3xl shadow-lg max-w-lg ${
+                  message.sender === 'user' 
+                    ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white' 
+                    : 'bg-white text-gray-800 border border-orange-100'
+                }`}>
+                  <p className="text-sm whitespace-pre-line leading-relaxed font-medium">{message.text}</p>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          ))}
 
-        {loading && (
-          <div className="flex justify-center mt-4">
-            <div className="bg-white rounded-lg px-4 py-2 border border-gray-200">
-              <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
-              Processing...
+          {!quizStarted && quiz && quiz.questions && quiz.questions.length > 0 && (
+            <div className="flex justify-center mt-8">
+              <Button 
+                onClick={startQuiz}
+                className="bg-gradient-to-r from-orange-500 to-green-500 hover:from-orange-600 hover:to-green-600 text-white px-8 py-4 rounded-3xl text-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+              >
+                🚀 Start Assessment
+              </Button>
             </div>
-          </div>
-        )}
-        <div ref={chatBottomRef} />
+          )}
+
+          {quizStarted && !quizCompleted && quiz && quiz.questions && quiz.questions.length > 0 && (
+            <div className="mt-6">
+              <div className="bg-white rounded-3xl border-2 border-orange-100 shadow-lg p-6">
+                <div className="space-y-3">
+                  {quiz.questions[currentQuestionIndex]?.options?.map((option: string, index: number) => (
+                    <Button
+                      key={index}
+                      variant="outline"
+                      className="w-full text-left justify-start hover:bg-gradient-to-r hover:from-orange-50 hover:to-green-50 hover:border-orange-300 border-2 border-gray-200 rounded-2xl py-4 px-6 text-gray-700 font-medium transition-all duration-200 hover:shadow-md"
+                      onClick={() => handleOptionClick(option)}
+                      disabled={loading}
+                    >
+                      <span className="bg-gradient-to-r from-orange-500 to-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center mr-3 text-sm font-bold">
+                        {index + 1}
+                      </span>
+                      {option}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {loading && (
+            <div className="flex justify-center mt-6">
+              <div className="bg-white rounded-3xl px-6 py-4 border-2 border-orange-100 shadow-lg">
+                <div className="flex items-center gap-3">
+                  <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
+                  <span className="text-gray-700 font-medium">Processing your answer...</span>
+                </div>
+              </div>
+            </div>
+          )}
+          <div ref={chatBottomRef} />
+        </div>
       </div>
 
       {showCaptureForm && quizCompleted && !leadCaptured && (
-        <div className="p-4 bg-white border-t">
-          <Card className="shadow-sm">
-            <CardHeader>
-              <CardTitle>Get Your Results</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4">
-              <div className="grid gap-2">
-                <label htmlFor="name">Name</label>
-                <Input
-                  id="name"
-                  placeholder="Your Name"
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <label htmlFor="email">Email</label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Your Email"
-                  value={userEmail}
-                  onChange={(e) => setUserEmail(e.target.value)}
-                />
-              </div>
-              <Button 
-                onClick={handleSubmitLead} 
-                className="bg-blue-500 hover:bg-blue-600" 
-                disabled={loading}
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <User className="w-4 h-4 mr-2" />}
-                Get My Results
-              </Button>
-            </CardContent>
-          </Card>
+        <div className="p-6 bg-white border-t-2 border-orange-100">
+          <div className="max-w-md mx-auto">
+            <Card className="shadow-xl border-2 border-orange-100 rounded-3xl">
+              <CardHeader className="text-center pb-4">
+                <CardTitle className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-green-600 bg-clip-text text-transparent">
+                  🎯 Get Your Results
+                </CardTitle>
+                <p className="text-gray-600">Just a few details to receive your personalized assessment results</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="name" className="text-sm font-semibold text-gray-700">Full Name *</label>
+                  <Input
+                    id="name"
+                    placeholder="Enter your full name"
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    className="rounded-2xl border-2 border-gray-200 focus:border-orange-300 py-3"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="email" className="text-sm font-semibold text-gray-700">Email Address *</label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Enter your email address"
+                    value={userEmail}
+                    onChange={(e) => setUserEmail(e.target.value)}
+                    className="rounded-2xl border-2 border-gray-200 focus:border-orange-300 py-3"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="phone" className="text-sm font-semibold text-gray-700">Phone Number</label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="Enter your phone number (optional)"
+                    value={userPhone}
+                    onChange={(e) => setUserPhone(e.target.value)}
+                    className="rounded-2xl border-2 border-gray-200 focus:border-orange-300 py-3"
+                  />
+                </div>
+                <Button 
+                  onClick={handleSubmitLead} 
+                  className="w-full bg-gradient-to-r from-orange-500 to-green-500 hover:from-orange-600 hover:to-green-600 text-white py-4 rounded-2xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <User className="w-5 h-5 mr-2" />
+                      Get My Results 🎉
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       )}
     </div>

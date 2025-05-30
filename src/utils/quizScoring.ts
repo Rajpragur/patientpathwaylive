@@ -1,3 +1,4 @@
+
 import { QuizType, QuizAnswer, QuizResult } from '../types/quiz';
 
 export function calculateQuizScore(quizType: QuizType, answers: QuizAnswer[]): QuizResult {
@@ -88,22 +89,23 @@ function calculateNOSEScore(answers: QuizAnswer[]): QuizResult {
   const totalScore = scores.reduce((sum, score) => sum + score, 0);
   console.log('NOSE calculated score:', totalScore, 'from scores:', scores);
   
-  const maxPossible = 100; // NOSE max score is 100
-  const percentage = Math.round((totalScore / maxPossible) * 100);
+  // NOSE scoring: multiply by 5 to get final score out of 100
+  const finalScore = totalScore * 5;
+  console.log('NOSE final score (multiplied by 5):', finalScore);
 
   let interpretation = "";
   let severity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
   let summary = "";
 
-  if (percentage >= 75) {
+  if (finalScore >= 75) {
     interpretation = "🚨 Your score suggests severe nasal obstruction. We recommend consulting a specialist as soon as possible.";
     severity = 'severe';
     summary = "You scored in the severe range, indicating significant breathing difficulties through your nose.";
-  } else if (percentage >= 50) {
+  } else if (finalScore >= 50) {
     interpretation = "⚠️ Your score indicates significant nasal obstruction, a common but treatable condition.";
     severity = 'moderate';
     summary = "You scored in the moderate range, suggesting noticeable nasal breathing problems that may benefit from treatment.";
-  } else if (percentage >= 25) {
+  } else if (finalScore >= 25) {
     interpretation = "🙂 Your score shows moderate symptoms. Monitoring and early care may be helpful.";
     severity = 'mild';
     summary = "You scored in the mild range, indicating some nasal obstruction symptoms worth monitoring.";
@@ -113,7 +115,7 @@ function calculateNOSEScore(answers: QuizAnswer[]): QuizResult {
     summary = "You scored in the normal range, indicating minimal nasal breathing problems.";
   }
 
-  return { score: totalScore, interpretation, severity, summary };
+  return { score: finalScore, interpretation, severity, summary };
 }
 
 function mapHHIALabelToScore(label: string): number {
@@ -279,8 +281,8 @@ function calculateSTOPScore(answers: QuizAnswer[]): QuizResult {
   return { score: yesCount, interpretation, severity, summary };
 }
 
-function mapSTOPSLabelToScore(label: string): number {
-  console.log('Mapping STOP label:', label);
+function mapTNSSLabelToScore(label: string): number {
+  console.log('Mapping TNSS label:', label);
   const match = label.match(/\((\d+)\)/);
   const score = match ? parseInt(match[1], 10) : 0;
   console.log('Extracted score:', score);
@@ -323,12 +325,4 @@ function calculateTNSSScore(answers: QuizAnswer[]): QuizResult {
   }
 
   return { score: totalScore, interpretation, severity, summary };
-}
-
-function mapTNSSLabelToScore(label: string): number {
-  console.log('Mapping TNSS label:', label);
-  const match = label.match(/\((\d+)\)/);
-  const score = match ? parseInt(match[1], 10) : 0;
-  console.log('Extracted score:', score);
-  return score;
 }
