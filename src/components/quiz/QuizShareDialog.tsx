@@ -106,7 +106,7 @@ export function QuizShareDialog({
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl">Share your assessment</DialogTitle>
-          <p className="text-gray-600">Embedding options for {quizTitle} {isCustom && '(Custom Quiz)'}</p>
+          <p className="text-gray-600">Sharing options for {quizTitle} {isCustom && '(Custom Quiz)'}</p>
         </DialogHeader>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

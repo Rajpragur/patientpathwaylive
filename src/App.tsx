@@ -69,7 +69,7 @@ function ShortLinkRedirect() {
       console.log('Resolving share key:', shareKey);
 
       try {
-        // Try to fetch from quiz_leads (normal quizzes)
+        // Try to fetch from quiz_leads first
         const { data, error } = await supabase
           .from('quiz_leads')
           .select('quiz_type, doctor_id')
@@ -87,7 +87,7 @@ function ShortLinkRedirect() {
             const customQuizId = data.quiz_type.replace('custom_', '');
             navigate(`/quiz/custom/${customQuizId}?key=${shareKey}${doctorParam}`, { replace: true });
           } else {
-            navigate(`/quiz/${data.quiz_type}?key=${shareKey}${doctorParam}`, { replace: true });
+            navigate(`/quiz/${data.quiz_type.toLowerCase()}?key=${shareKey}${doctorParam}`, { replace: true });
           }
           return;
         }
@@ -107,7 +107,7 @@ function ShortLinkRedirect() {
           return;
         }
         
-        // Not found
+        // Not found - redirect to home
         console.log('Share key not found, redirecting to home');
         navigate('/', { replace: true });
       } catch (error) {

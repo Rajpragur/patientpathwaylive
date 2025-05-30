@@ -9,13 +9,16 @@ export default function SNOT22Page() {
     const key = searchParams.get('key');
     const doctor = searchParams.get('doctor');
     
+    // Redirect to the universal quiz page
     if (key || doctor) {
-      window.location.href = `/quiz?type=SNOT22&key=${key}&doctor=${doctor}&mode=single`;
+      window.location.href = `/quiz/snot22?key=${key}&doctor=${doctor}`;
+    } else {
+      window.location.href = '/quiz/snot22';
     }
   }, [searchParams]);
 
   const handleSelectQuiz = () => {
-    window.location.href = '/quiz?type=SNOT22&mode=single';
+    window.location.href = '/quiz/snot22';
   };
 
   return (

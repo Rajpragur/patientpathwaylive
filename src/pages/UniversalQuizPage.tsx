@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { EmbeddedChatBot } from '@/components/quiz/EmbeddedChatBot';
@@ -13,41 +14,49 @@ export default function UniversalQuizPage() {
   const doctorId = searchParams.get('doctor') || undefined;
   const [customQuiz, setCustomQuiz] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-
-  let isCustom = quizType && quizType.startsWith('custom');
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    if (isCustom && quizType) {
-      setLoading(true);
-      supabase
-        .from('custom_quizzes')
-        .select('*')
-        .eq('id', quizType.replace('custom_', ''))
-        .single()
-        .then(({ data }) => {
-          setCustomQuiz(data);
-          setLoading(false);
-        });
-    }
-  }, [quizType, isCustom]);
+    const checkQuiz = async () => {
+      if (!quizType) {
+        setNotFound(true);
+        return;
+      }
 
-  let quiz = null;
-  if (isCustom) {
-    quiz = customQuiz ? {
-      ...customQuiz,
-      id: customQuiz.id,
-      title: customQuiz.title,
-      questions: customQuiz.questions || [],
-    } : null;
-  } else {
-    quiz = quizzes[quizType as keyof typeof quizzes];
-  }
+      // Check if it's a custom quiz
+      if (quizType.startsWith('custom_')) {
+        setLoading(true);
+        const customQuizId = quizType.replace('custom_', '');
+        
+        const { data, error } = await supabase
+          .from('custom_quizzes')
+          .select('*')
+          .eq('id', customQuizId)
+          .single();
+        
+        if (data) {
+          setCustomQuiz(data);
+        } else {
+          setNotFound(true);
+        }
+        setLoading(false);
+      } else {
+        // Check if it's a standard quiz
+        const standardQuiz = quizzes[quizType.toUpperCase() as keyof typeof quizzes];
+        if (!standardQuiz) {
+          setNotFound(true);
+        }
+      }
+    };
+
+    checkQuiz();
+  }, [quizType]);
 
   if (loading) {
     return <div className="flex items-center justify-center h-screen text-lg">Loading quiz...</div>;
   }
 
-  if (!quiz) {
+  if (notFound || !quizType) {
     return (
       <div className="flex flex-col h-screen bg-gray-50">
         <div className="flex-1 flex items-center justify-center">
@@ -65,6 +74,10 @@ export default function UniversalQuizPage() {
   }
 
   return (
-    <EmbeddedChatBot quizType={quizType!} shareKey={shareKey} doctorId={doctorId} />
+    <EmbeddedChatBot 
+      quizType={quizType} 
+      shareKey={shareKey} 
+      doctorId={doctorId} 
+    />
   );
-} 
+}
