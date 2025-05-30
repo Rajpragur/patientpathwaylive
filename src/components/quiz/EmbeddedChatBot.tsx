@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,6 +42,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
   const [customQuizLoading, setCustomQuizLoading] = useState(false);
   const [quizNotFound, setQuizNotFound] = useState(false);
   const [quizStarted, setQuizStarted] = useState(false);
+  const [finalResults, setFinalResults] = useState<any>(null);
 
   useEffect(() => {
     const fetchQuizData = async () => {
@@ -215,28 +215,50 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
     }
   };
 
-  const handleSubmitLead = async () => {
+  const handleSubmitLead = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     if (!userName.trim() || !userEmail.trim()) {
       toast.error('Please enter your name and email.');
       return;
     }
 
-    if (!quiz) {
-      toast.error('Quiz not found. Cannot submit results.');
+    if (!quiz || !userAnswers.length) {
+      toast.error('Quiz data not found. Cannot submit results.');
       return;
     }
 
     setLoading(true);
+    
     try {
-      const calculatedScore = calculateQuizScore(quizType.toUpperCase() as any, userAnswers);
-      const scoreValue = typeof calculatedScore === 'object' ? calculatedScore.score : calculatedScore;
+      console.log('Calculating score for quiz type:', quizType, 'with answers:', userAnswers);
+      
+      // Calculate the score using the quiz scoring utility
+      const calculatedResults = calculateQuizScore(quizType.toUpperCase() as any, userAnswers);
+      console.log('Calculated results:', calculatedResults);
+      
+      const scoreValue = typeof calculatedResults === 'object' ? calculatedResults.score : calculatedResults;
       setScore(scoreValue);
+      setFinalResults(calculatedResults);
 
       // Convert userAnswers to a format compatible with Supabase JSONB
       const answersForDb = userAnswers.map(answer => ({
         questionId: answer.questionId,
         answer: answer.answer
       }));
+
+      console.log('Submitting lead with data:', {
+        quiz_type: quizType.toUpperCase(),
+        name: userName,
+        email: userEmail,
+        phone: userPhone || null,
+        answers: answersForDb,
+        score: scoreValue,
+        share_key: shareKey || null,
+        doctor_id: doctorId || null,
+        lead_source: shareKey ? 'shared_link' : 'website',
+        lead_status: 'NEW'
+      });
 
       const { data, error } = await supabase
         .from('quiz_leads')
@@ -251,25 +273,29 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
           doctor_id: doctorId || null,
           lead_source: shareKey ? 'shared_link' : 'website',
           lead_status: 'NEW'
-        });
+        })
+        .select();
 
       if (error) {
         console.error('Error saving lead:', error);
         toast.error('Failed to submit your information. Please try again.');
-      } else {
-        console.log('Lead saved successfully:', data);
-        toast.success('Your information has been submitted successfully!');
-        setLeadCaptured(true);
-        setShowCaptureForm(false);
-        
-        const resultsMessage: Message = {
-          id: Date.now().toString(),
-          text: `🎯 **Thank you, ${userName}!** Your assessment is complete.\n\n📊 **Your Score: ${scoreValue}/${maxScore}**\n\n🔔 Our medical team will review your results and contact you soon with personalized recommendations.`,
-          sender: 'bot',
-          timestamp: new Date()
-        };
-        setMessages(prev => [...prev, resultsMessage]);
+        return;
       }
+
+      console.log('Lead saved successfully:', data);
+      toast.success('Your information has been submitted successfully!');
+      setLeadCaptured(true);
+      setShowCaptureForm(false);
+      
+      // Show results message with detailed scoring
+      const resultsMessage: Message = {
+        id: Date.now().toString(),
+        text: `🎯 **Thank you, ${userName}!** Your assessment is complete.\n\n📊 **Your Score: ${scoreValue}/${maxScore}**\n\n${typeof calculatedResults === 'object' ? calculatedResults.interpretation : ''}\n\n🔔 Our medical team will review your results and contact you soon with personalized recommendations.`,
+        sender: 'bot',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, resultsMessage]);
+
     } catch (error: any) {
       console.error('Error saving lead:', error);
       toast.error('An unexpected error occurred. Please try again.');
@@ -310,7 +336,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
               variant="outline"
               size="sm"
               onClick={handleGoBack}
-              className="flex items-center gap-2 border-orange-200 hover:bg-orange-50"
+              className="flex items-center gap-2 border-orange-200 hover:bg-orange-50 rounded-xl"
             >
               <ArrowLeft className="w-4 h-4" />
               Back
@@ -319,7 +345,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
               variant="outline"
               size="sm"
               onClick={handleGoHome}
-              className="flex items-center gap-2 border-green-200 hover:bg-green-50"
+              className="flex items-center gap-2 border-green-200 hover:bg-green-50 rounded-xl"
             >
               <Home className="w-4 h-4" />
               Home
@@ -349,7 +375,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
               variant="outline"
               size="sm"
               onClick={handleGoBack}
-              className="flex items-center gap-2 border-orange-200 hover:bg-orange-50"
+              className="flex items-center gap-2 border-orange-200 hover:bg-orange-50 rounded-xl"
             >
               <ArrowLeft className="w-4 h-4" />
               Back
@@ -362,7 +388,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
             variant="outline"
             size="sm"
             onClick={handleGoHome}
-            className="flex items-center gap-2 border-green-200 hover:bg-green-50"
+            className="flex items-center gap-2 border-green-200 hover:bg-green-50 rounded-xl"
           >
             <Home className="w-4 h-4" />
             Home
@@ -375,17 +401,17 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
           {messages.map((message) => (
             <div key={message.id} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`flex items-end gap-3 max-w-2xl ${message.sender === 'user' ? 'flex-row-reverse' : ''}`}>
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-lg ${
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg ${
                   message.sender === 'bot' 
                     ? 'bg-gradient-to-r from-orange-500 to-green-500' 
                     : 'bg-gradient-to-r from-blue-500 to-purple-500'
                 }`}>
-                  {message.sender === 'bot' ? <Bot className="w-5 h-5" /> : <User className="w-5 h-5" />}
+                  {message.sender === 'bot' ? <Bot className="w-6 h-6" /> : <User className="w-6 h-6" />}
                 </div>
                 <div className={`px-6 py-4 rounded-3xl shadow-lg max-w-lg ${
                   message.sender === 'user' 
                     ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white' 
-                    : 'bg-white text-gray-800 border border-orange-100'
+                    : 'bg-white text-gray-800 border-2 border-orange-100'
                 }`}>
                   <p className="text-sm whitespace-pre-line leading-relaxed font-medium">{message.text}</p>
                 </div>
@@ -416,7 +442,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
                       onClick={() => handleOptionClick(option)}
                       disabled={loading}
                     >
-                      <span className="bg-gradient-to-r from-orange-500 to-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center mr-3 text-sm font-bold">
+                      <span className="bg-gradient-to-r from-orange-500 to-green-500 text-white rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold">
                         {index + 1}
                       </span>
                       {option}
@@ -451,56 +477,60 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
                 </CardTitle>
                 <p className="text-gray-600">Just a few details to receive your personalized assessment results</p>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <label htmlFor="name" className="text-sm font-semibold text-gray-700">Full Name *</label>
-                  <Input
-                    id="name"
-                    placeholder="Enter your full name"
-                    value={userName}
-                    onChange={(e) => setUserName(e.target.value)}
-                    className="rounded-2xl border-2 border-gray-200 focus:border-orange-300 py-3"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="email" className="text-sm font-semibold text-gray-700">Email Address *</label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="Enter your email address"
-                    value={userEmail}
-                    onChange={(e) => setUserEmail(e.target.value)}
-                    className="rounded-2xl border-2 border-gray-200 focus:border-orange-300 py-3"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="phone" className="text-sm font-semibold text-gray-700">Phone Number</label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="Enter your phone number (optional)"
-                    value={userPhone}
-                    onChange={(e) => setUserPhone(e.target.value)}
-                    className="rounded-2xl border-2 border-gray-200 focus:border-orange-300 py-3"
-                  />
-                </div>
-                <Button 
-                  onClick={handleSubmitLead} 
-                  className="w-full bg-gradient-to-r from-orange-500 to-green-500 hover:from-orange-600 hover:to-green-600 text-white py-4 rounded-2xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                      Submitting...
-                    </>
-                  ) : (
-                    <>
-                      <User className="w-5 h-5 mr-2" />
-                      Get My Results 🎉
-                    </>
-                  )}
-                </Button>
+              <CardContent>
+                <form onSubmit={handleSubmitLead} className="space-y-4">
+                  <div className="space-y-2">
+                    <label htmlFor="name" className="text-sm font-semibold text-gray-700">Full Name *</label>
+                    <Input
+                      id="name"
+                      placeholder="Enter your full name"
+                      value={userName}
+                      onChange={(e) => setUserName(e.target.value)}
+                      className="rounded-2xl border-2 border-gray-200 focus:border-orange-300 py-3"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="email" className="text-sm font-semibold text-gray-700">Email Address *</label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="Enter your email address"
+                      value={userEmail}
+                      onChange={(e) => setUserEmail(e.target.value)}
+                      className="rounded-2xl border-2 border-gray-200 focus:border-orange-300 py-3"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="phone" className="text-sm font-semibold text-gray-700">Phone Number</label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="Enter your phone number (optional)"
+                      value={userPhone}
+                      onChange={(e) => setUserPhone(e.target.value)}
+                      className="rounded-2xl border-2 border-gray-200 focus:border-orange-300 py-3"
+                    />
+                  </div>
+                  <Button 
+                    type="submit"
+                    className="w-full bg-gradient-to-r from-orange-500 to-green-500 hover:from-orange-600 hover:to-green-600 text-white py-4 rounded-2xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <User className="w-5 h-5 mr-2" />
+                        Get My Results 🎉
+                      </>
+                    )}
+                  </Button>
+                </form>
               </CardContent>
             </Card>
           </div>
