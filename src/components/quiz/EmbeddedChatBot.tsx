@@ -1,19 +1,28 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, User, Bot, Loader2, Home, ArrowLeft } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Send, RotateCcw, CheckCircle, AlertCircle, Info, ArrowLeft } from 'lucide-react';
 import { quizzes } from '@/data/quizzes';
 import { calculateQuizScore } from '@/utils/quizScoring';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { QuizAnswer } from '@/types/quiz';
 
 interface Message {
-  id: string;
-  text: string;
-  sender: 'user' | 'bot';
-  timestamp: Date;
+  role: 'assistant' | 'user';
+  content: string;
+  isQuestion?: boolean;
+  questionIndex?: number;
+  options?: string[];
+}
+
+interface QuizAnswer {
+  questionIndex: number;
+  answer: string;
+  answerIndex: number;
 }
 
 interface EmbeddedChatBotProps {
@@ -24,518 +33,462 @@ interface EmbeddedChatBotProps {
 
 export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBotProps) {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [userAnswers, setUserAnswers] = useState<QuizAnswer[]>([]);
-  const [userInput, setUserInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const chatBottomRef = useRef<HTMLDivElement>(null);
+  const [answers, setAnswers] = useState<QuizAnswer[]>([]);
   const [quizCompleted, setQuizCompleted] = useState(false);
-  const [leadCaptured, setLeadCaptured] = useState(false);
-  const [userName, setUserName] = useState('');
-  const [userEmail, setUserEmail] = useState('');
-  const [userPhone, setUserPhone] = useState('');
-  const [showCaptureForm, setShowCaptureForm] = useState(false);
-  const [score, setScore] = useState(0);
-  const [maxScore, setMaxScore] = useState(0);
-  const [showBackButton, setShowBackButton] = useState(true);
-  const [customQuiz, setCustomQuiz] = useState<any>(null);
-  const [customQuizLoading, setCustomQuizLoading] = useState(false);
-  const [quizNotFound, setQuizNotFound] = useState(false);
   const [quizStarted, setQuizStarted] = useState(false);
-  const [finalResults, setFinalResults] = useState<any>(null);
+  const [result, setResult] = useState<any>(null);
+  const [userInfo, setUserInfo] = useState({ name: '', email: '', phone: '' });
+  const [collectingInfo, setCollectingInfo] = useState(false);
+  const [infoStep, setInfoStep] = useState(0);
+  const [currentQuiz, setCurrentQuiz] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchQuizData = async () => {
-      console.log('Fetching quiz data for quizType:', quizType);
+      setLoading(true);
       
-      if (quizType && quizType.startsWith('custom_')) {
-        setCustomQuizLoading(true);
-        const customQuizId = quizType.replace('custom_', '');
-        console.log('Fetching custom quiz with ID:', customQuizId);
-        
-        try {
-          const { data, error } = await supabase
+      try {
+        if (quizType.startsWith('custom_')) {
+          const customQuizId = quizType.replace('custom_', '');
+          
+          const { data: customQuizData, error } = await supabase
             .from('custom_quizzes')
             .select('*')
             .eq('id', customQuizId)
             .single();
-          
-          console.log('Custom quiz fetch result:', { data, error });
-          
-          if (error) {
-            console.error('Error fetching custom quiz:', error);
-            setQuizNotFound(true);
-          } else if (data) {
-            setCustomQuiz(data);
-            console.log('Custom quiz loaded:', data);
-          } else {
-            console.log('No custom quiz found');
-            setQuizNotFound(true);
+
+          if (error || !customQuizData) {
+            setNotFound(true);
+            return;
           }
-        } catch (error) {
-          console.error('Exception fetching custom quiz:', error);
-          setQuizNotFound(true);
-        } finally {
-          setCustomQuizLoading(false);
+
+          setCurrentQuiz({
+            id: customQuizData.id,
+            title: customQuizData.title,
+            description: customQuizData.description,
+            questions: customQuizData.questions,
+            maxScore: customQuizData.max_score,
+            scoring: customQuizData.scoring,
+            isCustom: true
+          });
+        } else {
+          const standardQuiz = Object.values(quizzes).find(
+            quiz => quiz.id.toLowerCase() === quizType.toLowerCase()
+          );
+          
+          if (!standardQuiz) {
+            setNotFound(true);
+            return;
+          }
+          
+          setCurrentQuiz({
+            ...standardQuiz,
+            isCustom: false
+          });
         }
-      } else {
-        // Check if it's a valid standard quiz
-        const standardQuiz = quizzes[quizType.toUpperCase() as keyof typeof quizzes];
-        console.log('Standard quiz lookup for', quizType, ':', standardQuiz);
-        
-        if (!standardQuiz) {
-          console.log('Standard quiz not found for type:', quizType);
-          setQuizNotFound(true);
-        }
+      } catch (error) {
+        setNotFound(true);
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchQuizData();
+    if (quizType) {
+      fetchQuizData();
+    }
   }, [quizType]);
 
-  // Determine the current quiz object
-  let quiz: any = null;
-  if (quizType && quizType.startsWith('custom_')) {
-    quiz = customQuiz ? {
-      ...customQuiz,
-      title: customQuiz.title,
-      questions: customQuiz.questions || [],
-    } : null;
-  } else {
-    quiz = quizzes[quizType.toUpperCase() as keyof typeof quizzes];
+  useEffect(() => {
+    if (currentQuiz && !quizStarted && !notFound) {
+      setMessages([
+        {
+          role: 'assistant',
+          content: `Hello! Welcome to the ${currentQuiz.title}. ${currentQuiz.description}\n\nThis assessment will help evaluate your symptoms. Click "Start Assessment" when you're ready to begin.`
+        }
+      ]);
+    }
+  }, [currentQuiz, quizStarted, notFound]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-lg text-gray-600">Loading assessment...</p>
+        </div>
+      </div>
+    );
   }
 
-  // Set max score based on quiz type
-  useEffect(() => {
-    if (quiz && quiz.questions) {
-      let calculatedMaxScore = 0;
-      
-      if (quizType.toLowerCase() === 'nose') {
-        calculatedMaxScore = 100; // NOSE max score is 100
-      } else if (quizType.toLowerCase() === 'snot22') {
-        calculatedMaxScore = quiz.questions.length * 5; // SNOT-22: 5 points per question
-      } else if (quiz.maxScore) {
-        calculatedMaxScore = quiz.maxScore;
-      } else {
-        calculatedMaxScore = quiz.questions.length * 5; // Default: 5 points per question
-      }
-      
-      setMaxScore(calculatedMaxScore);
-    }
-  }, [quiz, quizType]);
-
-  console.log('Current quiz object:', quiz);
-  console.log('Quiz not found state:', quizNotFound);
-  console.log('Custom quiz loading state:', customQuizLoading);
-
-  useEffect(() => {
-    if (quiz && quiz.questions && quiz.questions.length > 0 && !quizStarted) {
-      const welcomeMessage: Message = {
-        id: '1',
-        text: `🎯 Welcome to the **${quiz.title}**!\n\nThis assessment helps evaluate your symptoms and takes about 5-10 minutes to complete.\n\n📋 **${quiz.questions.length} questions** • ⏱️ **5-10 minutes** • 📊 **Instant results**\n\nAre you ready to begin?`,
-        sender: 'bot',
-        timestamp: new Date()
-      };
-      setMessages([welcomeMessage]);
-    } else if (!customQuizLoading && !quiz && !quizNotFound) {
-      const errorMessage: Message = {
-        id: '1',
-        text: '❌ Sorry, I couldn\'t find this assessment. Please contact support if this issue persists.',
-        sender: 'bot',
-        timestamp: new Date()
-      };
-      setMessages([errorMessage]);
-    }
-  }, [quiz, customQuizLoading, quizNotFound, quizStarted]);
-
-  useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  if (notFound || !currentQuiz) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-center max-w-md mx-auto p-6">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Assessment Not Found</h1>
+          <p className="text-gray-600 mb-4">The requested assessment could not be found or is no longer available.</p>
+          <Button onClick={() => window.location.href = '/'}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Return to Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const startQuiz = () => {
     setQuizStarted(true);
-    if (quiz && quiz.questions && quiz.questions.length > 0) {
-      const firstQuestionMessage: Message = {
-        id: Date.now().toString(),
-        text: `🚀 **Question ${currentQuestionIndex + 1} of ${quiz.questions.length}**\n\n${quiz.questions[0].text}`,
-        sender: 'bot',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, firstQuestionMessage]);
-    }
+    askNextQuestion(0);
   };
 
-  const handleOptionClick = (option: string) => {
-    if (!quiz || !quiz.questions) return;
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      text: option,
-      sender: 'user',
-      timestamp: new Date()
-    };
-    setMessages(prev => [...prev, userMessage]);
-
-    const currentQuestion = quiz.questions[currentQuestionIndex];
-    if (currentQuestion) {
-      const newAnswer: QuizAnswer = {
-        questionId: currentQuestion.id,
-        answer: option
-      };
-      setUserAnswers(prev => [...prev, newAnswer]);
-    }
-
-    if (currentQuestionIndex < quiz.questions.length - 1) {
-      setLoading(true);
-      setTimeout(() => {
-        const nextIndex = currentQuestionIndex + 1;
-        const progress = Math.round(((nextIndex + 1) / quiz.questions.length) * 100);
-        const nextQuestionMessage: Message = {
-          id: Date.now().toString(),
-          text: `📊 **Progress: ${progress}%**\n\n🚀 **Question ${nextIndex + 1} of ${quiz.questions.length}**\n\n${quiz.questions[nextIndex].text}`,
-          sender: 'bot',
-          timestamp: new Date()
-        };
-        setMessages(prev => [...prev, nextQuestionMessage]);
-        setCurrentQuestionIndex(nextIndex);
-        setLoading(false);
-      }, 1000);
+  const askNextQuestion = (questionIndex: number) => {
+    if (questionIndex < currentQuiz.questions.length) {
+      const question = currentQuiz.questions[questionIndex];
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `Question ${questionIndex + 1} of ${currentQuiz.questions.length}:\n\n${question.text}`,
+        isQuestion: true,
+        questionIndex,
+        options: question.options
+      }]);
+      setCurrentQuestionIndex(questionIndex);
     } else {
-      setQuizCompleted(true);
-      setShowCaptureForm(true);
-      setTimeout(() => {
-        const completionMessage: Message = {
-          id: Date.now().toString(),
-          text: "🎉 **Excellent!** You've completed all the questions.\n\nPlease provide your contact information below to receive your personalized results and connect with our medical team.",
-          sender: 'bot',
-          timestamp: new Date()
-        };
-        setMessages(prev => [...prev, completionMessage]);
-      }, 1000);
+      completeQuiz();
     }
   };
 
-  const handleSubmitLead = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!userName.trim() || !userEmail.trim()) {
-      toast.error('Please enter your name and email.');
-      return;
+  const handleAnswer = (answerText: string, answerIndex: number) => {
+    const newAnswer: QuizAnswer = {
+      questionIndex: currentQuestionIndex,
+      answer: answerText,
+      answerIndex
+    };
+
+    const updatedAnswers = [...answers, newAnswer];
+    setAnswers(updatedAnswers);
+
+    setMessages(prev => [...prev, {
+      role: 'user',
+      content: answerText
+    }]);
+
+    const nextQuestionIndex = currentQuestionIndex + 1;
+    if (nextQuestionIndex < currentQuiz.questions.length) {
+      setTimeout(() => askNextQuestion(nextQuestionIndex), 500);
+    } else {
+      setTimeout(() => completeQuiz(), 500);
     }
+  };
 
-    if (!quiz || !userAnswers.length) {
-      toast.error('Quiz data not found. Cannot submit results.');
-      return;
-    }
-
-    setLoading(true);
+  const completeQuiz = () => {
+    setQuizCompleted(true);
     
-    try {
-      console.log('Calculating score for quiz type:', quizType, 'with answers:', userAnswers);
-      
-      // Calculate the score using the quiz scoring utility
-      const calculatedResults = calculateQuizScore(quizType.toUpperCase() as any, userAnswers);
-      console.log('Calculated results:', calculatedResults);
-      
-      const scoreValue = typeof calculatedResults === 'object' ? calculatedResults.score : calculatedResults;
-      setScore(scoreValue);
-      setFinalResults(calculatedResults);
+    let score = 0;
+    let detailedAnswers: any = {};
 
-      // Convert userAnswers to a format compatible with Supabase JSONB
-      const answersForDb = userAnswers.map(answer => ({
-        questionId: answer.questionId,
-        answer: answer.answer
-      }));
-
-      console.log('Submitting lead with data:', {
-        quiz_type: quizType.toUpperCase(),
-        name: userName,
-        email: userEmail,
-        phone: userPhone || null,
-        answers: answersForDb,
-        score: scoreValue,
-        share_key: shareKey || null,
-        doctor_id: doctorId || null,
-        lead_source: shareKey ? 'shared_link' : 'website',
-        lead_status: 'NEW'
+    if (currentQuiz.isCustom) {
+      // Calculate score for custom quiz
+      answers.forEach((answer, index) => {
+        const question = currentQuiz.questions[answer.questionIndex];
+        const selectedOption = question.options?.[answer.answerIndex];
+        if (selectedOption && typeof selectedOption.value === 'number') {
+          score += selectedOption.value;
+        }
+        detailedAnswers[question.id || `q${index}`] = {
+          question: question.text,
+          answer: answer.answer,
+          score: selectedOption?.value || 0
+        };
       });
 
-      const { data, error } = await supabase
-        .from('quiz_leads')
-        .insert({
-          quiz_type: quizType.toUpperCase(),
-          name: userName,
-          email: userEmail,
-          phone: userPhone || null,
-          answers: answersForDb,
-          score: scoreValue,
-          share_key: shareKey || null,
-          doctor_id: doctorId || null,
-          lead_source: shareKey ? 'shared_link' : 'website',
-          lead_status: 'NEW'
-        })
-        .select();
+      // Calculate severity based on percentage
+      const percentage = (score / currentQuiz.maxScore) * 100;
+      let severity = 'normal';
+      let interpretation = '';
 
-      if (error) {
-        console.error('Error saving lead:', error);
-        toast.error('Failed to submit your information. Please try again.');
-        return;
+      if (percentage >= currentQuiz.scoring.severe_threshold) {
+        severity = 'severe';
+        interpretation = 'Your symptoms indicate a severe condition. Please consult with a healthcare provider immediately.';
+      } else if (percentage >= currentQuiz.scoring.moderate_threshold) {
+        severity = 'moderate';
+        interpretation = 'Your symptoms indicate a moderate condition. We recommend scheduling a consultation.';
+      } else if (percentage >= currentQuiz.scoring.mild_threshold) {
+        severity = 'mild';
+        interpretation = 'Your symptoms indicate a mild condition. Consider monitoring or consulting with a healthcare provider.';
+      } else {
+        interpretation = 'Your symptoms appear to be minimal. Continue monitoring your condition.';
       }
 
-      console.log('Lead saved successfully:', data);
-      toast.success('Your information has been submitted successfully!');
-      setLeadCaptured(true);
-      setShowCaptureForm(false);
-      
-      // Show results message with detailed scoring
-      const resultsMessage: Message = {
-        id: Date.now().toString(),
-        text: `🎯 **Thank you, ${userName}!** Your assessment is complete.\n\n📊 **Your Score: ${scoreValue}/${maxScore}**\n\n${typeof calculatedResults === 'object' ? calculatedResults.interpretation : ''}\n\n🔔 Our medical team will review your results and contact you soon with personalized recommendations.`,
-        sender: 'bot',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, resultsMessage]);
-
-    } catch (error: any) {
-      console.error('Error saving lead:', error);
-      toast.error('An unexpected error occurred. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoHome = () => {
-    window.location.href = '/';
-  };
-
-  const handleGoBack = () => {
-    if (window.history.length > 1) {
-      window.history.back();
+      setResult({ score, interpretation, severity, summary: interpretation, detailedAnswers });
     } else {
-      window.location.href = '/';
+      // Use existing scoring for standard quizzes
+      const quizResult = calculateQuizScore(currentQuiz.id as any, answers.map(a => a.answerIndex));
+      answers.forEach((answer, index) => {
+        const question = currentQuiz.questions[answer.questionIndex];
+        detailedAnswers[`q${index}`] = {
+          question: question.text,
+          answer: answer.answer,
+          score: answer.answerIndex
+        };
+      });
+      setResult({ ...quizResult, detailedAnswers });
+      score = quizResult.score;
+    }
+
+    setMessages(prev => [...prev, {
+      role: 'assistant',
+      content: `Thank you for completing the ${currentQuiz.title}!\n\nYour score: ${score}/${currentQuiz.maxScore}\n\nTo receive your detailed results, please provide your contact information.`
+    }]);
+
+    setCollectingInfo(true);
+  };
+
+  const handleInfoSubmit = async () => {
+    if (infoStep === 0) {
+      if (!userInfo.name.trim()) {
+        toast.error('Please enter your name');
+        return;
+      }
+      setInfoStep(1);
+      setMessages(prev => [...prev, 
+        { role: 'user', content: userInfo.name },
+        { role: 'assistant', content: 'Thank you! Please provide your email address:' }
+      ]);
+      setInput('');
+      return;
+    }
+
+    if (infoStep === 1) {
+      if (!userInfo.email.trim() || !userInfo.email.includes('@')) {
+        toast.error('Please enter a valid email address');
+        return;
+      }
+      setInfoStep(2);
+      setMessages(prev => [...prev, 
+        { role: 'user', content: userInfo.email },
+        { role: 'assistant', content: 'Great! Finally, please provide your phone number (optional):' }
+      ]);
+      setInput('');
+      return;
+    }
+
+    if (infoStep === 2) {
+      setMessages(prev => [...prev, 
+        { role: 'user', content: userInfo.phone || 'Not provided' }
+      ]);
+      
+      try {
+        const leadData = {
+          name: userInfo.name,
+          email: userInfo.email,
+          phone: userInfo.phone || null,
+          quiz_type: currentQuiz.isCustom ? `custom_${currentQuiz.id}` : currentQuiz.id,
+          score: result.score,
+          answers: result.detailedAnswers,
+          lead_source: 'website',
+          lead_status: 'NEW',
+          doctor_id: doctorId,
+          share_key: shareKey,
+          incident_source: shareKey || 'default'
+        };
+
+        const { error } = await supabase
+          .from('quiz_leads')
+          .insert([leadData]);
+
+        if (error) throw error;
+
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `Thank you ${userInfo.name}! Your assessment results have been saved.\n\n**Your Results:**\n\n**Score:** ${result.score}/${currentQuiz.maxScore}\n**Severity:** ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}\n\n**Interpretation:** ${result.interpretation}\n\nA healthcare provider will review your results and may contact you for follow-up care if needed.`
+        }]);
+
+        setCollectingInfo(false);
+        setInput('');
+      } catch (error) {
+        toast.error('Failed to save results. Please try again.');
+      }
     }
   };
 
-  if (customQuizLoading) {
-    return (
-      <div className="flex items-center justify-center h-full bg-gradient-to-br from-orange-50 to-green-50">
-        <div className="text-center bg-white p-8 rounded-3xl shadow-lg">
-          <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-orange-500" />
-          <p className="text-lg font-semibold text-gray-700">Loading your assessment...</p>
-        </div>
-      </div>
-    );
-  }
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setInput(value);
+    
+    if (collectingInfo) {
+      if (infoStep === 0) {
+        setUserInfo(prev => ({ ...prev, name: value }));
+      } else if (infoStep === 1) {
+        setUserInfo(prev => ({ ...prev, email: value }));
+      } else if (infoStep === 2) {
+        setUserInfo(prev => ({ ...prev, phone: value }));
+      }
+    }
+  };
 
-  if (quizNotFound || (!quiz && !customQuizLoading)) {
-    return (
-      <div className="flex flex-col h-screen bg-gradient-to-br from-orange-50 to-green-50">
-        {showBackButton && (
-          <div className="bg-white shadow-lg border-b px-6 py-4 flex items-center justify-between">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleGoBack}
-              className="flex items-center gap-2 border-orange-200 hover:bg-orange-50 rounded-xl"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleGoHome}
-              className="flex items-center gap-2 border-green-200 hover:bg-green-50 rounded-xl"
-            >
-              <Home className="w-4 h-4" />
-              Home
-            </Button>
-          </div>
-        )}
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div className="text-center bg-white p-8 rounded-3xl shadow-lg max-w-md">
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">Assessment Not Found</h1>
-            <p className="text-gray-600 mb-6">The requested assessment could not be found.</p>
-            <Button onClick={handleGoHome} className="bg-gradient-to-r from-orange-500 to-green-500 hover:from-orange-600 hover:to-green-600 text-white px-6 py-3 rounded-2xl">
-              <Home className="w-4 h-4 mr-2" />
-              Go to Home
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const resetQuiz = () => {
+    setMessages([]);
+    setCurrentQuestionIndex(0);
+    setAnswers([]);
+    setQuizCompleted(false);
+    setQuizStarted(false);
+    setResult(null);
+    setUserInfo({ name: '', email: '', phone: '' });
+    setCollectingInfo(false);
+    setInfoStep(0);
+    setInput('');
+    
+    setTimeout(() => {
+      setMessages([{
+        role: 'assistant',
+        content: `Hello! Welcome to the ${currentQuiz.title}. ${currentQuiz.description}\n\nThis assessment will help evaluate your symptoms. Click "Start Assessment" when you're ready to begin.`
+      }]);
+    }, 100);
+  };
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'severe': return 'text-red-600 bg-red-50 border-red-200';
+      case 'moderate': return 'text-orange-600 bg-orange-50 border-orange-200';
+      case 'mild': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+      default: return 'text-green-600 bg-green-50 border-green-200';
+    }
+  };
+
+  const getSeverityIcon = (severity: string) => {
+    switch (severity) {
+      case 'severe': return <AlertCircle className="w-4 h-4" />;
+      case 'moderate': return <AlertCircle className="w-4 h-4" />;
+      case 'mild': return <Info className="w-4 h-4" />;
+      default: return <CheckCircle className="w-4 h-4" />;
+    }
+  };
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-br from-orange-50 to-green-50">
-      {showBackButton && (
-        <div className="bg-white shadow-lg border-b px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleGoBack}
-              className="flex items-center gap-2 border-orange-200 hover:bg-orange-50 rounded-xl"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </Button>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-orange-600 to-green-600 bg-clip-text text-transparent">
-              {quiz?.title || 'Assessment'}
-            </h1>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleGoHome}
-            className="flex items-center gap-2 border-green-200 hover:bg-green-50 rounded-xl"
-          >
-            <Home className="w-4 h-4" />
-            Home
-          </Button>
+    <div className="flex flex-col h-screen bg-gradient-to-br from-blue-50 to-green-50">
+      <div className="bg-white shadow-sm border-b px-6 py-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">{currentQuiz.title}</h1>
+          <p className="text-sm text-gray-600">{currentQuiz.description}</p>
         </div>
-      )}
+        {quizStarted && !quizCompleted && (
+          <div className="flex items-center gap-4">
+            <Progress 
+              value={(currentQuestionIndex / currentQuiz.questions.length) * 100} 
+              className="w-32"
+            />
+            <span className="text-sm text-gray-600">
+              {currentQuestionIndex}/{currentQuiz.questions.length}
+            </span>
+          </div>
+        )}
+      </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-4xl mx-auto space-y-6">
-          {messages.map((message) => (
-            <div key={message.id} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`flex items-end gap-3 max-w-2xl ${message.sender === 'user' ? 'flex-row-reverse' : ''}`}>
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg ${
-                  message.sender === 'bot' 
-                    ? 'bg-gradient-to-r from-orange-500 to-green-500' 
-                    : 'bg-gradient-to-r from-blue-500 to-purple-500'
-                }`}>
-                  {message.sender === 'bot' ? <Bot className="w-6 h-6" /> : <User className="w-6 h-6" />}
-                </div>
-                <div className={`px-6 py-4 rounded-3xl shadow-lg max-w-lg ${
-                  message.sender === 'user' 
-                    ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white' 
-                    : 'bg-white text-gray-800 border-2 border-orange-100'
-                }`}>
-                  <p className="text-sm whitespace-pre-line leading-relaxed font-medium">{message.text}</p>
-                </div>
-              </div>
+      <div className="flex-1 overflow-hidden flex flex-col max-w-4xl mx-auto w-full">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {messages.map((message, index) => (
+            <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <Card className={`max-w-[80%] ${message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-white'}`}>
+                <CardContent className="p-4">
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
+                  
+                  {message.isQuestion && message.options && !quizCompleted && (
+                    <div className="mt-4 space-y-2">
+                      {message.options.map((option, optionIndex) => (
+                        <Button
+                          key={optionIndex}
+                          variant="outline"
+                          className="w-full justify-start text-left h-auto p-3 bg-white hover:bg-gray-50 text-gray-900 border-gray-300"
+                          onClick={() => handleAnswer(option, optionIndex)}
+                        >
+                          <span className="mr-2 font-medium">{String.fromCharCode(65 + optionIndex)}.</span>
+                          {option}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           ))}
 
-          {!quizStarted && quiz && quiz.questions && quiz.questions.length > 0 && (
-            <div className="flex justify-center mt-8">
-              <Button 
-                onClick={startQuiz}
-                className="bg-gradient-to-r from-orange-500 to-green-500 hover:from-orange-600 hover:to-green-600 text-white px-8 py-4 rounded-3xl text-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
-              >
-                🚀 Start Assessment
+          {result && quizCompleted && !collectingInfo && (
+            <Card className="bg-white border-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  Assessment Complete
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="text-center p-4 bg-blue-50 rounded-lg">
+                    <p className="text-sm text-gray-600">Your Score</p>
+                    <p className="text-2xl font-bold text-blue-600">{result.score}/{currentQuiz.maxScore}</p>
+                  </div>
+                  <div className={`text-center p-4 rounded-lg border ${getSeverityColor(result.severity)}`}>
+                    <div className="flex items-center justify-center gap-2 mb-1">
+                      {getSeverityIcon(result.severity)}
+                      <p className="text-sm font-medium">Severity Level</p>
+                    </div>
+                    <p className="font-bold capitalize">{result.severity}</p>
+                  </div>
+                  <div className="text-center p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-600">Questions</p>
+                    <p className="text-2xl font-bold text-gray-600">{currentQuiz.questions.length}</p>
+                  </div>
+                </div>
+                
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <h4 className="font-semibold mb-2">Results Summary:</h4>
+                  <p className="text-gray-700">{result.interpretation}</p>
+                </div>
+
+                <Button onClick={resetQuiz} className="w-full" variant="outline">
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Take Assessment Again
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        <div className="bg-white border-t p-6">
+          {!quizStarted && !quizCompleted && (
+            <Button onClick={startQuiz} className="w-full bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 text-white">
+              Start Assessment
+            </Button>
+          )}
+
+          {collectingInfo && (
+            <div className="flex gap-2">
+              <Input
+                value={input}
+                onChange={handleInputChange}
+                placeholder={
+                  infoStep === 0 ? "Enter your full name..." :
+                  infoStep === 1 ? "Enter your email address..." :
+                  "Enter your phone number (optional)..."
+                }
+                onKeyPress={(e) => e.key === 'Enter' && handleInfoSubmit()}
+                className="flex-1"
+              />
+              <Button onClick={handleInfoSubmit}>
+                <Send className="w-4 h-4" />
               </Button>
             </div>
           )}
-
-          {quizStarted && !quizCompleted && quiz && quiz.questions && quiz.questions.length > 0 && (
-            <div className="mt-6">
-              <div className="bg-white rounded-3xl border-2 border-orange-100 shadow-lg p-6">
-                <div className="space-y-3">
-                  {quiz.questions[currentQuestionIndex]?.options?.map((option: string, index: number) => (
-                    <Button
-                      key={index}
-                      variant="outline"
-                      className="w-full text-left justify-start hover:bg-gradient-to-r hover:from-orange-50 hover:to-green-50 hover:border-orange-300 border-2 border-gray-200 rounded-2xl py-4 px-6 text-gray-700 font-medium transition-all duration-200 hover:shadow-md"
-                      onClick={() => handleOptionClick(option)}
-                      disabled={loading}
-                    >
-                      <span className="bg-gradient-to-r from-orange-500 to-green-500 text-white rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold">
-                        {index + 1}
-                      </span>
-                      {option}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {loading && (
-            <div className="flex justify-center mt-6">
-              <div className="bg-white rounded-3xl px-6 py-4 border-2 border-orange-100 shadow-lg">
-                <div className="flex items-center gap-3">
-                  <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
-                  <span className="text-gray-700 font-medium">Processing your answer...</span>
-                </div>
-              </div>
-            </div>
-          )}
-          <div ref={chatBottomRef} />
         </div>
       </div>
-
-      {showCaptureForm && quizCompleted && !leadCaptured && (
-        <div className="p-6 bg-white border-t-2 border-orange-100">
-          <div className="max-w-md mx-auto">
-            <Card className="shadow-xl border-2 border-orange-100 rounded-3xl">
-              <CardHeader className="text-center pb-4">
-                <CardTitle className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-green-600 bg-clip-text text-transparent">
-                  🎯 Get Your Results
-                </CardTitle>
-                <p className="text-gray-600">Just a few details to receive your personalized assessment results</p>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmitLead} className="space-y-4">
-                  <div className="space-y-2">
-                    <label htmlFor="name" className="text-sm font-semibold text-gray-700">Full Name *</label>
-                    <Input
-                      id="name"
-                      placeholder="Enter your full name"
-                      value={userName}
-                      onChange={(e) => setUserName(e.target.value)}
-                      className="rounded-2xl border-2 border-gray-200 focus:border-orange-300 py-3"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label htmlFor="email" className="text-sm font-semibold text-gray-700">Email Address *</label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="Enter your email address"
-                      value={userEmail}
-                      onChange={(e) => setUserEmail(e.target.value)}
-                      className="rounded-2xl border-2 border-gray-200 focus:border-orange-300 py-3"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label htmlFor="phone" className="text-sm font-semibold text-gray-700">Phone Number</label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="Enter your phone number (optional)"
-                      value={userPhone}
-                      onChange={(e) => setUserPhone(e.target.value)}
-                      className="rounded-2xl border-2 border-gray-200 focus:border-orange-300 py-3"
-                    />
-                  </div>
-                  <Button 
-                    type="submit"
-                    className="w-full bg-gradient-to-r from-orange-500 to-green-500 hover:from-orange-600 hover:to-green-600 text-white py-4 rounded-2xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                        Submitting...
-                      </>
-                    ) : (
-                      <>
-                        <User className="w-5 h-5 mr-2" />
-                        Get My Results 🎉
-                      </>
-                    )}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

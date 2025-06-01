@@ -8,8 +8,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, GripVertical, Save, Eye, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, GripVertical, Save, Eye, ArrowLeft, Bot, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { quizzes } from '@/data/quizzes';
 
 interface QuizOption {
   text: string;
@@ -39,12 +40,21 @@ interface CustomQuiz {
   doctor_id?: string;
 }
 
-export function CustomQuizCreator() {
+interface CustomQuizCreatorProps {
+  baseQuizId?: string;
+  onQuizCreated?: (quiz: any) => void;
+}
+
+export function CustomQuizCreator({ baseQuizId, onQuizCreated }: CustomQuizCreatorProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { id } = useParams();
   const [doctorId, setDoctorId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [showAIHelper, setShowAIHelper] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  
   const [quiz, setQuiz] = useState<CustomQuiz>({
     title: '',
     description: '',
@@ -79,6 +89,36 @@ export function CustomQuizCreator() {
       fetchQuiz();
     }
   }, [id, doctorId]);
+
+  useEffect(() => {
+    if (baseQuizId && !id) {
+      loadBaseQuiz();
+    }
+  }, [baseQuizId, id]);
+
+  const loadBaseQuiz = () => {
+    const baseQuiz = quizzes[baseQuizId as keyof typeof quizzes];
+    if (baseQuiz) {
+      setQuiz(prev => ({
+        ...prev,
+        title: `${baseQuiz.title} (Copy)`,
+        description: baseQuiz.description,
+        questions: baseQuiz.questions.map(q => ({
+          id: `q_${Date.now()}_${Math.random()}`,
+          text: q.text,
+          type: 'multiple_choice' as const,
+          options: q.options.map((opt, idx) => ({ text: opt, value: idx })),
+          required: true
+        })),
+        scoring: {
+          mild_threshold: 25,
+          moderate_threshold: 50,
+          severe_threshold: 75
+        }
+      }));
+      toast.success(`Loaded ${baseQuiz.title} as base template`);
+    }
+  };
 
   const fetchDoctorProfile = async () => {
     try {
@@ -126,6 +166,58 @@ export function CustomQuizCreator() {
     } catch (error) {
       console.error('Error fetching quiz:', error);
       toast.error('Failed to load quiz');
+    }
+  };
+
+  const handleAIGenerate = async () => {
+    if (!aiPrompt.trim()) {
+      toast.error('Please enter a prompt for AI generation');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch('/functions/v1/ai-quiz-generator', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({
+          baseQuizId: baseQuizId || null,
+          customPrompt: aiPrompt,
+          quizTitle: quiz.title || 'AI Generated Quiz',
+          quizDescription: quiz.description || 'Generated with AI assistance'
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.questions) {
+        setQuiz(prev => ({
+          ...prev,
+          questions: [...prev.questions, ...result.questions.map((q: any) => ({
+            id: `q_${Date.now()}_${Math.random()}`,
+            text: q.text,
+            type: q.type || 'multiple_choice',
+            options: q.options || [],
+            required: true
+          }))],
+          title: result.title || prev.title,
+          description: result.description || prev.description
+        }));
+        
+        toast.success('AI questions generated successfully!');
+        setAiPrompt('');
+        setShowAIHelper(false);
+      }
+    } catch (error) {
+      console.error('Error generating with AI:', error);
+      toast.error('Failed to generate questions with AI');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -213,7 +305,6 @@ export function CustomQuizCreator() {
       questions: [...prev.questions, newQuestion]
     }));
 
-    // Reset current question
     setCurrentQuestion({
       text: '',
       type: 'multiple_choice',
@@ -301,12 +392,15 @@ export function CustomQuizCreator() {
         if (error) throw error;
         toast.success('Custom quiz updated successfully!');
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('custom_quizzes')
-          .insert([quizData]);
+          .insert([quizData])
+          .select()
+          .single();
 
         if (error) throw error;
         toast.success('Custom quiz saved successfully!');
+        onQuizCreated?.(data);
       }
 
       navigate('/portal');
@@ -326,13 +420,6 @@ export function CustomQuizCreator() {
     }
 
     const maxScore = calculateMaxScore();
-    const previewData = {
-      ...quiz,
-      maxScore,
-      scoring: quiz.scoring
-    };
-
-    console.log('Quiz Preview:', previewData);
     toast.success(`Quiz Preview: Max Score ${maxScore}, Thresholds: Mild(${quiz.scoring.mild_threshold}%), Moderate(${quiz.scoring.moderate_threshold}%), Severe(${quiz.scoring.severe_threshold}%)`);
   };
 
@@ -340,19 +427,13 @@ export function CustomQuizCreator() {
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button 
-            variant="outline" 
-            onClick={() => navigate('/portal')}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Portal
-          </Button>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
               {isEditing ? 'Edit Custom Assessment' : 'Create Custom Assessment'}
             </h1>
-            <p className="text-gray-600 mt-2">Build your own medical assessment questionnaire</p>
+            <p className="text-gray-600 mt-2">
+              {baseQuizId ? `Based on ${quizzes[baseQuizId as keyof typeof quizzes]?.title || 'selected quiz'}` : 'Build your own medical assessment questionnaire'}
+            </p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -368,7 +449,6 @@ export function CustomQuizCreator() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Quiz Settings */}
         <Card className="shadow-sm border">
           <CardHeader>
             <CardTitle>Quiz Information</CardTitle>
@@ -467,12 +547,43 @@ export function CustomQuizCreator() {
           </CardContent>
         </Card>
 
-        {/* Add Question */}
         <Card className="shadow-sm border">
           <CardHeader>
-            <CardTitle>Add Question</CardTitle>
+            <CardTitle className="flex items-center justify-between">
+              Add Question
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowAIHelper(!showAIHelper)}
+              >
+                <Bot className="w-4 h-4 mr-2" />
+                AI Helper
+              </Button>
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {showAIHelper && (
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <label className="text-sm font-medium text-gray-700 mb-2 block">AI Question Generator</label>
+                <Textarea
+                  placeholder="Describe the questions you want to add (e.g., 'Add 5 questions about sleep quality with severity levels')"
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  className="w-full mb-2"
+                  rows={2}
+                />
+                <Button 
+                  onClick={handleAIGenerate} 
+                  disabled={isGenerating}
+                  size="sm"
+                  className="w-full"
+                >
+                  <Wand2 className="w-4 h-4 mr-2" />
+                  {isGenerating ? 'Generating...' : 'Generate Questions'}
+                </Button>
+              </div>
+            )}
+
             <div>
               <label className="text-sm font-medium text-gray-700 mb-1 block">Question Text *</label>
               <Textarea
@@ -578,7 +689,6 @@ export function CustomQuizCreator() {
         </Card>
       </div>
 
-      {/* Questions List */}
       {quiz.questions.length > 0 && (
         <Card className="shadow-sm border">
           <CardHeader>

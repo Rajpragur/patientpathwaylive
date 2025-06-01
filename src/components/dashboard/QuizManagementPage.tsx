@@ -7,20 +7,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Share2, Edit, Copy, Bot, Wand2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { quizzes } from '@/data/quizzes';
-import { AIQuizCreator } from './AIQuizCreator';
 import { CustomQuizCreator } from './CustomQuizCreator';
 
 export function QuizManagementPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('existing');
+  const [selectedBaseQuiz, setSelectedBaseQuiz] = useState<string>('');
 
   const handleShareQuiz = (quizId: string) => {
     navigate(`/portal/share/${quizId}`);
   };
 
   const handleCopyQuiz = (quizId: string) => {
-    // Navigate to AI creator with base quiz selected
-    setActiveTab('ai-creator');
+    setSelectedBaseQuiz(quizId);
+    setActiveTab('custom');
   };
 
   const predefinedQuizzes = Object.values(quizzes).filter(quiz => quiz && quiz.id);
@@ -35,13 +35,12 @@ export function QuizManagementPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="existing">Existing Quizzes</TabsTrigger>
-          <TabsTrigger value="ai-creator">
+          <TabsTrigger value="custom">
             <Bot className="w-4 h-4 mr-2" />
-            AI Creator
+            Custom Creator
           </TabsTrigger>
-          <TabsTrigger value="custom">Manual Creator</TabsTrigger>
         </TabsList>
 
         <TabsContent value="existing" className="space-y-6">
@@ -87,12 +86,8 @@ export function QuizManagementPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="ai-creator">
-          <AIQuizCreator onQuizCreated={() => setActiveTab('existing')} />
-        </TabsContent>
-
         <TabsContent value="custom">
-          <CustomQuizCreator />
+          <CustomQuizCreator baseQuizId={selectedBaseQuiz} onQuizCreated={() => setActiveTab('existing')} />
         </TabsContent>
       </Tabs>
     </div>
