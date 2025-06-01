@@ -1,459 +1,223 @@
+
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Lead } from '@/types/quiz';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, Search, Plus, Trash2, Eye } from 'lucide-react';
-import { toast } from 'sonner';
-import { LeadDetails } from './LeadDetails';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Users, TrendingUp, Clock, Filter, Search, Download } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { Lead } from '@/types/quiz';
+import { EnhancedLeadsTable } from './EnhancedLeadsTable';
+import { formatDistanceToNow } from 'date-fns';
 
-interface LeadsPageProps {
-  filterStatus?: string;
-}
-
-export function LeadsPage({ filterStatus }: LeadsPageProps) {
+export function LeadsPage() {
   const { user } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [doctorId, setDoctorId] = useState<string | null>(null);
-  const [filters, setFilters] = useState({
-    search: '',
-    quizType: 'all',
-    status: filterStatus || 'all',
-    dateRange: '30'
-  });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [quizTypeFilter, setQuizTypeFilter] = useState('all');
 
   useEffect(() => {
-    if (user) {
-      fetchDoctorProfile();
-    }
+    fetchLeads();
   }, [user]);
 
-  useEffect(() => {
-    if (doctorId) {
-      fetchLeads();
-      
-      // Set up real-time subscription for new leads
-      const channel = supabase
-        .channel('leads')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'quiz_leads',
-            filter: `doctor_id=eq.${doctorId}`
-          },
-          () => {
-            fetchLeads();
-          }
-        )
-        .subscribe();
+  const fetchLeads = async () => {
+    if (!user) return;
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [doctorId]);
-
-  const fetchDoctorProfile = async () => {
+    setLoading(true);
     try {
-      const { data } = await supabase
+      // Get doctor profile first
+      const { data: doctorProfile, error: profileError } = await supabase
         .from('doctor_profiles')
         .select('id')
-        .eq('user_id', user?.id)
-        .maybeSingle();
-      
-      if (data) {
-        setDoctorId(data.id);
-      }
-    } catch (error) {
-      console.error('Error fetching doctor profile:', error);
-    }
-  };
+        .eq('user_id', user.id)
+        .single();
 
-  const fetchLeads = async () => {
-    if (!doctorId) return;
+      if (profileError) throw profileError;
 
-    try {
-      const { data, error } = await supabase
+      // Fetch leads for this doctor
+      const { data: leadsData, error: leadsError } = await supabase
         .from('quiz_leads')
         .select('*')
-        .eq('doctor_id', doctorId)
-        .order('created_at', { ascending: false });
+        .eq('doctor_id', doctorProfile.id)
+        .order('submitted_at', { ascending: false });
 
-      if (error) throw error;
-      
-      const transformedLeads: Lead[] = (data || []).map(lead => ({
-        id: lead.id,
-        name: lead.name,
-        email: lead.email,
-        phone: lead.phone,
-        quiz_type: lead.quiz_type,
-        score: lead.score,
-        answers: lead.answers,
-        lead_source: lead.lead_source || 'website',
-        lead_status: lead.lead_status as 'NEW' | 'CONTACTED' | 'SCHEDULED',
-        submitted_at: lead.submitted_at,
-        created_at: lead.created_at,
-        doctor_id: lead.doctor_id
-      }));
-      
-      setLeads(transformedLeads);
+      if (leadsError) throw leadsError;
+
+      setLeads(leadsData || []);
     } catch (error) {
       console.error('Error fetching leads:', error);
-      toast.error('Failed to fetch leads');
     } finally {
       setLoading(false);
     }
   };
 
-  const updateLeadStatus = async (leadId: string, status: string) => {
-    try {
-      const { error } = await supabase
-        .from('quiz_leads')
-        .update({ lead_status: status })
-        .eq('id', leadId);
-
-      if (error) throw error;
-      
-      setLeads(leads.map(lead => 
-        lead.id === leadId ? { ...lead, lead_status: status as 'NEW' | 'CONTACTED' | 'SCHEDULED' } : lead
-      ));
-      toast.success('Lead status updated');
-    } catch (error) {
-      console.error('Error updating lead:', error);
-      toast.error('Failed to update lead status');
-    }
-  };
-
-  const deleteLeads = async (leadIds: string[]) => {
-    try {
-      const { error } = await supabase
-        .from('quiz_leads')
-        .delete()
-        .in('id', leadIds);
-
-      if (error) throw error;
-      
-      setLeads(leads.filter(lead => !leadIds.includes(lead.id)));
-      setSelectedLeads([]);
-      toast.success(`${leadIds.length} lead(s) deleted successfully`);
-    } catch (error) {
-      console.error('Error deleting leads:', error);
-      toast.error('Failed to delete leads');
-    }
-  };
-
-  const exportLeads = () => {
-    const csvContent = [
-      ['Name', 'Email', 'Phone', 'Quiz Type', 'Score', 'Status', 'Source', 'Submitted'],
-      ...filteredLeads.map(lead => [
-        lead.name,
-        lead.email || '',
-        lead.phone || '',
-        lead.quiz_type,
-        lead.score.toString(),
-        lead.lead_status,
-        lead.lead_source,
-        new Date(lead.submitted_at).toLocaleDateString()
-      ])
-    ].map(row => row.join(',')).join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'leads.csv';
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'NEW': return 'bg-blue-100 text-blue-800';
-      case 'CONTACTED': return 'bg-yellow-100 text-yellow-800';
-      case 'SCHEDULED': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getSeverityColor = (score: number) => {
-    if (score > 50) return 'text-red-600';
-    if (score > 25) return 'text-yellow-600';
-    return 'text-green-600';
-  };
-
   const filteredLeads = leads.filter(lead => {
-    if (filters.search && !lead.name.toLowerCase().includes(filters.search.toLowerCase())) {
-      return false;
-    }
-    if (filters.quizType !== 'all' && lead.quiz_type !== filters.quizType) {
-      return false;
-    }
-    if (filters.status !== 'all' && lead.lead_status !== filters.status) {
-      return false;
-    }
-    return true;
+    const matchesSearch = 
+      lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (lead.phone && lead.phone.includes(searchTerm));
+    
+    const matchesStatus = statusFilter === 'all' || lead.lead_status === statusFilter;
+    const matchesQuizType = quizTypeFilter === 'all' || lead.quiz_type === quizTypeFilter;
+
+    return matchesSearch && matchesStatus && matchesQuizType;
   });
 
-  const totalLeads = leads.length;
-  const newLeads = leads.filter(l => l.lead_status === 'NEW').length;
-  const contactedLeads = leads.filter(l => l.lead_status === 'CONTACTED').length;
-  const scheduledLeads = leads.filter(l => l.lead_status === 'SCHEDULED').length;
+  const stats = {
+    total: leads.length,
+    new: leads.filter(l => l.lead_status === 'NEW').length,
+    contacted: leads.filter(l => l.lead_status === 'CONTACTED').length,
+    scheduled: leads.filter(l => l.lead_status === 'SCHEDULED').length
+  };
+
+  const uniqueQuizTypes = [...new Set(leads.map(l => l.quiz_type))];
 
   if (loading) {
     return (
-      <div className="p-6 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0E7C9D]"></div>
-        <span className="ml-2">Loading leads...</span>
+      <div className="p-6">
+        <div className="text-center">Loading leads...</div>
       </div>
     );
   }
 
   return (
     <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Leads Dashboard</h1>
+          <p className="text-gray-600 mt-2">Manage and track your assessment leads</p>
+        </div>
+        <Button>
+          <Download className="w-4 h-4 mr-2" />
+          Export Leads
+        </Button>
+      </div>
+
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="shadow-sm border">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-[#0E7C9D]">Total Leads</CardTitle>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Leads</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-[#0E7C9D]">{totalLeads}</div>
-            <p className="text-xs text-[#0E7C9D]/80 mt-1">All time</p>
+            <div className="text-2xl font-bold">{stats.total}</div>
+            <p className="text-xs text-muted-foreground">
+              All time leads
+            </p>
           </CardContent>
         </Card>
-        <Card className="shadow-sm border">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-blue-700">New Leads</CardTitle>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">New Leads</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-600">{newLeads}</div>
-            <p className="text-xs text-blue-600 mt-1">Awaiting contact</p>
+            <div className="text-2xl font-bold">{stats.new}</div>
+            <p className="text-xs text-muted-foreground">
+              Awaiting contact
+            </p>
           </CardContent>
         </Card>
-        <Card className="shadow-sm border">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-[#FF6B35]">Contacted</CardTitle>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Contacted</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-[#FF6B35]">{contactedLeads}</div>
-            <p className="text-xs text-[#FF6B35]/80 mt-1">In progress</p>
+            <div className="text-2xl font-bold">{stats.contacted}</div>
+            <p className="text-xs text-muted-foreground">
+              Follow up in progress
+            </p>
           </CardContent>
         </Card>
-        <Card className="shadow-sm border">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-emerald-700">Scheduled</CardTitle>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Scheduled</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-emerald-600">{scheduledLeads}</div>
-            <p className="text-xs text-emerald-600 mt-1">Appointments booked</p>
+            <div className="text-2xl font-bold">{stats.scheduled}</div>
+            <p className="text-xs text-muted-foreground">
+              Appointments booked
+            </p>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
-      <Card className="shadow-sm border">
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-4 items-center justify-between">
-            <div className="flex gap-4 items-center">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  placeholder="Search leads..."
-                  value={filters.search}
-                  onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                  className="pl-10 w-64"
-                />
-              </div>
-              <Select value={filters.quizType} onValueChange={(value) => setFilters(prev => ({ ...prev, quizType: value }))}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Quizzes</SelectItem>
-                  <SelectItem value="SNOT22">SNOT-22</SelectItem>
-                  <SelectItem value="NOSE">NOSE</SelectItem>
-                  <SelectItem value="HHIA">HHIA</SelectItem>
-                  <SelectItem value="EPWORTH">Epworth</SelectItem>
-                  <SelectItem value="DHI">DHI</SelectItem>
-                  <SelectItem value="STOP">STOP</SelectItem>
-                  <SelectItem value="TNSS">TNSS</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="NEW">New</SelectItem>
-                  <SelectItem value="CONTACTED">Contacted</SelectItem>
-                  <SelectItem value="SCHEDULED">Scheduled</SelectItem>
-                </SelectContent>
-              </Select>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Filter className="w-5 h-5" />
+            Filter Leads
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                placeholder="Search leads..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
             </div>
-            <div className="flex gap-2">
-              {selectedLeads.length > 0 && (
-                <Button 
-                  variant="destructive" 
-                  size="sm" 
-                  onClick={() => deleteLeads(selectedLeads)}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete ({selectedLeads.length})
-                </Button>
-              )}
-              <Button variant="outline" size="sm" onClick={exportLeads}>
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
-            </div>
+
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="NEW">New</SelectItem>
+                <SelectItem value="CONTACTED">Contacted</SelectItem>
+                <SelectItem value="SCHEDULED">Scheduled</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={quizTypeFilter} onValueChange={setQuizTypeFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Quiz Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Quiz Types</SelectItem>
+                {uniqueQuizTypes.map(type => (
+                  <SelectItem key={type} value={type}>{type}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button variant="outline" onClick={() => {
+              setSearchTerm('');
+              setStatusFilter('all');
+              setQuizTypeFilter('all');
+            }}>
+              Clear Filters
+            </Button>
           </div>
         </CardContent>
       </Card>
 
       {/* Leads Table */}
-      <Card className="shadow-sm border">
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-50 border-b">
-                <tr>
-                  <th className="text-left p-4">
-                    <Checkbox 
-                      checked={selectedLeads.length === filteredLeads.length && filteredLeads.length > 0}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedLeads(filteredLeads.map(l => l.id));
-                        } else {
-                          setSelectedLeads([]);
-                        }
-                      }}
-                    />
-                  </th>
-                  <th className="text-left p-4 font-semibold text-gray-700">Lead Name</th>
-                  <th className="text-left p-4 font-semibold text-gray-700">Contact Info</th>
-                  <th className="text-left p-4 font-semibold text-gray-700">Source</th>
-                  <th className="text-left p-4 font-semibold text-gray-700">Status</th>
-                  <th className="text-left p-4 font-semibold text-gray-700">Assessment</th>
-                  <th className="text-left p-4 font-semibold text-gray-700">Score</th>
-                  <th className="text-left p-4 font-semibold text-gray-700">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredLeads.map((lead) => (
-                  <tr 
-                    key={lead.id} 
-                    className="border-b hover:bg-slate-50"
-                  >
-                    <td className="p-4">
-                      <Checkbox 
-                        checked={selectedLeads.includes(lead.id)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setSelectedLeads([...selectedLeads, lead.id]);
-                          } else {
-                            setSelectedLeads(selectedLeads.filter(id => id !== lead.id));
-                          }
-                        }}
-                      />
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-r from-[#FF6B35] to-[#0E7C9D] rounded-full flex items-center justify-center text-white font-bold">
-                          {lead.name.charAt(0).toUpperCase()}
-                        </div>
-                        <span className="font-medium text-gray-800">{lead.name}</span>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <div className="space-y-1">
-                        {lead.email && <div className="text-sm text-gray-700">{lead.email}</div>}
-                        {lead.phone && <div className="text-xs text-gray-500">{lead.phone}</div>}
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <Badge variant="outline" className="text-xs">
-                        {lead.lead_source === 'shared_link' ? 'shared link' : lead.lead_source}
-                      </Badge>
-                    </td>
-                    <td className="p-4">
-                      <Select 
-                        value={lead.lead_status} 
-                        onValueChange={(value) => updateLeadStatus(lead.id, value)}
-                      >
-                        <SelectTrigger className="w-32">
-                          <Badge className={`border ${getStatusColor(lead.lead_status)}`}>
-                            {lead.lead_status}
-                          </Badge>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="NEW">New</SelectItem>
-                          <SelectItem value="CONTACTED">Contacted</SelectItem>
-                          <SelectItem value="SCHEDULED">Scheduled</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </td>
-                    <td className="p-4">
-                      <Badge variant="outline" className="text-xs bg-[#0E7C9D]/10 text-[#0E7C9D]">
-                        {lead.quiz_type}
-                      </Badge>
-                    </td>
-                    <td className="p-4">
-                      <span className={`font-bold text-lg ${getSeverityColor(lead.score)}`}>
-                        {lead.score}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => setSelectedLead(lead)}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => deleteLeads([lead.id])}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {filteredLeads.length === 0 && (
-              <div className="text-center py-12 text-gray-500">
-                <div className="text-6xl mb-4">📋</div>
-                <h3 className="text-lg font-medium text-gray-800 mb-2">No leads found</h3>
-                <p className="text-sm">Try adjusting your filters or check back later for new leads.</p>
-              </div>
-            )}
-          </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            Leads ({filteredLeads.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EnhancedLeadsTable leads={filteredLeads} onLeadUpdate={fetchLeads} />
         </CardContent>
       </Card>
-
-      {/* Lead Details Modal */}
-      {selectedLead && (
-        <LeadDetails 
-          lead={selectedLead} 
-          onClose={() => setSelectedLead(null)} 
-        />
-      )}
     </div>
   );
 }

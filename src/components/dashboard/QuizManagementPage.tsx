@@ -1,332 +1,100 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Share, BarChart3, Copy, Plus, Edit } from 'lucide-react';
-import { toast } from 'sonner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Share2, Edit, Copy, Bot, Wand2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { quizzes } from '@/data/quizzes';
-import { QuizShareDialog } from '@/components/quiz/QuizShareDialog';
-
-interface SharedQuiz {
-  id: string;
-  quiz_type: string;
-  share_key: string;
-  created_at: string;
-  total_responses: number;
-}
-
-interface CustomQuiz {
-  id: string;
-  title: string;
-  description: string;
-  questions: any[];
-  created_at: string;
-  max_score: number;
-}
+import { AIQuizCreator } from './AIQuizCreator';
+import { CustomQuizCreator } from './CustomQuizCreator';
 
 export function QuizManagementPage() {
-  const { user } = useAuth();
   const navigate = useNavigate();
-  const [sharedQuizzes, setSharedQuizzes] = useState<SharedQuiz[]>([]);
-  const [customQuizzes, setCustomQuizzes] = useState<CustomQuiz[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [doctorId, setDoctorId] = useState<string | null>(null);
-  const [shareDialogOpen, setShareDialogOpen] = useState(false);
-  const [selectedQuiz, setSelectedQuiz] = useState<{
-    type: string;
-    title: string;
-    shareKey: string;
-    isCustom?: boolean;
-  } | null>(null);
+  const [activeTab, setActiveTab] = useState('existing');
 
-  useEffect(() => {
-    if (user) {
-      fetchDoctorProfile();
-      fetchSharedQuizzes();
-      fetchCustomQuizzes();
-    }
-  }, [user]);
-
-  const fetchDoctorProfile = async () => {
-    try {
-      const { data: doctorProfile } = await supabase
-        .from('doctor_profiles')
-        .select('id')
-        .eq('user_id', user?.id)
-        .single();
-
-      if (doctorProfile) {
-        setDoctorId(doctorProfile.id);
-      }
-    } catch (error) {
-      console.error('Error fetching doctor profile:', error);
-    }
+  const handleShareQuiz = (quizId: string) => {
+    navigate(`/portal/share/${quizId}`);
   };
 
-  const fetchSharedQuizzes = async () => {
-    try {
-      const { data: doctorProfile } = await supabase
-        .from('doctor_profiles')
-        .select('id')
-        .eq('user_id', user?.id)
-        .single();
-
-      if (doctorProfile) {
-        const { data: leads } = await supabase
-          .from('quiz_leads')
-          .select('quiz_type, share_key, created_at')
-          .eq('doctor_id', doctorProfile.id)
-          .not('share_key', 'is', null)
-          .not('name', 'eq', 'Shared Quiz Placeholder');
-
-        const quizStats = leads?.reduce((acc: any, lead) => {
-          const key = `${lead.quiz_type}-${lead.share_key}`;
-          if (!acc[key]) {
-            acc[key] = {
-              id: lead.share_key,
-              quiz_type: lead.quiz_type,
-              share_key: lead.share_key,
-              created_at: lead.created_at,
-              total_responses: 0
-            };
-          }
-          acc[key].total_responses++;
-          return acc;
-        }, {});
-
-        setSharedQuizzes(Object.values(quizStats || {}));
-      }
-    } catch (error) {
-      console.error('Error fetching shared quizzes:', error);
-    } finally {
-      setLoading(false);
-    }
+  const handleCopyQuiz = (quizId: string) => {
+    // Navigate to AI creator with base quiz selected
+    setActiveTab('ai-creator');
   };
 
-  const fetchCustomQuizzes = async () => {
-    try {
-      const { data: doctorProfile } = await supabase
-        .from('doctor_profiles')
-        .select('id')
-        .eq('user_id', user?.id)
-        .single();
-
-      if (doctorProfile) {
-        const { data: customQuizData } = await supabase
-          .from('custom_quizzes')
-          .select('*')
-          .eq('doctor_id', doctorProfile.id)
-          .order('created_at', { ascending: false });
-
-        if (customQuizData) {
-          const transformedQuizzes = customQuizData.map(quiz => ({
-            id: quiz.id,
-            title: quiz.title,
-            description: quiz.description,
-            questions: Array.isArray(quiz.questions) ? quiz.questions : [],
-            created_at: quiz.created_at,
-            max_score: quiz.max_score || 0
-          }));
-          setCustomQuizzes(transformedQuizzes);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching custom quizzes:', error);
-    }
-  };
-
-  const handleShareQuiz = (quizType: string) => {
-    const quiz = Object.values(quizzes).find(q => q && q.id === quizType);
-    if (quiz && doctorId) {
-      const shareKey = `share_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      setSelectedQuiz({
-        type: quizType,
-        title: quiz.title,
-        shareKey: shareKey,
-        isCustom: false
-      });
-      setShareDialogOpen(true);
-    }
-  };
-
-  const handleShareCustomQuiz = (customQuiz: CustomQuiz) => {
-    if (doctorId) {
-      const shareKey = `custom_${customQuiz.id}_${Date.now()}`;
-      setSelectedQuiz({
-        type: customQuiz.id,
-        title: customQuiz.title,
-        shareKey: shareKey,
-        isCustom: true
-      });
-      setShareDialogOpen(true);
-    }
-  };
-
-  if (loading) {
-    return <div className="p-6">Loading quiz management...</div>;
-  }
-
-  if (!quizzes || typeof quizzes !== 'object') {
-    return <div className="p-6">Error loading quizzes. Please refresh the page.</div>;
-  }
+  const predefinedQuizzes = Object.values(quizzes).filter(quiz => quiz && quiz.id);
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] bg-clip-text text-transparent">
-            Quiz Management
-          </h1>
-          <p className="text-gray-600 mt-3 text-lg">Create and share medical assessments with patients</p>
+          <h1 className="text-3xl font-bold text-gray-900">Quiz Management</h1>
+          <p className="text-gray-600 mt-2">Create, edit, and share your medical assessments</p>
         </div>
-        <Button 
-          onClick={() => navigate('/portal/create-quiz')}
-          className="bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] hover:from-[#0E7C9D]/90 hover:to-[#FD904B]/90"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Create Custom Quiz
-        </Button>
       </div>
 
-      {/* Custom Quizzes */}
-      {customQuizzes.length > 0 && (
-        <Card className="shadow-xl border-0 bg-gradient-to-br from-white to-purple-50 rounded-3xl">
-          <CardHeader>
-            <CardTitle className="text-2xl text-purple-700">Your Custom Assessments</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {customQuizzes.map((quiz) => (
-                <Card key={quiz.id} className="border-2 border-purple-200 hover:border-purple-500 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-2xl bg-white rounded-3xl">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-xl text-purple-700">{quiz.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-gray-600 mb-4 leading-relaxed">{quiz.description}</p>
-                    <p className="text-xs text-gray-500 mb-6">{quiz.questions?.length || 0} questions • Max Score: {quiz.max_score}</p>
-                    <div className="flex gap-2">
-                      <Button 
-                        className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 transition-all duration-200 py-3 rounded-2xl"
-                        size="sm"
-                        onClick={() => navigate(`/portal/share/custom/${quiz.id}`)}
-                      >
-                        <Share className="w-4 h-4 mr-2" />
-                        Share
-                      </Button>
-                      <Button 
-                        variant="outline"
-                        size="sm"
-                        onClick={() => navigate(`/portal/edit-quiz/${quiz.id}`)}
-                        className="rounded-2xl"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="existing">Existing Quizzes</TabsTrigger>
+          <TabsTrigger value="ai-creator">
+            <Bot className="w-4 h-4 mr-2" />
+            AI Creator
+          </TabsTrigger>
+          <TabsTrigger value="custom">Manual Creator</TabsTrigger>
+        </TabsList>
 
-      {/* Available Standard Quizzes */}
-      <Card className="shadow-xl border-0 bg-gradient-to-br from-white to-blue-50 rounded-3xl">
-        <CardHeader>
-          <CardTitle className="text-2xl text-[#0E7C9D]">Standard Medical Assessments</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {Object.values(quizzes).filter(quiz => quiz && quiz.title).map((quiz) => (
-              <Card key={quiz.id} className="border-2 border-blue-200 hover:border-[#0E7C9D] transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-2xl bg-white rounded-3xl">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-xl text-[#0E7C9D]">{quiz.title || 'Untitled Quiz'}</CardTitle>
+        <TabsContent value="existing" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {predefinedQuizzes.map((quiz) => (
+              <Card key={quiz.id} className="hover:shadow-md transition-shadow">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">{quiz.title}</CardTitle>
+                    <Badge variant="secondary">{quiz.id}</Badge>
+                  </div>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-600 mb-4 leading-relaxed">{quiz.description || 'No description available'}</p>
-                  <p className="text-xs text-gray-500 mb-6">{quiz.questions?.length || 0} questions • 5-10 minutes</p>
-                  <Button 
-                    className="w-full bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] hover:from-[#0E7C9D]/90 hover:to-[#FD904B]/90 transition-all duration-200 py-3 rounded-2xl"
-                    size="sm"
-                    onClick={() => navigate(`/portal/share/${quiz.id}`)}
-                  >
-                    <Share className="w-4 h-4 mr-2" />
-                    Share Assessment
-                  </Button>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-gray-600">{quiz.description}</p>
+                  
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <span>{quiz.questions?.length || 0} Questions</span>
+                    <span>•</span>
+                    <span>Max Score: {quiz.maxScore || 0}</span>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button 
+                      size="sm" 
+                      onClick={() => handleShareQuiz(quiz.id)}
+                      className="flex-1"
+                    >
+                      <Share2 className="w-4 h-4 mr-2" />
+                      Share
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleCopyQuiz(quiz.id)}
+                    >
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copy & Edit
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}
           </div>
-        </CardContent>
-      </Card>
+        </TabsContent>
 
-      {/* Shared Quizzes */}
-      {sharedQuizzes.length > 0 && (
-        <Card className="shadow-xl border-0 rounded-3xl">
-          <CardHeader>
-            <CardTitle className="text-2xl text-green-700">Your Shared Assessments</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {sharedQuizzes.map((sharedQuiz) => {
-                const quiz = Object.values(quizzes).find(q => q && q.id === sharedQuiz.quiz_type);
-                return (
-                  <div key={sharedQuiz.id} className="flex items-center justify-between p-6 border rounded-2xl hover:shadow-lg transition-all duration-200 bg-gradient-to-r from-green-50 to-blue-50">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-xl text-gray-800">{quiz?.title || 'Unknown Quiz'}</h3>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Created: {new Date(sharedQuiz.created_at).toLocaleDateString()}
-                      </p>
-                      <div className="flex items-center gap-3 mt-3">
-                        <Badge variant="secondary" className="bg-green-100 text-green-700 px-3 py-1 rounded-xl">
-                          <BarChart3 className="w-3 h-3 mr-1" />
-                          {sharedQuiz.total_responses} responses
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="flex gap-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="transition-all duration-200 hover:scale-105 px-4 py-2 rounded-2xl"
-                        onClick={() => {
-                          if (doctorId) {
-                            const shareUrl = `${window.location.origin}/quiz/${sharedQuiz.quiz_type.toLowerCase()}?key=${sharedQuiz.share_key}&doctor=${doctorId}`;
-                            navigator.clipboard.writeText(shareUrl);
-                            toast.success('Link copied to clipboard!');
-                          }
-                        }}
-                      >
-                        <Copy className="w-4 h-4 mr-2" />
-                        Copy Link
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        <TabsContent value="ai-creator">
+          <AIQuizCreator onQuizCreated={() => setActiveTab('existing')} />
+        </TabsContent>
 
-      {/* Share Dialog */}
-      {selectedQuiz && doctorId && (
-        <QuizShareDialog
-          isOpen={shareDialogOpen}
-          onClose={() => {
-            setShareDialogOpen(false);
-            setSelectedQuiz(null);
-          }}
-          quizType={selectedQuiz.type}
-          quizTitle={selectedQuiz.title}
-          shareKey={selectedQuiz.shareKey}
-          doctorId={doctorId}
-          isCustom={selectedQuiz.isCustom || false}
-        />
-      )}
+        <TabsContent value="custom">
+          <CustomQuizCreator />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

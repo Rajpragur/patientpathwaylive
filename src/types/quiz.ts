@@ -37,6 +37,7 @@ export interface Lead {
   answers: any;
   lead_source: string;
   lead_status: 'NEW' | 'CONTACTED' | 'SCHEDULED';
+  incident_source?: string;
   submitted_at: string;
   created_at: string;
   doctor_id: string;
@@ -51,4 +52,33 @@ export interface DoctorProfile {
   phone?: string;
   specialty?: string;
   clinic_name?: string;
+  twilio_account_sid?: string;
+  twilio_auth_token?: string;
+  twilio_phone_number?: string;
+  email_settings?: any;
+}
+
+export interface QuizIncident {
+  id: string;
+  doctor_id: string;
+  name: string;
+  description?: string;
+  created_at: string;
+}
+
+export interface CustomQuiz {
+  id: string;
+  title: string;
+  description: string;
+  questions: QuizQuestion[];
+  max_score: number;
+  scoring: {
+    mild_threshold: number;
+    moderate_threshold: number;
+    severe_threshold: number;
+  };
+  doctor_id: string;
+  category: string;
+  created_at: string;
+  updated_at: string;
 }

@@ -104,11 +104,15 @@ export type Database = {
           created_at: string
           doctor_id: string | null
           email: string | null
+          email_settings: Json | null
           first_name: string | null
           id: string
           last_name: string | null
           phone: string | null
           specialty: string | null
+          twilio_account_sid: string | null
+          twilio_auth_token: string | null
+          twilio_phone_number: string | null
           updated_at: string
           user_id: string
         }
@@ -118,11 +122,15 @@ export type Database = {
           created_at?: string
           doctor_id?: string | null
           email?: string | null
+          email_settings?: Json | null
           first_name?: string | null
           id?: string
           last_name?: string | null
           phone?: string | null
           specialty?: string | null
+          twilio_account_sid?: string | null
+          twilio_auth_token?: string | null
+          twilio_phone_number?: string | null
           updated_at?: string
           user_id: string
         }
@@ -132,15 +140,86 @@ export type Database = {
           created_at?: string
           doctor_id?: string | null
           email?: string | null
+          email_settings?: Json | null
           first_name?: string | null
           id?: string
           last_name?: string | null
           phone?: string | null
           specialty?: string | null
+          twilio_account_sid?: string | null
+          twilio_auth_token?: string | null
+          twilio_phone_number?: string | null
           updated_at?: string
           user_id?: string
         }
         Relationships: []
+      }
+      lead_communications: {
+        Row: {
+          communication_type: string
+          id: string
+          lead_id: string
+          message: string | null
+          sent_at: string | null
+          status: string | null
+        }
+        Insert: {
+          communication_type: string
+          id?: string
+          lead_id: string
+          message?: string | null
+          sent_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          communication_type?: string
+          id?: string
+          lead_id?: string
+          message?: string | null
+          sent_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_communications_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_incidents: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          doctor_id: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          doctor_id: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          doctor_id?: string
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_incidents_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctor_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quiz_leads: {
         Row: {
@@ -149,6 +228,7 @@ export type Database = {
           doctor_id: string
           email: string | null
           id: string
+          incident_source: string | null
           lead_source: string | null
           lead_status: string | null
           name: string
@@ -164,6 +244,7 @@ export type Database = {
           doctor_id: string
           email?: string | null
           id?: string
+          incident_source?: string | null
           lead_source?: string | null
           lead_status?: string | null
           name: string
@@ -179,6 +260,7 @@ export type Database = {
           doctor_id?: string
           email?: string | null
           id?: string
+          incident_source?: string | null
           lead_source?: string | null
           lead_status?: string | null
           name?: string
