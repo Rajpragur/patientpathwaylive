@@ -36,7 +36,7 @@ export interface Lead {
   score: number;
   answers: any;
   lead_source: string;
-  lead_status: 'NEW' | 'CONTACTED' | 'SCHEDULED';
+  lead_status: string;
   incident_source?: string;
   submitted_at: string;
   created_at: string;

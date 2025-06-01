@@ -34,11 +34,13 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
 
     setIsSending(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const response = await fetch('/functions/v1/send-communication', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabase.supabaseKey}`
+          'Authorization': `Bearer ${session?.access_token}`
         },
         body: JSON.stringify({
           leadId: selectedLead.id,

@@ -47,7 +47,13 @@ export function LeadsPage() {
 
       if (leadsError) throw leadsError;
 
-      setLeads(leadsData || []);
+      // Transform the data to match our Lead interface
+      const transformedLeads = leadsData?.map(lead => ({
+        ...lead,
+        lead_status: lead.lead_status || 'NEW'
+      })) || [];
+
+      setLeads(transformedLeads);
     } catch (error) {
       console.error('Error fetching leads:', error);
     } finally {
