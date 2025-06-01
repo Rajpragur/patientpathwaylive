@@ -1,328 +1,211 @@
+import { QuizType } from '@/types/quiz';
 
-import { QuizType, QuizAnswer, QuizResult } from '../types/quiz';
+interface QuizResult {
+  score: number;
+  severity: 'normal' | 'mild' | 'moderate' | 'severe';
+  interpretation: string;
+  summary: string;
+}
 
-export function calculateQuizScore(quizType: QuizType, answers: QuizAnswer[]): QuizResult {
-  console.log('Calculating score for quiz:', quizType, 'with answers:', answers);
+interface QuizAnswer {
+  questionIndex: number;
+  answer: string;
+  answerIndex: number;
+}
+
+export function calculateQuizScore(quizType: QuizType, answers: QuizAnswer[] | number[]): QuizResult {
+  // Handle both QuizAnswer array and number array for backward compatibility
+  const answerIndices = Array.isArray(answers) && answers.length > 0 && typeof answers[0] === 'object'
+    ? (answers as QuizAnswer[]).map(a => a.answerIndex)
+    : answers as number[];
   
   switch (quizType) {
     case 'SNOT22':
-      return calculateSNOT22Score(answers);
+      // SNOT-22 scoring: 0-5 scale for 22 questions (max 110)
+      const snot22Score = answerIndices.reduce((sum, answer) => sum + answer, 0);
+      let snot22Severity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
+      let snot22Interpretation = '';
+
+      if (snot22Score >= 70) {
+        snot22Severity = 'severe';
+        snot22Interpretation = 'Severe nasal/sinus symptoms significantly impacting quality of life. Immediate medical consultation recommended.';
+      } else if (snot22Score >= 40) {
+        snot22Severity = 'moderate';
+        snot22Interpretation = 'Moderate nasal/sinus symptoms affecting daily activities. Medical evaluation recommended.';
+      } else if (snot22Score >= 20) {
+        snot22Severity = 'mild';
+        snot22Interpretation = 'Mild nasal/sinus symptoms with some impact on quality of life. Consider medical consultation.';
+      } else {
+        snot22Interpretation = 'Minimal nasal/sinus symptoms with little impact on quality of life.';
+      }
+
+      return {
+        score: snot22Score,
+        severity: snot22Severity,
+        interpretation: snot22Interpretation,
+        summary: `SNOT-22 Score: ${snot22Score}/110 - ${snot22Severity} symptoms`
+      };
+
     case 'NOSE':
-      return calculateNOSEScore(answers);
+      // NOSE scoring: 0-4 scale for 5 questions (max 20)
+      const noseScore = answerIndices.reduce((sum, answer) => sum + answer, 0);
+      let noseSeverity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
+      let noseInterpretation = '';
+
+      if (noseScore >= 15) {
+        noseSeverity = 'severe';
+        noseInterpretation = 'Severe nasal obstruction significantly affecting breathing and quality of life. Surgical consultation recommended.';
+      } else if (noseScore >= 10) {
+        noseSeverity = 'moderate';
+        noseInterpretation = 'Moderate nasal obstruction with noticeable impact on breathing. Medical evaluation recommended.';
+      } else if (noseScore >= 5) {
+        noseSeverity = 'mild';
+        noseInterpretation = 'Mild nasal obstruction with some breathing difficulties. Consider medical consultation.';
+      } else {
+        noseInterpretation = 'Minimal nasal obstruction with little impact on breathing.';
+      }
+
+      return {
+        score: noseScore,
+        severity: noseSeverity,
+        interpretation: noseInterpretation,
+        summary: `NOSE Score: ${noseScore}/20 - ${noseSeverity} nasal obstruction`
+      };
+
     case 'HHIA':
-      return calculateHHIAScore(answers);
+      // HHIA scoring: Yes=4, Sometimes=2, No=0 for 25 questions (max 100)
+      const hhiaScore = answerIndices.reduce((sum, answer) => {
+        return sum + (answer === 0 ? 4 : answer === 1 ? 2 : 0);
+      }, 0);
+      let hhiaSeverity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
+      let hhiaInterpretation = '';
+
+      if (hhiaScore >= 58) {
+        hhiaSeverity = 'severe';
+        hhiaInterpretation = 'Severe hearing handicap significantly impacting daily life. Immediate audiological consultation recommended.';
+      } else if (hhiaScore >= 18) {
+        hhiaSeverity = 'mild';
+        hhiaInterpretation = 'Mild to moderate hearing handicap affecting some activities. Audiological evaluation recommended.';
+      } else {
+        hhiaInterpretation = 'No significant hearing handicap detected.';
+      }
+
+      return {
+        score: hhiaScore,
+        severity: hhiaSeverity,
+        interpretation: hhiaInterpretation,
+        summary: `HHIA Score: ${hhiaScore}/100 - ${hhiaSeverity === 'normal' ? 'No significant' : hhiaSeverity} hearing handicap`
+      };
+
     case 'EPWORTH':
-      return calculateEpworthScore(answers);
+      // Epworth scoring: 0-3 scale for 8 questions (max 24)
+      const epworthScore = answerIndices.reduce((sum, answer) => sum + answer, 0);
+      let epworthSeverity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
+      let epworthInterpretation = '';
+
+      if (epworthScore >= 16) {
+        epworthSeverity = 'severe';
+        epworthInterpretation = 'Severe excessive daytime sleepiness. High risk of sleep disorders. Immediate sleep study recommended.';
+      } else if (epworthScore >= 11) {
+        epworthSeverity = 'moderate';
+        epworthInterpretation = 'Moderate excessive daytime sleepiness. Sleep disorder evaluation recommended.';
+      } else if (epworthScore >= 6) {
+        epworthSeverity = 'mild';
+        epworthInterpretation = 'Mild excessive daytime sleepiness. Consider sleep hygiene evaluation.';
+      } else {
+        epworthInterpretation = 'Normal daytime alertness. No significant sleepiness detected.';
+      }
+
+      return {
+        score: epworthScore,
+        severity: epworthSeverity,
+        interpretation: epworthInterpretation,
+        summary: `Epworth Score: ${epworthScore}/24 - ${epworthSeverity} daytime sleepiness`
+      };
+
     case 'DHI':
-      return calculateDHIScore(answers);
+      // DHI scoring: Yes=4, Sometimes=2, No=0 for 25 questions (max 100)
+      const dhiScore = answerIndices.reduce((sum, answer) => {
+        return sum + (answer === 0 ? 4 : answer === 1 ? 2 : 0);
+      }, 0);
+      let dhiSeverity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
+      let dhiInterpretation = '';
+
+      if (dhiScore >= 60) {
+        dhiSeverity = 'severe';
+        dhiInterpretation = 'Severe dizziness handicap significantly impacting daily activities. Comprehensive vestibular evaluation recommended.';
+      } else if (dhiScore >= 36) {
+        dhiSeverity = 'moderate';
+        dhiInterpretation = 'Moderate dizziness handicap affecting daily life. Vestibular assessment recommended.';
+      } else if (dhiScore >= 16) {
+        dhiSeverity = 'mild';
+        dhiInterpretation = 'Mild dizziness handicap with some impact on activities. Consider vestibular evaluation.';
+      } else {
+        dhiInterpretation = 'Minimal dizziness handicap with little impact on daily life.';
+      }
+
+      return {
+        score: dhiScore,
+        severity: dhiSeverity,
+        interpretation: dhiInterpretation,
+        summary: `DHI Score: ${dhiScore}/100 - ${dhiSeverity} dizziness handicap`
+      };
+
     case 'STOP':
-      return calculateSTOPScore(answers);
+      // STOP-BANG scoring: 1 point for each YES answer (max 8)
+      const stopScore = answerIndices.reduce((sum, answer) => sum + answer, 0);
+      let stopSeverity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
+      let stopInterpretation = '';
+
+      if (stopScore >= 5) {
+        stopSeverity = 'severe';
+        stopInterpretation = 'High risk for obstructive sleep apnea. Immediate sleep study evaluation recommended.';
+      } else if (stopScore >= 3) {
+        stopSeverity = 'moderate';
+        stopInterpretation = 'Intermediate risk for obstructive sleep apnea. Sleep evaluation recommended.';
+      } else {
+        stopInterpretation = 'Low risk for obstructive sleep apnea.';
+      }
+
+      return {
+        score: stopScore,
+        severity: stopSeverity,
+        interpretation: stopInterpretation,
+        summary: `STOP-BANG Score: ${stopScore}/8 - ${stopSeverity === 'normal' ? 'Low' : stopSeverity} OSA risk`
+      };
+
     case 'TNSS':
-      return calculateTNSSScore(answers);
+      // TNSS scoring: 0-3 scale for 4 questions (max 12)
+      const tnssScore = answerIndices.reduce((sum, answer) => sum + answer, 0);
+      let tnssSeverity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
+      let tnssInterpretation = '';
+
+      if (tnssScore >= 9) {
+        tnssSeverity = 'severe';
+        tnssInterpretation = 'Severe nasal symptoms requiring immediate medical attention.';
+      } else if (tnssScore >= 6) {
+        tnssSeverity = 'moderate';
+        tnssInterpretation = 'Moderate nasal symptoms. Medical evaluation recommended.';
+      } else if (tnssScore >= 3) {
+        tnssSeverity = 'mild';
+        tnssInterpretation = 'Mild nasal symptoms. Consider medical consultation if persistent.';
+      } else {
+        tnssInterpretation = 'Minimal nasal symptoms.';
+      }
+
+      return {
+        score: tnssScore,
+        severity: tnssSeverity,
+        interpretation: tnssInterpretation,
+        summary: `TNSS Score: ${tnssScore}/12 - ${tnssSeverity} nasal symptoms`
+      };
+
     default:
-      return { 
-        score: 0, 
-        interpretation: 'Unknown quiz type', 
+      return {
+        score: 0,
         severity: 'normal',
-        summary: 'Unable to calculate score for unknown quiz type.'
+        interpretation: 'Unknown quiz type',
+        summary: 'Score calculation not available'
       };
   }
-}
-
-function mapSNOT22LabelToScore(label: string): number {
-  console.log('Mapping SNOT22 label:', label);
-  const match = label.match(/\((\d+)\)/);
-  const score = match ? parseInt(match[1], 10) : 0;
-  console.log('Extracted score:', score);
-  return score;
-}
-
-function calculateSNOT22Score(answers: QuizAnswer[]): QuizResult {
-  console.log('SNOT22 answers received:', answers);
-  const scores = answers.map(answer => {
-    const score = mapSNOT22LabelToScore(answer.answer);
-    console.log('Answer:', answer.answer, 'Score:', score);
-    return score;
-  });
-  const totalScore = scores.reduce((sum, score) => sum + score, 0);
-  console.log('SNOT22 calculated score:', totalScore, 'from scores:', scores);
-  
-  const maxPossible = answers.length * 5; // Each question can score 0-5
-  const percentage = Math.round((totalScore / maxPossible) * 100);
-
-  let interpretation = "";
-  let severity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
-  let summary = "";
-
-  if (percentage >= 41) {
-    interpretation = "🚨 Your score suggests severe chronic rhinitis. We recommend consulting a specialist as soon as possible.";
-    severity = 'severe';
-    summary = "You scored in the severe range, indicating significant impact on your quality of life from nasal and sinus symptoms.";
-  } else if (percentage >= 16) {
-    interpretation = "⚠️ Your score indicates significant chronic rhinitis, a common but treatable condition.";
-    severity = 'moderate';
-    summary = "You scored in the moderate range, suggesting your symptoms may benefit from professional evaluation and treatment.";
-  } else {
-    interpretation = "✅ You appear to have No to Mild Chronic rhinitis at this time.";
-    severity = 'normal';
-    summary = "You scored in the normal range, indicating minimal impact from nasal and sinus symptoms.";
-  }
-
-  return { score: totalScore, interpretation, severity, summary };
-}
-
-function mapNOSELabelToScore(label: string): number {
-  console.log('Mapping NOSE label:', label);
-  const match = label.match(/\((\d+)\)/);
-  const score = match ? parseInt(match[1], 10) : 0;
-  console.log('Extracted score:', score);
-  return score;
-}
-
-function calculateNOSEScore(answers: QuizAnswer[]): QuizResult {
-  console.log('NOSE answers received:', answers);
-  const scores = answers.map(answer => {
-    const score = mapNOSELabelToScore(answer.answer);
-    console.log('Answer:', answer.answer, 'Score:', score);
-    return score;
-  });
-  const totalScore = scores.reduce((sum, score) => sum + score, 0);
-  console.log('NOSE calculated score:', totalScore, 'from scores:', scores);
-  
-  // NOSE scoring: multiply by 5 to get final score out of 100
-  const finalScore = totalScore * 5;
-  console.log('NOSE final score (multiplied by 5):', finalScore);
-
-  let interpretation = "";
-  let severity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
-  let summary = "";
-
-  if (finalScore >= 75) {
-    interpretation = "🚨 Your score suggests severe nasal obstruction. We recommend consulting a specialist as soon as possible.";
-    severity = 'severe';
-    summary = "You scored in the severe range, indicating significant breathing difficulties through your nose.";
-  } else if (finalScore >= 50) {
-    interpretation = "⚠️ Your score indicates significant nasal obstruction, a common but treatable condition.";
-    severity = 'moderate';
-    summary = "You scored in the moderate range, suggesting noticeable nasal breathing problems that may benefit from treatment.";
-  } else if (finalScore >= 25) {
-    interpretation = "🙂 Your score shows moderate symptoms. Monitoring and early care may be helpful.";
-    severity = 'mild';
-    summary = "You scored in the mild range, indicating some nasal obstruction symptoms worth monitoring.";
-  } else {
-    interpretation = "✅ You appear to have mild or no nasal obstruction at this time.";
-    severity = 'normal';
-    summary = "You scored in the normal range, indicating minimal nasal breathing problems.";
-  }
-
-  return { score: finalScore, interpretation, severity, summary };
-}
-
-function mapHHIALabelToScore(label: string): number {
-  console.log('Mapping HHIA label:', label);
-  const match = label.match(/\((\d+)\)/);
-  const score = match ? parseInt(match[1], 10) : 0;
-  console.log('Extracted score:', score);
-  return score;
-}
-
-function calculateHHIAScore(answers: QuizAnswer[]): QuizResult {
-  console.log('HHIA answers received:', answers);
-  const scores = answers.map(answer => {
-    const score = mapHHIALabelToScore(answer.answer);
-    console.log('Answer:', answer.answer, 'Score:', score);
-    return score;
-  });
-  const totalScore = scores.reduce((sum, score) => sum + score, 0);
-  console.log('HHIA calculated score:', totalScore, 'from scores:', scores);
-  
-  const maxPossible = answers.length * 4; // Each question can score 0-4
-  const percentage = Math.round((totalScore / maxPossible) * 100);
-
-  let interpretation = "";
-  let severity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
-  let summary = "";
-
-  if (percentage >= 44) {
-    interpretation = "🚨 Your score suggests a significant hearing handicap. Please consider consulting an audiologist or ENT specialist.";
-    severity = 'severe';
-    summary = "You scored in the severe range, indicating significant impact on daily activities due to hearing difficulties.";
-  } else if (percentage >= 18) {
-    interpretation = "⚠️ Your score indicates a mild to moderate hearing handicap, which may impact your daily communication.";
-    severity = 'moderate';
-    summary = "You scored in the moderate range, suggesting some hearing-related challenges in social situations.";
-  } else {
-    interpretation = "✅ You appear to have no significant hearing handicap at this time.";
-    severity = 'normal';
-    summary = "You scored in the normal range, indicating minimal impact from hearing difficulties.";
-  }
-
-  return { score: totalScore, interpretation, severity, summary };
-}
-
-function mapEpworthLabelToScore(label: string): number {
-  console.log('Mapping Epworth label:', label);
-  const match = label.match(/\((\d+)\)/);
-  const score = match ? parseInt(match[1], 10) : 0;
-  console.log('Extracted score:', score);
-  return score;
-}
-
-function calculateEpworthScore(answers: QuizAnswer[]): QuizResult {
-  console.log('Epworth answers received:', answers);
-  const scores = answers.map(answer => {
-    const score = mapEpworthLabelToScore(answer.answer);
-    console.log('Answer:', answer.answer, 'Score:', score);
-    return score;
-  });
-  const totalScore = scores.reduce((sum, score) => sum + score, 0);
-  console.log('Epworth calculated score:', totalScore, 'from scores:', scores);
-  
-  const maxPossible = answers.length * 3; // Each question can score 0-3
-  const percentage = Math.round((totalScore / maxPossible) * 100);
-
-  let interpretation = "";
-  let severity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
-  let summary = "";
-
-  if (percentage >= 53) { // 16/30 points
-    interpretation = "🚨 Your score suggests severe daytime sleepiness. Please seek medical attention — this could indicate a serious underlying sleep disorder.";
-    severity = 'severe';
-    summary = "You scored in the severe range, indicating excessive daytime sleepiness that may require immediate medical attention.";
-  } else if (percentage >= 33) { // 10/30 points
-    interpretation = "⚠️ Your score raises concern: you may need to get more sleep, improve your sleep hygiene, or consult a doctor.";
-    severity = 'moderate';
-    summary = "You scored in the moderate range, suggesting significant daytime sleepiness that warrants further evaluation.";
-  } else if (percentage >= 17) { // 5/30 points
-    interpretation = "🙂 Your score shows mild sleepiness. Monitor your sleep habits and stay consistent with your sleep routine.";
-    severity = 'mild';
-    summary = "You scored in the mild range, indicating some daytime sleepiness worth monitoring.";
-  } else {
-    interpretation = "✅ You appear to have normal sleep patterns with no excessive daytime sleepiness.";
-    severity = 'normal';
-    summary = "You scored in the normal range, indicating healthy sleep patterns and alertness during the day.";
-  }
-
-  return { score: totalScore, interpretation, severity, summary };
-}
-
-function mapDHILabelToScore(label: string): number {
-  console.log('Mapping DHI label:', label);
-  const match = label.match(/\((\d+)\)/);
-  const score = match ? parseInt(match[1], 10) : 0;
-  console.log('Extracted score:', score);
-  return score;
-}
-
-function calculateDHIScore(answers: QuizAnswer[]): QuizResult {
-  console.log('DHI answers received:', answers);
-  const scores = answers.map(answer => {
-    const score = mapDHILabelToScore(answer.answer);
-    console.log('Answer:', answer.answer, 'Score:', score);
-    return score;
-  });
-  const totalScore = scores.reduce((sum, score) => sum + score, 0);
-  console.log('DHI calculated score:', totalScore, 'from scores:', scores);
-  
-  const maxPossible = answers.length * 4; // Each question can score 0-4
-  const percentage = Math.round((totalScore / maxPossible) * 100);
-
-  let interpretation = "";
-  let severity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
-  let summary = "";
-
-  if (percentage >= 54) {
-    interpretation = "🚨 Your score indicates severe handicap. Please consult a balance specialist.";
-    severity = 'severe';
-    summary = "You scored in the severe range, indicating significant impact on daily activities due to dizziness and balance issues.";
-  } else if (percentage >= 36) {
-    interpretation = "⚠️ Your score indicates moderate handicap. Consider consulting a specialist.";
-    severity = 'moderate';
-    summary = "You scored in the moderate range, suggesting noticeable impact from dizziness symptoms.";
-  } else if (percentage >= 16) {
-    interpretation = "🙂 Your score indicates mild handicap. Monitoring may be helpful.";
-    severity = 'mild';
-    summary = "You scored in the mild range, indicating some dizziness-related difficulties worth monitoring.";
-  } else {
-    interpretation = "✅ You appear to have minimal dizziness handicap at this time.";
-    severity = 'normal';
-    summary = "You scored in the normal range, indicating minimal impact from dizziness or balance problems.";
-  }
-
-  return { score: totalScore, interpretation, severity, summary };
-}
-
-function calculateSTOPScore(answers: QuizAnswer[]): QuizResult {
-  console.log('STOP answers received:', answers);
-  const yesCount = answers.filter(answer => answer.answer.toLowerCase().includes('yes')).length;
-  console.log('STOP calculated score:', yesCount, 'yes answers');
-  
-  const maxPossible = answers.length;
-  const percentage = Math.round((yesCount / maxPossible) * 100);
-
-  let interpretation = "";
-  let severity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
-  let summary = "";
-
-  if (percentage >= 50) { // 5 or more yes answers
-    interpretation = "🚨 High Risk: You have a high risk of obstructive sleep apnea. Please consult a sleep specialist.";
-    severity = 'severe';
-    summary = "You scored in the high-risk range for sleep apnea, indicating multiple risk factors are present.";
-  } else if (percentage >= 30) { // 3-4 yes answers
-    interpretation = "⚠️ Intermediate Risk: You have an intermediate risk of obstructive sleep apnea. Consider evaluation.";
-    severity = 'moderate';
-    summary = "You scored in the intermediate-risk range, suggesting some risk factors for sleep apnea are present.";
-  } else {
-    interpretation = "✅ Low Risk: You have a low risk of obstructive sleep apnea.";
-    severity = 'normal';
-    summary = "You scored in the low-risk range, indicating few risk factors for sleep apnea.";
-  }
-
-  return { score: yesCount, interpretation, severity, summary };
-}
-
-function mapTNSSLabelToScore(label: string): number {
-  console.log('Mapping TNSS label:', label);
-  const match = label.match(/\((\d+)\)/);
-  const score = match ? parseInt(match[1], 10) : 0;
-  console.log('Extracted score:', score);
-  return score;
-}
-
-function calculateTNSSScore(answers: QuizAnswer[]): QuizResult {
-  console.log('TNSS answers received:', answers);
-  const scores = answers.map(answer => {
-    const score = mapTNSSLabelToScore(answer.answer);
-    console.log('Answer:', answer.answer, 'Score:', score);
-    return score;
-  });
-  const totalScore = scores.reduce((sum, score) => sum + score, 0);
-  console.log('TNSS calculated score:', totalScore, 'from scores:', scores);
-  
-  const maxPossible = answers.length * 3; // Each question can score 0-3
-  const percentage = Math.round((totalScore / maxPossible) * 100);
-
-  let interpretation = "";
-  let severity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
-  let summary = "";
-
-  if (percentage >= 75) { // 9 or more points
-    interpretation = "🚨 Your score suggests severe chronic rhinitis symptoms. We recommend consulting a specialist as soon as possible.";
-    severity = 'severe';
-    summary = "You scored in the severe range, indicating significant impact from nasal allergy symptoms.";
-  } else if (percentage >= 50) { // 6-8 points
-    interpretation = "⚠️ Your score indicates moderate chronic rhinitis symptoms, a common but treatable condition.";
-    severity = 'moderate';
-    summary = "You scored in the moderate range, suggesting noticeable nasal allergy symptoms that may benefit from treatment.";
-  } else if (percentage >= 25) { // 1-5 points
-    interpretation = "🙂 Your score shows mild chronic rhinitis symptoms. Monitoring and early care may be helpful.";
-    severity = 'mild';
-    summary = "You scored in the mild range, indicating some nasal allergy symptoms worth monitoring.";
-  } else {
-    interpretation = "✅ You appear to have no chronic rhinitis symptoms at this time.";
-    severity = 'normal';
-    summary = "You scored in the normal range, indicating no significant nasal allergy symptoms.";
-  }
-
-  return { score: totalScore, interpretation, severity, summary };
 }

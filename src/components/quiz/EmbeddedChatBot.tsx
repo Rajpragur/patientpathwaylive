@@ -229,8 +229,8 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
 
       setResult({ score, interpretation, severity, summary: interpretation, detailedAnswers });
     } else {
-      // Use existing scoring for standard quizzes
-      const quizResult = calculateQuizScore(currentQuiz.id as any, answers.map(a => a.answerIndex));
+      // Use existing scoring for standard quizzes - pass the QuizAnswer array directly
+      const quizResult = calculateQuizScore(currentQuiz.id as any, answers);
       answers.forEach((answer, index) => {
         const question = currentQuiz.questions[answer.questionIndex];
         detailedAnswers[`q${index}`] = {
