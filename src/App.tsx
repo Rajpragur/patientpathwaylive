@@ -36,19 +36,9 @@ function App() {
             <Route path="/portal/share/:quizType" element={<ShareQuizPage />} />
             <Route path="/portal/share/custom/:customQuizId" element={<ShareQuizPage />} />
             
-            {/* Quiz routes */}
+            {/* Universal quiz routes */}
             <Route path="/quiz/:quizType" element={<UniversalQuizPage />} />
             <Route path="/quiz/custom/:customQuizId" element={<CustomQuizPage />} />
-            
-            {/* Legacy quiz routes - redirect to new format */}
-            <Route path="/quiz" element={<UniversalQuizPage />} />
-            <Route path="/quiz/snot22" element={<UniversalQuizPage />} />
-            <Route path="/quiz/nose" element={<UniversalQuizPage />} />
-            <Route path="/quiz/hhia" element={<UniversalQuizPage />} />
-            <Route path="/quiz/epworth" element={<UniversalQuizPage />} />
-            <Route path="/quiz/dhi" element={<UniversalQuizPage />} />
-            <Route path="/quiz/stop" element={<UniversalQuizPage />} />
-            <Route path="/quiz/tnss" element={<UniversalQuizPage />} />
             
             {/* Embedded quiz routes */}
             <Route path="/embed/quiz/:quizType" element={<UniversalQuizPage />} />
@@ -57,12 +47,26 @@ function App() {
             {/* Short link redirect */}
             <Route path="/q/:shareKey" element={<ShortLinkRedirect />} />
             
+            {/* API route for AI assistant */}
+            <Route path="/api/ai-assistant" element={<AIAssistantAPI />} />
+            
             <Route path="*" element={<NotFound />} />
           </Routes>
         </div>
       </AuthProvider>
     </Router>
   );
+}
+
+// AI Assistant API component to handle edge function calls
+function AIAssistantAPI() {
+  useEffect(() => {
+    // This will be handled by the edge function
+    // Just redirect to avoid 404
+    window.location.href = '/';
+  }, []);
+  
+  return <div>Redirecting...</div>;
 }
 
 function ShortLinkRedirect() {
@@ -80,17 +84,20 @@ function ShortLinkRedirect() {
         // First try to find in quiz_leads
         const { data: leadData, error: leadError } = await supabase
           .from('quiz_leads')
-          .select('quiz_type, custom_quiz_id, doctor_id')
+          .select('quiz_type, custom_quiz_id, doctor_id, lead_source, incident_source')
           .eq('share_key', shareKey)
           .single();
 
         if (leadData) {
           const doctorParam = leadData.doctor_id ? `&doctor=${leadData.doctor_id}` : '';
+          const sourceParams = leadData.lead_source ? `&source=${leadData.lead_source}` : '';
+          const incidentParams = leadData.incident_source ? `&campaign=${leadData.incident_source}` : '';
           
-          if (leadData.custom_quiz_id) {
-            navigate(`/quiz/custom/${leadData.custom_quiz_id}?key=${shareKey}${doctorParam}`, { replace: true });
+          if (leadData.quiz_type?.startsWith('custom_')) {
+            const customQuizId = leadData.quiz_type.replace('custom_', '');
+            navigate(`/quiz/custom/${customQuizId}?key=${shareKey}${doctorParam}${sourceParams}${incidentParams}`, { replace: true });
           } else if (leadData.quiz_type) {
-            navigate(`/quiz/${leadData.quiz_type.toLowerCase()}?key=${shareKey}${doctorParam}`, { replace: true });
+            navigate(`/quiz/${leadData.quiz_type.toLowerCase()}?key=${shareKey}${doctorParam}${sourceParams}${incidentParams}`, { replace: true });
           }
           return;
         }
@@ -108,24 +115,7 @@ function ShortLinkRedirect() {
           return;
         }
 
-        // If still not found, try direct ID lookup for custom quizzes
-        if (shareKey.startsWith('custom_')) {
-          const customQuizId = shareKey.replace('custom_', '');
-          const { data: directCustomData, error: directCustomError } = await supabase
-            .from('custom_quizzes')
-            .select('id, doctor_id')
-            .eq('id', customQuizId)
-            .single();
-
-          if (directCustomData?.id) {
-            const doctorParam = directCustomData.doctor_id ? `&doctor=${directCustomData.doctor_id}` : '';
-            navigate(`/quiz/custom/${directCustomData.id}?key=${shareKey}${doctorParam}`, { replace: true });
-            return;
-          }
-        }
-
         // If nothing found, redirect to home
-        console.log('Share key not found, redirecting to home');
         navigate('/', { replace: true });
       } catch (error) {
         console.error('Error resolving share key:', error);
@@ -137,7 +127,7 @@ function ShortLinkRedirect() {
   }, [shareKey, navigate]);
   
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-green-50">
       <div className="text-center p-8">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f7904f] mx-auto mb-4"></div>
         <p className="text-lg text-gray-600">Redirecting to your assessment...</p>

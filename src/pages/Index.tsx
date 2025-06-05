@@ -111,7 +111,7 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 overflow-auto">
       {/* Navigation */}
       <motion.nav 
         initial={{ y: 0 }}
@@ -212,8 +212,53 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Quizzes Section */}
-      <section className="py-24 bg-white">
+      {/* Features section with better spacing */}
+      <section className="py-16 px-6 bg-white/50 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-6">
+          <motion.h2 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="text-4xl md:text-5xl font-bold text-center mb-16 bg-gradient-to-r from-[#f7904f] to-[#04748f] bg-clip-text text-transparent"
+          >
+            Explore Our Medical Quizzes
+          </motion.h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            {quizzes.map((quiz, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: idx * 0.1 }}
+                viewport={{ once: true }}
+                className="group relative bg-white rounded-3xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100"
+              >
+                <div className="p-8">
+                  <div className="flex justify-center mb-6">
+                    {React.cloneElement(quiz.icon, { className: "w-12 h-12 text-[#04748f]" })}
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-4 text-center">{quiz.title}</h3>
+                  <p className="text-gray-600 mb-6 text-sm leading-relaxed">{quiz.description}</p>
+                  <div className="flex items-center justify-center space-x-3 text-sm">
+                    <span className="bg-[#f7904f]/10 text-[#f7904f] px-4 py-2 rounded-full">
+                      {quiz.questions} Questions
+                    </span>
+                    <span className="bg-[#04748f]/10 text-[#04748f] px-4 py-2 rounded-full">
+                      Max Score: {quiz.maxScore}
+                    </span>
+                  </div>
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-r from-[#f7904f]/0 to-[#04748f]/0 group-hover:from-[#f7904f]/5 group-hover:to-[#04748f]/10 transition-all duration-300" />
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Quiz selection with better layout */}
+      <section className="py-16 px-6">
         <div className="max-w-7xl mx-auto px-6">
           <motion.h2 
             initial={{ opacity: 0, y: 20 }}
@@ -300,6 +345,27 @@ const Index = () => {
           </motion.div>
         </div>
       </section>
+
+      {/* Footer */}
+      <footer className="bg-white/80 backdrop-blur-sm border-t border-gray-200 py-8 px-6">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex flex-col items-center">
+            <div className="flex-1 flex justify-center">
+              <img 
+                src="/patient-pathway-logo.jpeg" 
+                alt="Patient Pathway" 
+                className="h-20 w-auto object-contain rounded-sm shadow-lg mb-2" 
+              />
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="text-xl font-semibold bg-gradient-to-r from-[#f7904f] to-[#04748f] bg-clip-text text-transparent">
+                Patient Pathway
+              </span>
+              <p className="text-gray-600 text-sm mt-2">© 2023 Patient Pathway. All rights reserved.</p>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };

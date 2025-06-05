@@ -4,12 +4,13 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Send, RotateCcw, CheckCircle, AlertCircle, Info, ArrowLeft } from 'lucide-react';
+import { Send, RotateCcw, CheckCircle, AlertCircle, Info, ArrowLeft, Bot } from 'lucide-react';
 import { quizzes } from '@/data/quizzes';
 import { calculateQuizScore } from '@/utils/quizScoring';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
+import { AIAssistant } from './AIAssistant';
 
 interface Message {
   role: 'assistant' | 'user';
@@ -47,7 +48,13 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
   const [infoStep, setInfoStep] = useState(0);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Enhanced source tracking
+  const source = searchParams.get('source') || searchParams.get('utm_source') || 'direct';
+  const campaign = searchParams.get('campaign') || searchParams.get('utm_campaign') || 'default';
+  const medium = searchParams.get('medium') || searchParams.get('utm_medium') || 'web';
 
   useEffect(() => {
     if (quizData) {
@@ -241,11 +248,11 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
           quiz_type: quizData.isCustom ? `custom_${quizData.id}` : quizData.id,
           score: result.score,
           answers: result.detailedAnswers,
-          lead_source: 'website',
+          lead_source: source,
           lead_status: 'NEW',
           doctor_id: doctorId,
           share_key: shareKey,
-          incident_source: shareKey || 'default'
+          incident_source: `${source}-${campaign}-${medium}`
         };
 
         const { error } = await supabase
@@ -256,7 +263,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
 
         setMessages(prev => [...prev, {
           role: 'assistant',
-          content: `Thank you ${userInfo.name}! Your assessment results have been saved.\n\n**Your Results:**\n\n**Score:** ${result.score}/${quizData.maxScore}\n**Severity:** ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}\n\n**Interpretation:** ${result.interpretation}\n\nA healthcare provider will review your results and may contact you for follow-up care if needed.`
+          content: `Thank you ${userInfo.name}! Your assessment results have been saved.\n\n**Your Results:**\n\n**Score:** ${result.score}/${quizData.maxScore}\n**Severity:** ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}\n\n**Interpretation:** ${result.interpretation}\n\nA healthcare provider will review your results and may contact you for follow-up care if needed.\n\nWould you like to chat with our AI assistant for personalized recommendations and guidance?`
         }]);
 
         setCollectingInfo(false);
@@ -400,10 +407,19 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
                   <p className="text-gray-700">{result.interpretation}</p>
                 </div>
 
-                <Button onClick={resetQuiz} className="w-full" variant="outline">
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  Take Assessment Again
-                </Button>
+                <div className="flex gap-2">
+                  <Button onClick={resetQuiz} className="flex-1" variant="outline">
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    Take Assessment Again
+                  </Button>
+                  <Button 
+                    onClick={() => setShowAIAssistant(true)} 
+                    className="flex-1 bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 text-white"
+                  >
+                    <Bot className="w-4 h-4 mr-2" />
+                    Chat with AI Assistant
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -437,6 +453,29 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
           )}
         </div>
       </div>
+
+      {showAIAssistant && result && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">AI Health Assistant</h3>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setShowAIAssistant(false)}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Results
+            </Button>
+          </div>
+          <AIAssistant
+            quizTitle={quizData.title}
+            score={result.score}
+            maxScore={quizData.maxScore}
+            severity={result.severity}
+            interpretation={result.interpretation}
+          />
+        </div>
+      )}
     </div>
   );
 }

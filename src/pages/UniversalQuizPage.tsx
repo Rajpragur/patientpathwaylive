@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { EmbeddedChatBot } from '@/components/quiz/EmbeddedChatBot';
@@ -12,6 +13,12 @@ export default function UniversalQuizPage() {
   const navigate = useNavigate();
   const shareKey = searchParams.get('key') || undefined;
   const doctorId = searchParams.get('doctor') || undefined;
+  
+  // Enhanced source tracking
+  const source = searchParams.get('source') || searchParams.get('utm_source') || 'direct';
+  const campaign = searchParams.get('campaign') || searchParams.get('utm_campaign') || 'default';
+  const medium = searchParams.get('medium') || searchParams.get('utm_medium') || 'web';
+  
   const [customQuiz, setCustomQuiz] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -47,11 +54,14 @@ export default function UniversalQuizPage() {
               questions: data.questions,
               maxScore: data.max_score,
               scoring: data.scoring,
-              isCustom: true
+              isCustom: true,
+              source,
+              campaign,
+              medium
             });
           }
         } else {
-          // Check if it's a standard quiz
+          // Check if it's a standard quiz (case-insensitive)
           const standardQuiz = Object.values(quizzes).find(
             quiz => quiz.id.toLowerCase() === quizType.toLowerCase()
           );
@@ -61,7 +71,10 @@ export default function UniversalQuizPage() {
           } else {
             setQuizData({
               ...standardQuiz,
-              isCustom: false
+              isCustom: false,
+              source,
+              campaign,
+              medium
             });
           }
         }
@@ -74,11 +87,11 @@ export default function UniversalQuizPage() {
     };
 
     checkQuiz();
-  }, [quizType]);
+  }, [quizType, source, campaign, medium]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-green-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f7904f] mx-auto mb-4"></div>
           <p className="text-lg text-gray-600">Loading assessment...</p>
@@ -89,7 +102,7 @@ export default function UniversalQuizPage() {
 
   if (notFound) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-green-50">
         <div className="text-center max-w-md mx-auto p-6">
           <div className="bg-white rounded-lg shadow-lg p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Assessment Not Found</h2>
@@ -111,7 +124,7 @@ export default function UniversalQuizPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50">
       <EmbeddedChatBot
         quizType={quizType || ''}
         shareKey={shareKey}
