@@ -154,3 +154,6 @@ export function AIAssistant({ quizTitle, score, maxScore, severity, interpretati
     </Card>
   );
 }
+
+// Export the ImprovedAIAssistant from the separate file
+export { ImprovedAIAssistant } from './ImprovedAIAssistant';

@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -6,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Share2, Link, Code, MessageSquare, Facebook, Linkedin, Mail, QrCode, FileText } from 'lucide-react';
 import { toast } from 'sonner';
-import QRCode from 'qrcode.react';
+import { QRCodeSVG } from 'qrcode.react';
 
 interface QuizShareDialogProps {
   isOpen: boolean;
@@ -95,7 +96,7 @@ export function QuizShareDialog({ isOpen, onClose, quizType, isCustom = false, c
                     </Button>
                   </div>
                   <div className="flex justify-center">
-                    <QRCode value={quizUrl} size={200} />
+                    <QRCodeSVG value={quizUrl} size={200} />
                   </div>
                 </div>
               </CardContent>
@@ -162,4 +163,4 @@ export function QuizShareDialog({ isOpen, onClose, quizType, isCustom = false, c
       </DialogContent>
     </Dialog>
   );
-} 
+}

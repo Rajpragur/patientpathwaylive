@@ -10,7 +10,7 @@ import { calculateQuizScore } from '@/utils/quizScoring';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
-import { AIAssistant, ImprovedAIAssistant } from './AIAssistant';
+import { ImprovedAIAssistant } from './ImprovedAIAssistant';
 
 interface Message {
   role: 'assistant' | 'user';
