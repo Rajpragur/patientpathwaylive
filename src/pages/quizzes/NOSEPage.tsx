@@ -22,9 +22,9 @@ export default function NOSEPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-green-50 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-teal-50 py-12">
       <div className="max-w-4xl mx-auto px-4 text-center">
-        <h1 className="text-5xl font-bold bg-gradient-to-r from-orange-600 to-green-600 bg-clip-text text-transparent mb-6">
+        <h1 className="text-5xl font-bold bg-gradient-to-r from-orange-600 to-teal-600 bg-clip-text text-transparent mb-6">
           NOSE Assessment
         </h1>
         <p className="text-xl text-gray-700 mb-8 font-medium">
@@ -42,7 +42,7 @@ export default function NOSEPage() {
               <span className="text-sm font-medium">5 Questions</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+              <span className="w-2 h-2 bg-teal-500 rounded-full"></span>
               <span className="text-sm font-medium">5-10 Minutes</span>
             </div>
             <div className="flex items-center gap-2">
@@ -52,7 +52,7 @@ export default function NOSEPage() {
           </div>
           <button
             onClick={handleSelectQuiz}
-            className="bg-gradient-to-r from-orange-500 to-green-500 hover:from-orange-600 hover:to-green-600 text-white font-bold py-4 px-8 rounded-2xl transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl text-lg"
+            className="bg-gradient-to-r from-orange-500 to-teal-500 hover:from-orange-600 hover:to-teal-600 text-white font-bold py-4 px-8 rounded-2xl transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl text-lg"
           >
             🚀 Start NOSE Assessment
           </button>

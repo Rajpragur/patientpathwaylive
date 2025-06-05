@@ -44,6 +44,7 @@ export default function UniversalQuizPage() {
             .single();
           
           if (error || !data) {
+            console.error('Custom quiz not found:', error);
             setNotFound(true);
           } else {
             setCustomQuiz(data);
@@ -67,6 +68,7 @@ export default function UniversalQuizPage() {
           );
           
           if (!standardQuiz) {
+            console.error('Standard quiz not found:', quizType);
             setNotFound(true);
           } else {
             setQuizData({
@@ -91,9 +93,9 @@ export default function UniversalQuizPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-green-50">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-orange-50 to-teal-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f7904f] mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
           <p className="text-lg text-gray-600">Loading assessment...</p>
         </div>
       </div>
@@ -102,17 +104,17 @@ export default function UniversalQuizPage() {
 
   if (notFound) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-green-50">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-orange-50 to-teal-50">
         <div className="text-center max-w-md mx-auto p-6">
           <div className="bg-white rounded-lg shadow-lg p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Assessment Not Found</h2>
             <p className="text-gray-600 mb-6">The requested assessment could not be found.</p>
             <div className="flex gap-4 justify-center">
-              <Button onClick={() => navigate('/')}>
+              <Button onClick={() => navigate('/')} className="bg-orange-500 hover:bg-orange-600">
                 <Home className="w-4 h-4 mr-2" />
                 Go Home
               </Button>
-              <Button variant="outline" onClick={() => navigate(-1)}>
+              <Button variant="outline" onClick={() => navigate(-1)} className="border-teal-500 text-teal-600 hover:bg-teal-50">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Go Back
               </Button>
@@ -124,7 +126,7 @@ export default function UniversalQuizPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-teal-50">
       <EmbeddedChatBot
         quizType={quizType || ''}
         shareKey={shareKey}
