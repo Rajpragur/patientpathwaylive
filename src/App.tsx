@@ -57,7 +57,8 @@ function App() {
 }
 
 function ShortLinkRedirect() {
-  const { shareKey } = useParams<{ shareKey: string }>();
+  const params = useParams();
+  const shareKey = params.shareKey;
   const navigate = useNavigate();
 
   useEffect(() => {
