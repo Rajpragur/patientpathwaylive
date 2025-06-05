@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -42,7 +41,7 @@ export function ProfilePage() {
 
   const fetchDoctorProfile = async () => {
     if (!user) return;
-
+    
     try {
       const { data, error } = await supabase
         .from('doctor_profiles')
@@ -50,10 +49,7 @@ export function ProfilePage() {
         .eq('user_id', user.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching profile:', error);
-        return;
-      }
+      if (error) throw error;
 
       if (data) {
         setDoctorProfile(data);
@@ -67,21 +63,44 @@ export function ProfilePage() {
           avatar_url: data.avatar_url || '',
           doctor_id: data.doctor_id || ''
         });
-      } else {
-        setFormData(prev => ({
-          ...prev,
-          email: user.email || ''
-        }));
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error fetching profile:', error);
+      toast.error('Failed to load profile');
     } finally {
       setLoading(false);
     }
   };
 
-  const generateDoctorId = () => {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      // Create a unique file name
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user?.id}-${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('profiles')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get the public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('profiles')
+        .getPublicUrl(filePath);
+
+      // Update the form data with the new URL
+      setFormData(prev => ({ ...prev, avatar_url: publicUrl }));
+      toast.success('Profile picture updated! Remember to save your changes.');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error('Failed to upload profile picture');
+    }
   };
 
   const handleSave = async () => {
@@ -124,13 +143,8 @@ export function ProfilePage() {
     }
   };
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      setFormData(prev => ({ ...prev, avatar_url: imageUrl }));
-      toast.success('Profile picture updated! Remember to save your changes.');
-    }
+  const generateDoctorId = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
   };
 
   const getInitials = () => {

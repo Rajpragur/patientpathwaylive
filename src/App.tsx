@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth';
@@ -41,10 +40,21 @@ function App() {
             <Route path="/quiz/:quizType" element={<UniversalQuizPage />} />
             <Route path="/quiz/custom/:customQuizId" element={<CustomQuizPage />} />
             
+            {/* Legacy quiz routes - redirect to new format */}
+            <Route path="/quiz" element={<UniversalQuizPage />} />
+            <Route path="/quiz/snot22" element={<UniversalQuizPage />} />
+            <Route path="/quiz/nose" element={<UniversalQuizPage />} />
+            <Route path="/quiz/hhia" element={<UniversalQuizPage />} />
+            <Route path="/quiz/epworth" element={<UniversalQuizPage />} />
+            <Route path="/quiz/dhi" element={<UniversalQuizPage />} />
+            <Route path="/quiz/stop" element={<UniversalQuizPage />} />
+            <Route path="/quiz/tnss" element={<UniversalQuizPage />} />
+            
             {/* Embedded quiz routes */}
             <Route path="/embed/quiz/:quizType" element={<UniversalQuizPage />} />
             <Route path="/embed/quiz/custom/:customQuizId" element={<CustomQuizPage />} />
             
+            {/* Short link redirect */}
             <Route path="/q/:shareKey" element={<ShortLinkRedirect />} />
             
             <Route path="*" element={<NotFound />} />
@@ -58,7 +68,7 @@ function App() {
 function ShortLinkRedirect() {
   const { shareKey } = useParams();
   const navigate = useNavigate();
-  
+
   useEffect(() => {
     async function resolveShareKey() {
       if (!shareKey) {
@@ -66,48 +76,55 @@ function ShortLinkRedirect() {
         return;
       }
 
-      console.log('Resolving share key:', shareKey);
-
       try {
-        // Try to fetch from quiz_leads first
-        const { data, error } = await supabase
+        // First try to find in quiz_leads
+        const { data: leadData, error: leadError } = await supabase
           .from('quiz_leads')
-          .select('quiz_type, doctor_id')
+          .select('quiz_type, custom_quiz_id, doctor_id')
           .eq('share_key', shareKey)
-          .limit(1)
           .single();
+
+        if (leadData) {
+          const doctorParam = leadData.doctor_id ? `&doctor=${leadData.doctor_id}` : '';
           
-        console.log('Quiz leads lookup result:', { data, error });
-          
-        if (data && data.quiz_type) {
-          const doctorParam = data.doctor_id ? `&doctor=${data.doctor_id}` : '';
-          
-          // Check if it's a custom quiz
-          if (data.quiz_type.startsWith('custom_')) {
-            const customQuizId = data.quiz_type.replace('custom_', '');
-            navigate(`/quiz/custom/${customQuizId}?key=${shareKey}${doctorParam}`, { replace: true });
-          } else {
-            navigate(`/quiz/${data.quiz_type.toLowerCase()}?key=${shareKey}${doctorParam}`, { replace: true });
+          if (leadData.custom_quiz_id) {
+            navigate(`/quiz/custom/${leadData.custom_quiz_id}?key=${shareKey}${doctorParam}`, { replace: true });
+          } else if (leadData.quiz_type) {
+            navigate(`/quiz/${leadData.quiz_type.toLowerCase()}?key=${shareKey}${doctorParam}`, { replace: true });
           }
           return;
         }
-        
-        // If not found in quiz_leads, try to fetch from custom_quizzes directly
+
+        // If not found in quiz_leads, try custom_quizzes
         const { data: customData, error: customError } = await supabase
           .from('custom_quizzes')
           .select('id, doctor_id')
-          .eq('id', shareKey.replace('custom_', ''))
+          .eq('share_key', shareKey)
           .single();
-          
-        console.log('Custom quiz lookup result:', { customData, customError });
-          
-        if (customData && customData.id) {
+
+        if (customData?.id) {
           const doctorParam = customData.doctor_id ? `&doctor=${customData.doctor_id}` : '';
           navigate(`/quiz/custom/${customData.id}?key=${shareKey}${doctorParam}`, { replace: true });
           return;
         }
-        
-        // Not found - redirect to home
+
+        // If still not found, try direct ID lookup for custom quizzes
+        if (shareKey.startsWith('custom_')) {
+          const customQuizId = shareKey.replace('custom_', '');
+          const { data: directCustomData, error: directCustomError } = await supabase
+            .from('custom_quizzes')
+            .select('id, doctor_id')
+            .eq('id', customQuizId)
+            .single();
+
+          if (directCustomData?.id) {
+            const doctorParam = directCustomData.doctor_id ? `&doctor=${directCustomData.doctor_id}` : '';
+            navigate(`/quiz/custom/${directCustomData.id}?key=${shareKey}${doctorParam}`, { replace: true });
+            return;
+          }
+        }
+
+        // If nothing found, redirect to home
         console.log('Share key not found, redirecting to home');
         navigate('/', { replace: true });
       } catch (error) {
@@ -119,7 +136,14 @@ function ShortLinkRedirect() {
     resolveShareKey();
   }, [shareKey, navigate]);
   
-  return <div className="flex items-center justify-center h-screen text-lg">Redirecting...</div>;
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="text-center p-8">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f7904f] mx-auto mb-4"></div>
+        <p className="text-lg text-gray-600">Redirecting to your assessment...</p>
+      </div>
+    </div>
+  );
 }
 
 export default App;

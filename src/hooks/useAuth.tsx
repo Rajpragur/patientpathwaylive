@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -34,12 +33,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Check if email is verified
           if (session?.user && !session.user.email_confirmed_at) {
             navigate('/verify-email');
-          } else {
+          } else if (window.location.pathname === '/auth') {
+            // Only redirect to portal if we're on the auth page
             navigate('/portal');
           }
         } else if (event === 'USER_UPDATED') {
           // Handle email verification
-          if (session?.user?.email_confirmed_at) {
+          if (session?.user?.email_confirmed_at && window.location.pathname === '/verify-email') {
             navigate('/portal');
           }
         } else if (event === 'SIGNED_OUT') {
@@ -61,8 +61,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // If user is not verified, redirect to verification page
-        if (session?.user && !session.user.email_confirmed_at) {
+        // Only redirect if we're on the auth page and user is not verified
+        if (session?.user && !session.user.email_confirmed_at && window.location.pathname === '/auth') {
           navigate('/verify-email');
         }
       } catch (error) {

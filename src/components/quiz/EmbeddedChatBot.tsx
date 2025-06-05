@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +9,7 @@ import { quizzes } from '@/data/quizzes';
 import { calculateQuizScore } from '@/utils/quizScoring';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useSearchParams } from 'react-router-dom';
 
 interface Message {
   role: 'assistant' | 'user';
@@ -29,9 +29,12 @@ interface EmbeddedChatBotProps {
   quizType: string;
   shareKey?: string;
   doctorId?: string;
+  customQuiz?: any;
+  quizData?: any;
 }
 
-export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBotProps) {
+export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quizData }: EmbeddedChatBotProps) {
+  const [searchParams] = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -42,76 +45,21 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
   const [userInfo, setUserInfo] = useState({ name: '', email: '', phone: '' });
   const [collectingInfo, setCollectingInfo] = useState(false);
   const [infoStep, setInfoStep] = useState(0);
-  const [currentQuiz, setCurrentQuiz] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const fetchQuizData = async () => {
-      setLoading(true);
-      
-      try {
-        if (quizType.startsWith('custom_')) {
-          const customQuizId = quizType.replace('custom_', '');
-          
-          const { data: customQuizData, error } = await supabase
-            .from('custom_quizzes')
-            .select('*')
-            .eq('id', customQuizId)
-            .single();
-
-          if (error || !customQuizData) {
-            setNotFound(true);
-            return;
-          }
-
-          setCurrentQuiz({
-            id: customQuizData.id,
-            title: customQuizData.title,
-            description: customQuizData.description,
-            questions: customQuizData.questions,
-            maxScore: customQuizData.max_score,
-            scoring: customQuizData.scoring,
-            isCustom: true
-          });
-        } else {
-          const standardQuiz = Object.values(quizzes).find(
-            quiz => quiz.id.toLowerCase() === quizType.toLowerCase()
-          );
-          
-          if (!standardQuiz) {
-            setNotFound(true);
-            return;
-          }
-          
-          setCurrentQuiz({
-            ...standardQuiz,
-            isCustom: false
-          });
-        }
-      } catch (error) {
-        setNotFound(true);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (quizType) {
-      fetchQuizData();
-    }
-  }, [quizType]);
-
-  useEffect(() => {
-    if (currentQuiz && !quizStarted && !notFound) {
+    if (quizData) {
+      setLoading(false);
       setMessages([
         {
           role: 'assistant',
-          content: `Hello! Welcome to the ${currentQuiz.title}. ${currentQuiz.description}\n\nThis assessment will help evaluate your symptoms. Click "Start Assessment" when you're ready to begin.`
+          content: `Hello! Welcome to the ${quizData.title}. ${quizData.description}\n\nThis assessment will help evaluate your symptoms. Click "Start Assessment" when you're ready to begin.`
         }
       ]);
     }
-  }, [currentQuiz, quizStarted, notFound]);
+  }, [quizData]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -121,14 +69,14 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f7904f] mx-auto mb-4"></div>
           <p className="text-lg text-gray-600">Loading assessment...</p>
         </div>
       </div>
     );
   }
 
-  if (notFound || !currentQuiz) {
+  if (notFound || !quizData) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
         <div className="text-center max-w-md mx-auto p-6">
@@ -150,11 +98,11 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
   };
 
   const askNextQuestion = (questionIndex: number) => {
-    if (questionIndex < currentQuiz.questions.length) {
-      const question = currentQuiz.questions[questionIndex];
+    if (questionIndex < quizData.questions.length) {
+      const question = quizData.questions[questionIndex];
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: `Question ${questionIndex + 1} of ${currentQuiz.questions.length}:\n\n${question.text}`,
+        content: `Question ${questionIndex + 1} of ${quizData.questions.length}:\n\n${question.text}`,
         isQuestion: true,
         questionIndex,
         options: question.options
@@ -181,7 +129,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
     }]);
 
     const nextQuestionIndex = currentQuestionIndex + 1;
-    if (nextQuestionIndex < currentQuiz.questions.length) {
+    if (nextQuestionIndex < quizData.questions.length) {
       setTimeout(() => askNextQuestion(nextQuestionIndex), 500);
     } else {
       setTimeout(() => completeQuiz(), 500);
@@ -194,10 +142,10 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
     let score = 0;
     let detailedAnswers: any = {};
 
-    if (currentQuiz.isCustom) {
+    if (quizData.isCustom) {
       // Calculate score for custom quiz
       answers.forEach((answer, index) => {
-        const question = currentQuiz.questions[answer.questionIndex];
+        const question = quizData.questions[answer.questionIndex];
         const selectedOption = question.options?.[answer.answerIndex];
         if (selectedOption && typeof selectedOption.value === 'number') {
           score += selectedOption.value;
@@ -210,17 +158,17 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
       });
 
       // Calculate severity based on percentage
-      const percentage = (score / currentQuiz.maxScore) * 100;
+      const percentage = (score / quizData.maxScore) * 100;
       let severity = 'normal';
       let interpretation = '';
 
-      if (percentage >= currentQuiz.scoring.severe_threshold) {
+      if (percentage >= quizData.scoring.severe_threshold) {
         severity = 'severe';
         interpretation = 'Your symptoms indicate a severe condition. Please consult with a healthcare provider immediately.';
-      } else if (percentage >= currentQuiz.scoring.moderate_threshold) {
+      } else if (percentage >= quizData.scoring.moderate_threshold) {
         severity = 'moderate';
         interpretation = 'Your symptoms indicate a moderate condition. We recommend scheduling a consultation.';
-      } else if (percentage >= currentQuiz.scoring.mild_threshold) {
+      } else if (percentage >= quizData.scoring.mild_threshold) {
         severity = 'mild';
         interpretation = 'Your symptoms indicate a mild condition. Consider monitoring or consulting with a healthcare provider.';
       } else {
@@ -229,10 +177,10 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
 
       setResult({ score, interpretation, severity, summary: interpretation, detailedAnswers });
     } else {
-      // Use existing scoring for standard quizzes - pass the QuizAnswer array directly
-      const quizResult = calculateQuizScore(currentQuiz.id as any, answers);
+      // Use existing scoring for standard quizzes
+      const quizResult = calculateQuizScore(quizData.id as any, answers);
       answers.forEach((answer, index) => {
-        const question = currentQuiz.questions[answer.questionIndex];
+        const question = quizData.questions[answer.questionIndex];
         detailedAnswers[`q${index}`] = {
           question: question.text,
           answer: answer.answer,
@@ -245,7 +193,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
 
     setMessages(prev => [...prev, {
       role: 'assistant',
-      content: `Thank you for completing the ${currentQuiz.title}!\n\nYour score: ${score}/${currentQuiz.maxScore}\n\nTo receive your detailed results, please provide your contact information.`
+      content: `Thank you for completing the ${quizData.title}!\n\nYour score: ${score}/${quizData.maxScore}\n\nTo receive your detailed results, please provide your contact information.`
     }]);
 
     setCollectingInfo(true);
@@ -290,7 +238,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
           name: userInfo.name,
           email: userInfo.email,
           phone: userInfo.phone || null,
-          quiz_type: currentQuiz.isCustom ? `custom_${currentQuiz.id}` : currentQuiz.id,
+          quiz_type: quizData.isCustom ? `custom_${quizData.id}` : quizData.id,
           score: result.score,
           answers: result.detailedAnswers,
           lead_source: 'website',
@@ -308,7 +256,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
 
         setMessages(prev => [...prev, {
           role: 'assistant',
-          content: `Thank you ${userInfo.name}! Your assessment results have been saved.\n\n**Your Results:**\n\n**Score:** ${result.score}/${currentQuiz.maxScore}\n**Severity:** ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}\n\n**Interpretation:** ${result.interpretation}\n\nA healthcare provider will review your results and may contact you for follow-up care if needed.`
+          content: `Thank you ${userInfo.name}! Your assessment results have been saved.\n\n**Your Results:**\n\n**Score:** ${result.score}/${quizData.maxScore}\n**Severity:** ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}\n\n**Interpretation:** ${result.interpretation}\n\nA healthcare provider will review your results and may contact you for follow-up care if needed.`
         }]);
 
         setCollectingInfo(false);
@@ -349,7 +297,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
     setTimeout(() => {
       setMessages([{
         role: 'assistant',
-        content: `Hello! Welcome to the ${currentQuiz.title}. ${currentQuiz.description}\n\nThis assessment will help evaluate your symptoms. Click "Start Assessment" when you're ready to begin.`
+        content: `Hello! Welcome to the ${quizData.title}. ${quizData.description}\n\nThis assessment will help evaluate your symptoms. Click "Start Assessment" when you're ready to begin.`
       }]);
     }, 100);
   };
@@ -376,17 +324,17 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
     <div className="flex flex-col h-screen bg-gradient-to-br from-blue-50 to-green-50">
       <div className="bg-white shadow-sm border-b px-6 py-4 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">{currentQuiz.title}</h1>
-          <p className="text-sm text-gray-600">{currentQuiz.description}</p>
+          <h1 className="text-xl font-bold text-gray-900">{quizData.title}</h1>
+          <p className="text-sm text-gray-600">{quizData.description}</p>
         </div>
         {quizStarted && !quizCompleted && (
           <div className="flex items-center gap-4">
             <Progress 
-              value={(currentQuestionIndex / currentQuiz.questions.length) * 100} 
+              value={(currentQuestionIndex / quizData.questions.length) * 100} 
               className="w-32"
             />
             <span className="text-sm text-gray-600">
-              {currentQuestionIndex}/{currentQuiz.questions.length}
+              {currentQuestionIndex}/{quizData.questions.length}
             </span>
           </div>
         )}
@@ -432,7 +380,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="text-center p-4 bg-blue-50 rounded-lg">
                     <p className="text-sm text-gray-600">Your Score</p>
-                    <p className="text-2xl font-bold text-blue-600">{result.score}/{currentQuiz.maxScore}</p>
+                    <p className="text-2xl font-bold text-blue-600">{result.score}/{quizData.maxScore}</p>
                   </div>
                   <div className={`text-center p-4 rounded-lg border ${getSeverityColor(result.severity)}`}>
                     <div className="flex items-center justify-center gap-2 mb-1">
@@ -443,7 +391,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId }: EmbeddedChatBo
                   </div>
                   <div className="text-center p-4 bg-gray-50 rounded-lg">
                     <p className="text-sm text-gray-600">Questions</p>
-                    <p className="text-2xl font-bold text-gray-600">{currentQuiz.questions.length}</p>
+                    <p className="text-2xl font-bold text-gray-600">{quizData.questions.length}</p>
                   </div>
                 </div>
                 
