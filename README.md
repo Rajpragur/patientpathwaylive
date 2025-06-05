@@ -1,8 +1,8 @@
-# Welcome to your Lovable project
+# Welcome to Patient Pathway
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/e243a82f-6a2c-41d1-8d6e-46a78816b026
+**URL**: https://pathway-lead-capture-bot.vercel.app/auth
 
 ## How can I edit this code?
 

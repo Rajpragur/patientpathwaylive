@@ -41,10 +41,8 @@ export default function UniversalQuizPage() {
         }
         setLoading(false);
       } else {
-        // Check if it's a standard quiz - make case insensitive
-        const standardQuiz = Object.values(quizzes).find(
-          quiz => quiz.id.toLowerCase() === quizType.toLowerCase()
-        );
+        // Check if it's a standard quiz
+        const standardQuiz = quizzes[quizType.toUpperCase() as keyof typeof quizzes];
         if (!standardQuiz) {
           setNotFound(true);
         }
@@ -55,14 +53,7 @@ export default function UniversalQuizPage() {
   }, [quizType]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-lg text-gray-600">Loading assessment...</p>
-        </div>
-      </div>
-    );
+    return <div className="flex items-center justify-center h-screen text-lg">Loading quiz...</div>;
   }
 
   if (notFound || !quizType) {
@@ -83,12 +74,10 @@ export default function UniversalQuizPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <EmbeddedChatBot 
-        quizType={quizType} 
-        shareKey={shareKey} 
-        doctorId={doctorId} 
-      />
-    </div>
+    <EmbeddedChatBot 
+      quizType={quizType} 
+      shareKey={shareKey} 
+      doctorId={doctorId} 
+    />
   );
 }
