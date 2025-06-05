@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth';
@@ -47,26 +48,12 @@ function App() {
             {/* Short link redirect */}
             <Route path="/q/:shareKey" element={<ShortLinkRedirect />} />
             
-            {/* API route for AI assistant */}
-            <Route path="/api/ai-assistant" element={<AIAssistantAPI />} />
-            
             <Route path="*" element={<NotFound />} />
           </Routes>
         </div>
       </AuthProvider>
     </Router>
   );
-}
-
-// AI Assistant API component to handle edge function calls
-function AIAssistantAPI() {
-  useEffect(() => {
-    // This will be handled by the edge function
-    // Just redirect to avoid 404
-    window.location.href = '/';
-  }, []);
-  
-  return <div>Redirecting...</div>;
 }
 
 function ShortLinkRedirect() {
@@ -84,11 +71,11 @@ function ShortLinkRedirect() {
         // First try to find in quiz_leads
         const { data: leadData, error: leadError } = await supabase
           .from('quiz_leads')
-          .select('quiz_type, custom_quiz_id, doctor_id, lead_source, incident_source')
+          .select('quiz_type, doctor_id, lead_source, incident_source')
           .eq('share_key', shareKey)
           .single();
 
-        if (leadData) {
+        if (leadData && !leadError) {
           const doctorParam = leadData.doctor_id ? `&doctor=${leadData.doctor_id}` : '';
           const sourceParams = leadData.lead_source ? `&source=${leadData.lead_source}` : '';
           const incidentParams = leadData.incident_source ? `&campaign=${leadData.incident_source}` : '';
@@ -109,7 +96,7 @@ function ShortLinkRedirect() {
           .eq('share_key', shareKey)
           .single();
 
-        if (customData?.id) {
+        if (customData?.id && !customError) {
           const doctorParam = customData.doctor_id ? `&doctor=${customData.doctor_id}` : '';
           navigate(`/quiz/custom/${customData.id}?key=${shareKey}${doctorParam}`, { replace: true });
           return;

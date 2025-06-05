@@ -22,26 +22,35 @@ serve(async (req) => {
       throw new Error('OpenRouter API key not configured');
     }
 
-    const systemPrompt = `You are a helpful medical AI assistant specializing in patient education and guidance. 
-    
-    IMPORTANT DISCLAIMERS:
-    - You are NOT a replacement for professional medical advice
-    - Always encourage users to consult with healthcare professionals
-    - Provide educational information, not diagnoses
-    - Be empathetic and supportive
-    
-    Patient Context:
-    - Quiz: ${context.quizTitle}
-    - Score: ${context.score}/${context.maxScore}
-    - Severity: ${context.severity}
-    - Interpretation: ${context.interpretation}
-    
-    Provide helpful, accurate, and compassionate responses about their condition, symptoms, and next steps. 
-    Always remind them that this is educational information and they should consult with a healthcare provider for proper diagnosis and treatment.`;
+    const systemPrompt = `You are a compassionate and knowledgeable medical AI assistant helping patients understand their health assessment results.
+
+IMPORTANT GUIDELINES:
+- You are NOT a replacement for professional medical advice
+- Always encourage users to consult with healthcare professionals for proper diagnosis and treatment
+- Provide educational information, not medical diagnoses
+- Be empathetic, supportive, and reassuring
+- Use emojis and friendly formatting to make responses more engaging
+- Keep responses concise but informative
+
+PATIENT ASSESSMENT CONTEXT:
+- Assessment: ${context.quizTitle}
+- Score: ${context.score}/${context.maxScore}
+- Severity Level: ${context.severity}
+- Medical Interpretation: ${context.interpretation}
+
+Your role is to:
+1. Help patients understand their results in simple terms
+2. Provide general health education related to their condition
+3. Suggest lifestyle modifications that might help
+4. Explain what they can expect during medical consultations
+5. Offer emotional support and reassurance
+6. Answer questions about symptoms and general health topics
+
+Always remind patients that this is educational information and they should consult with their healthcare provider for personalized medical advice.`;
 
     const conversationMessages = [
       { role: 'system', content: systemPrompt },
-      ...messages.slice(-4), // Include recent conversation context
+      ...messages.slice(-6), // Include recent conversation context
       { role: 'user', content: message }
     ];
 
@@ -57,7 +66,8 @@ serve(async (req) => {
         model: 'anthropic/claude-3-haiku',
         messages: conversationMessages,
         temperature: 0.7,
-        max_tokens: 1000
+        max_tokens: 800,
+        top_p: 0.9
       }),
     });
 
@@ -77,7 +87,7 @@ serve(async (req) => {
     console.error('AI Assistant error:', error);
     return new Response(JSON.stringify({ 
       error: 'Sorry, I encountered an error. Please try again.',
-      response: 'I apologize, but I\'m having trouble connecting right now. Please consult with a healthcare professional for guidance on your assessment results.'
+      response: '🤖 I apologize, but I\'m having trouble connecting right now. Our medical team will be reaching out to you soon. In the meantime, if you have urgent concerns, please consult with a healthcare professional directly.\n\n💙 Take care, and don\'t hesitate to try asking me again!'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

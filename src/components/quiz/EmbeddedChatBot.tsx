@@ -10,7 +10,7 @@ import { calculateQuizScore } from '@/utils/quizScoring';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
-import { AIAssistant } from './AIAssistant';
+import { AIAssistant, ImprovedAIAssistant } from './AIAssistant';
 
 interface Message {
   role: 'assistant' | 'user';
@@ -184,7 +184,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
 
       setResult({ score, interpretation, severity, summary: interpretation, detailedAnswers });
     } else {
-      // Use existing scoring for standard quizzes
+      // Use existing scoring for standard quizzes - pass QuizAnswer array
       const quizResult = calculateQuizScore(quizData.id as any, answers);
       answers.forEach((answer, index) => {
         const question = quizData.questions[answer.questionIndex];
@@ -200,7 +200,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
 
     setMessages(prev => [...prev, {
       role: 'assistant',
-      content: `Thank you for completing the ${quizData.title}!\n\nYour score: ${score}/${quizData.maxScore}\n\nTo receive your detailed results, please provide your contact information.`
+      content: `🎉 Congratulations! You've completed the ${quizData.title}.\n\nTo receive your detailed results and connect with our medical team, please provide your contact information below.`
     }]);
 
     setCollectingInfo(true);
@@ -215,7 +215,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
       setInfoStep(1);
       setMessages(prev => [...prev, 
         { role: 'user', content: userInfo.name },
-        { role: 'assistant', content: 'Thank you! Please provide your email address:' }
+        { role: 'assistant', content: '📧 Thank you! Please provide your email address:' }
       ]);
       setInput('');
       return;
@@ -229,7 +229,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
       setInfoStep(2);
       setMessages(prev => [...prev, 
         { role: 'user', content: userInfo.email },
-        { role: 'assistant', content: 'Great! Finally, please provide your phone number (optional):' }
+        { role: 'assistant', content: '📱 Great! Finally, please provide your phone number (optional):' }
       ]);
       setInput('');
       return;
@@ -263,12 +263,14 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
 
         setMessages(prev => [...prev, {
           role: 'assistant',
-          content: `Thank you ${userInfo.name}! Your assessment results have been saved.\n\n**Your Results:**\n\n**Score:** ${result.score}/${quizData.maxScore}\n**Severity:** ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}\n\n**Interpretation:** ${result.interpretation}\n\nA healthcare provider will review your results and may contact you for follow-up care if needed.\n\nWould you like to chat with our AI assistant for personalized recommendations and guidance?`
+          content: `✅ Perfect! Your information has been saved successfully.\n\nYour assessment is now complete and our medical team has been notified. They will review your results and may contact you for follow-up care if needed.\n\n🤖 In the meantime, I've activated our AI Health Assistant to help answer any questions you might have about your results!`
         }]);
 
         setCollectingInfo(false);
+        setShowAIAssistant(true);
         setInput('');
       } catch (error) {
+        console.error('Failed to save results:', error);
         toast.error('Failed to save results. Please try again.');
       }
     }
@@ -328,7 +330,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-br from-blue-50 to-green-50">
+    <div className="flex flex-col h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       <div className="bg-white shadow-sm border-b px-6 py-4 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-900">{quizData.title}</h1>
@@ -351,7 +353,11 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {messages.map((message, index) => (
             <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <Card className={`max-w-[80%] ${message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-white'}`}>
+              <Card className={`max-w-[80%] shadow-lg border-0 ${
+                message.role === 'user' 
+                  ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' 
+                  : 'bg-white border border-gray-200'
+              }`}>
                 <CardContent className="p-4">
                   <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
                   
@@ -361,10 +367,10 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
                         <Button
                           key={optionIndex}
                           variant="outline"
-                          className="w-full justify-start text-left h-auto p-3 bg-white hover:bg-gray-50 text-gray-900 border-gray-300"
+                          className="w-full justify-start text-left h-auto p-3 bg-white hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 text-gray-900 border-gray-300 transition-all duration-200"
                           onClick={() => handleAnswer(option, optionIndex)}
                         >
-                          <span className="mr-2 font-medium">{String.fromCharCode(65 + optionIndex)}.</span>
+                          <span className="mr-2 font-medium text-blue-600">{String.fromCharCode(65 + optionIndex)}.</span>
                           {option}
                         </Button>
                       ))}
@@ -376,48 +382,43 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
           ))}
 
           {result && quizCompleted && !collectingInfo && (
-            <Card className="bg-white border-2">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+            <Card className="bg-white border-2 border-blue-200 shadow-xl">
+              <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50">
+                <CardTitle className="flex items-center gap-2 text-blue-900">
                   <CheckCircle className="w-5 h-5 text-green-500" />
-                  Assessment Complete
+                  Assessment Complete - Results Ready
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6 p-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="text-center p-4 bg-blue-50 rounded-lg">
-                    <p className="text-sm text-gray-600">Your Score</p>
-                    <p className="text-2xl font-bold text-blue-600">{result.score}/{quizData.maxScore}</p>
+                  <div className="text-center p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl border border-blue-200">
+                    <p className="text-sm text-blue-700 font-medium">Your Score</p>
+                    <p className="text-3xl font-bold text-blue-900">{result.score}</p>
+                    <p className="text-sm text-blue-600">out of {quizData.maxScore}</p>
                   </div>
-                  <div className={`text-center p-4 rounded-lg border ${getSeverityColor(result.severity)}`}>
+                  <div className={`text-center p-4 rounded-xl border-2 ${getSeverityColor(result.severity)}`}>
                     <div className="flex items-center justify-center gap-2 mb-1">
                       {getSeverityIcon(result.severity)}
-                      <p className="text-sm font-medium">Severity Level</p>
+                      <p className="text-sm font-bold">Severity Level</p>
                     </div>
-                    <p className="font-bold capitalize">{result.severity}</p>
+                    <p className="font-bold text-lg capitalize">{result.severity}</p>
                   </div>
-                  <div className="text-center p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-600">Questions</p>
-                    <p className="text-2xl font-bold text-gray-600">{quizData.questions.length}</p>
+                  <div className="text-center p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+                    <p className="text-sm text-gray-700 font-medium">Questions</p>
+                    <p className="text-3xl font-bold text-gray-900">{quizData.questions.length}</p>
+                    <p className="text-sm text-gray-600">completed</p>
                   </div>
                 </div>
                 
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <h4 className="font-semibold mb-2">Results Summary:</h4>
-                  <p className="text-gray-700">{result.interpretation}</p>
+                <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200">
+                  <h4 className="font-bold mb-2 text-blue-900">📋 Results Summary:</h4>
+                  <p className="text-gray-800 leading-relaxed">{result.interpretation}</p>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   <Button onClick={resetQuiz} className="flex-1" variant="outline">
                     <RotateCcw className="w-4 h-4 mr-2" />
-                    Take Assessment Again
-                  </Button>
-                  <Button 
-                    onClick={() => setShowAIAssistant(true)} 
-                    className="flex-1 bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 text-white"
-                  >
-                    <Bot className="w-4 h-4 mr-2" />
-                    Chat with AI Assistant
+                    Retake Assessment
                   </Button>
                 </div>
               </CardContent>
@@ -426,10 +427,13 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="bg-white border-t p-6">
+        <div className="bg-white border-t border-gray-200 p-6 shadow-lg">
           {!quizStarted && !quizCompleted && (
-            <Button onClick={startQuiz} className="w-full bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 text-white">
-              Start Assessment
+            <Button 
+              onClick={startQuiz} 
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 text-lg font-semibold rounded-xl shadow-lg"
+            >
+              🚀 Start Assessment
             </Button>
           )}
 
@@ -439,14 +443,17 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
                 value={input}
                 onChange={handleInputChange}
                 placeholder={
-                  infoStep === 0 ? "Enter your full name..." :
-                  infoStep === 1 ? "Enter your email address..." :
-                  "Enter your phone number (optional)..."
+                  infoStep === 0 ? "👤 Enter your full name..." :
+                  infoStep === 1 ? "📧 Enter your email address..." :
+                  "📱 Enter your phone number (optional)..."
                 }
                 onKeyPress={(e) => e.key === 'Enter' && handleInfoSubmit()}
-                className="flex-1"
+                className="flex-1 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
               />
-              <Button onClick={handleInfoSubmit}>
+              <Button 
+                onClick={handleInfoSubmit}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+              >
                 <Send className="w-4 h-4" />
               </Button>
             </div>
@@ -455,26 +462,14 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
       </div>
 
       {showAIAssistant && result && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">AI Health Assistant</h3>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setShowAIAssistant(false)}
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Results
-            </Button>
-          </div>
-          <AIAssistant
-            quizTitle={quizData.title}
-            score={result.score}
-            maxScore={quizData.maxScore}
-            severity={result.severity}
-            interpretation={result.interpretation}
-          />
-        </div>
+        <ImprovedAIAssistant
+          quizTitle={quizData.title}
+          score={result.score}
+          maxScore={quizData.maxScore}
+          severity={result.severity}
+          interpretation={result.interpretation}
+          onClose={() => setShowAIAssistant(false)}
+        />
       )}
     </div>
   );
