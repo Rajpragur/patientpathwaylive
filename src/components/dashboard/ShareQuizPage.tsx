@@ -275,10 +275,10 @@ export function ShareQuizPage() {
           <div className="bg-white rounded-lg shadow-lg p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Assessment Not Found</h2>
             <p className="text-gray-600 mb-6">The requested assessment could not be found.</p>
-            <Button onClick={() => navigate('/portal')}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
-            </Button>
+          <Button onClick={() => navigate('/portal')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Dashboard
+          </Button>
           </div>
         </div>
       </div>
@@ -292,17 +292,17 @@ export function ShareQuizPage() {
       {/* Header */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button 
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button 
                 variant="ghost" 
-                onClick={() => navigate('/portal')}
+            onClick={() => navigate('/portal')}
                 className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
-              >
-                <ArrowLeft className="w-4 h-4" />
+          >
+            <ArrowLeft className="w-4 h-4" />
                 Back to Dashboard
-              </Button>
-              <div>
+          </Button>
+          <div>
                 <h1 className="text-2xl font-bold text-gray-900">Share Assessment</h1>
                 <p className="text-gray-600">{quizInfo.title}</p>
               </div>
@@ -330,20 +330,20 @@ export function ShareQuizPage() {
 
           <TabsContent value="full-page" className="space-y-6">
             <Card>
-              <CardHeader>
+          <CardHeader>
                 <CardTitle>Full Page Link</CardTitle>
                 <CardDescription>
                   Share this link to allow patients to take the assessment on a dedicated page
                 </CardDescription>
-              </CardHeader>
+          </CardHeader>
               <CardContent className="space-y-6">
-                <div className="flex gap-2">
-                  <Input 
+              <div className="flex gap-2">
+                <Input
                     value={quizUrl} 
-                    readOnly 
+                  readOnly
                     className="flex-1 font-mono text-sm"
-                  />
-                  <Button 
+                />
+                <Button
                     onClick={() => handleCopy(quizUrl, 'Link copied to clipboard!')}
                     className="min-w-[100px]"
                   >
@@ -358,15 +358,15 @@ export function ShareQuizPage() {
                         Copy
                       </>
                     )}
-                  </Button>
-                  <Button 
-                    variant="outline"
+                </Button>
+                <Button
+                  variant="outline"
                     onClick={() => window.open(quizUrl, '_blank')}
-                  >
+                >
                     <ExternalLink className="w-4 h-4 mr-2" />
                     Preview
-                  </Button>
-                </div>
+                </Button>
+            </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Card>
@@ -375,46 +375,46 @@ export function ShareQuizPage() {
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-2 gap-2">
-                        <Button 
-                          variant="outline" 
+                <Button
+                  variant="outline"
                           onClick={() => handleShare('facebook')}
                           className="hover:bg-blue-50 hover:text-blue-600"
-                        >
+              >
                           <Facebook className="w-4 h-4 mr-2" />
-                          Facebook
-                        </Button>
-                        <Button 
-                          variant="outline" 
+                Facebook
+              </Button>
+              <Button 
+                variant="outline" 
                           onClick={() => handleShare('linkedin')}
                           className="hover:bg-blue-50 hover:text-blue-600"
-                        >
+              >
                           <Linkedin className="w-4 h-4 mr-2" />
                           LinkedIn
-                        </Button>
-                        <Button 
-                          variant="outline" 
+              </Button>
+              <Button 
+                variant="outline" 
                           onClick={() => handleShare('twitter')}
                           className="hover:bg-blue-50 hover:text-blue-600"
-                        >
+              >
                           <Twitter className="w-4 h-4 mr-2" />
                           Twitter
-                        </Button>
-                        <Button 
-                          variant="outline" 
+              </Button>
+              <Button 
+                variant="outline" 
                           onClick={() => handleShare('email')}
                           className="hover:bg-blue-50 hover:text-blue-600"
-                        >
+              >
                           <Mail className="w-4 h-4 mr-2" />
-                          Email
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
+                Email
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
                   <Card>
-                    <CardHeader>
+          <CardHeader>
                       <CardTitle className="text-lg">Additional Options</CardTitle>
-                    </CardHeader>
+          </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-2 gap-2">
                         <Button 
@@ -441,38 +441,38 @@ export function ShareQuizPage() {
                           <FileText className="w-4 h-4 mr-2" />
                           PDF
                         </Button>
-                        <Button 
+            <Button 
                           variant="outline" 
                           onClick={() => window.print()}
                           className="hover:bg-blue-50 hover:text-blue-600"
-                        >
+            >
                           <Printer className="w-4 h-4 mr-2" />
                           Print
-                        </Button>
+            </Button>
                       </div>
-                    </CardContent>
-                  </Card>
-                </div>
+          </CardContent>
+        </Card>
+      </div>
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="embed" className="space-y-6">
             <Card>
-              <CardHeader>
+        <CardHeader>
                 <CardTitle>Embed Code</CardTitle>
                 <CardDescription>
                   Add this assessment directly to your website using the embed code below
                 </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex gap-2">
-                  <Input 
+        </CardHeader>
+        <CardContent className="space-y-6">
+                  <div className="flex gap-2">
+                    <Input 
                     value={embedCode} 
-                    readOnly 
+                      readOnly 
                     className="flex-1 font-mono text-sm"
-                  />
-                  <Button 
+                    />
+                    <Button
                     onClick={() => handleCopy(embedCode, 'Embed code copied to clipboard!')}
                     className="min-w-[100px]"
                   >
@@ -487,8 +487,8 @@ export function ShareQuizPage() {
                         Copy
                       </>
                     )}
-                  </Button>
-                </div>
+                    </Button>
+                  </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Card>
@@ -502,7 +502,7 @@ export function ShareQuizPage() {
                           className="w-full h-full rounded-lg"
                           title={`${quizInfo.title} Preview`}
                         />
-                      </div>
+                    </div>
                     </CardContent>
                   </Card>
 
@@ -514,20 +514,20 @@ export function ShareQuizPage() {
                       <div className="space-y-2">
                         <h4 className="font-medium">1. Copy the embed code</h4>
                         <p className="text-sm text-gray-600">Click the copy button above to copy the embed code to your clipboard.</p>
-                      </div>
+                  </div>
                       <div className="space-y-2">
                         <h4 className="font-medium">2. Paste into your website</h4>
                         <p className="text-sm text-gray-600">Paste the code into your website's HTML where you want the assessment to appear.</p>
-                      </div>
+                </div>
                       <div className="space-y-2">
                         <h4 className="font-medium">3. Customize (Optional)</h4>
                         <p className="text-sm text-gray-600">Adjust the width and height attributes to fit your website's layout.</p>
                       </div>
                     </CardContent>
                   </Card>
-                </div>
-              </CardContent>
-            </Card>
+          </div>
+        </CardContent>
+      </Card>
           </TabsContent>
         </Tabs>
       </div>

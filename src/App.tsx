@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth';
@@ -21,11 +20,24 @@ import { EmbeddedQuiz as EmbeddedQuizRoute } from './routes/EmbeddedQuiz';
 import { supabase } from './integrations/supabase/client';
 import UniversalQuizPage from './pages/UniversalQuizPage';
 import CustomQuizPage from './pages/CustomQuizPage';
+import { PageLoader } from './components/ui/PageLoader';
+
+// Add types for expected data (move outside function to avoid TS recursion bug)
+type LeadData = {
+  quiz_type?: string;
+  custom_quiz_id?: string;
+  doctor_id?: string;
+};
+type CustomQuizData = {
+  id: string;
+  doctor_id?: string;
+};
 
 function App() {
   return (
     <Router>
       <AuthProvider>
+        <PageLoader />
         <div className="min-h-screen bg-gray-50">
           <Routes>
             <Route path="/" element={<Index />} />
@@ -37,9 +49,12 @@ function App() {
             <Route path="/portal/share/:quizType" element={<ShareQuizPage />} />
             <Route path="/portal/share/custom/:customQuizId" element={<ShareQuizPage />} />
             
-            {/* Universal quiz routes */}
+            {/* Quiz routes */}
             <Route path="/quiz/:quizType" element={<UniversalQuizPage />} />
             <Route path="/quiz/custom/:customQuizId" element={<CustomQuizPage />} />
+            
+            {/* Legacy quiz routes - redirect to new format */}
+            <Route path="/quiz" element={<UniversalQuizPage />} />
             
             {/* Embedded quiz routes */}
             <Route path="/embed/quiz/:quizType" element={<UniversalQuizPage />} />
@@ -57,13 +72,11 @@ function App() {
 }
 
 function ShortLinkRedirect() {
-  const params = useParams();
+  const { shareKey } = useParams();
   const navigate = useNavigate();
 
   useEffect(() => {
     async function resolveShareKey() {
-      const shareKey = params.shareKey;
-      
       if (!shareKey) {
         navigate('/', { replace: true });
         return;
@@ -71,40 +84,57 @@ function ShortLinkRedirect() {
 
       try {
         // First try to find in quiz_leads
-        const { data: leadData, error: leadError } = await supabase
+        const { data: leadDataRaw } = await supabase
           .from('quiz_leads')
-          .select('quiz_type, doctor_id, lead_source, incident_source')
+          .select('quiz_type, custom_quiz_id, doctor_id')
           .eq('share_key', shareKey)
           .single();
+        const leadData = (leadDataRaw as any) as LeadData | undefined;
 
-        if (leadData && !leadError) {
+        if (leadData) {
           const doctorParam = leadData.doctor_id ? `&doctor=${leadData.doctor_id}` : '';
-          const sourceParams = leadData.lead_source ? `&source=${leadData.lead_source}` : '';
-          const incidentParams = leadData.incident_source ? `&campaign=${leadData.incident_source}` : '';
-          
-          if (leadData.quiz_type?.startsWith('custom_')) {
-            const customQuizId = leadData.quiz_type.replace('custom_', '');
-            navigate(`/quiz/custom/${customQuizId}?key=${shareKey}${doctorParam}${sourceParams}${incidentParams}`, { replace: true });
+          if (leadData.custom_quiz_id) {
+            navigate(`/quiz/custom/${leadData.custom_quiz_id}?key=${shareKey}${doctorParam}`, { replace: true });
           } else if (leadData.quiz_type) {
-            navigate(`/quiz/${leadData.quiz_type.toLowerCase()}?key=${shareKey}${doctorParam}${sourceParams}${incidentParams}`, { replace: true });
+            navigate(`/quiz/${leadData.quiz_type.toLowerCase()}?key=${shareKey}${doctorParam}`, { replace: true });
           }
           return;
         }
 
         // If not found in quiz_leads, try custom_quizzes
-        const { data: customData, error: customError } = await supabase
+        const { data: customDataRaw } = await supabase
           .from('custom_quizzes')
           .select('id, doctor_id')
           .eq('share_key', shareKey)
           .single();
+        // @ts-expect-error: Type instantiation is excessively deep and possibly infinite
+        const customData = (customDataRaw as any) as CustomQuizData | undefined;
 
-        if (customData?.id && !customError) {
+        if (customData?.id) {
           const doctorParam = customData.doctor_id ? `&doctor=${customData.doctor_id}` : '';
           navigate(`/quiz/custom/${customData.id}?key=${shareKey}${doctorParam}`, { replace: true });
           return;
         }
 
+        // If still not found, try direct ID lookup for custom quizzes
+        if (shareKey.startsWith('custom_')) {
+          const customQuizId = shareKey.replace('custom_', '');
+          const { data: directCustomDataRaw } = await supabase
+            .from('custom_quizzes')
+            .select('id, doctor_id')
+            .eq('id', customQuizId)
+            .single();
+          const directCustomData = (directCustomDataRaw as any) as CustomQuizData | undefined;
+
+          if (directCustomData?.id) {
+            const doctorParam = directCustomData.doctor_id ? `&doctor=${directCustomData.doctor_id}` : '';
+            navigate(`/quiz/custom/${directCustomData.id}?key=${shareKey}${doctorParam}`, { replace: true });
+            return;
+          }
+        }
+
         // If nothing found, redirect to home
+        console.log('Share key not found, redirecting to home');
         navigate('/', { replace: true });
       } catch (error) {
         console.error('Error resolving share key:', error);
@@ -113,10 +143,10 @@ function ShortLinkRedirect() {
     }
     
     resolveShareKey();
-  }, [params.shareKey, navigate]);
+  }, [shareKey, navigate]);
   
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-green-50">
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
       <div className="text-center p-8">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f7904f] mx-auto mb-4"></div>
         <p className="text-lg text-gray-600">Redirecting to your assessment...</p>

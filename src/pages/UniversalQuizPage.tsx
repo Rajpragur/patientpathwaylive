@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { EmbeddedChatBot } from '@/components/quiz/EmbeddedChatBot';
@@ -26,6 +25,8 @@ export default function UniversalQuizPage() {
 
   useEffect(() => {
     const checkQuiz = async () => {
+      console.log('quizType from URL:', quizType);
+      console.log('Available quizzes:', Object.keys(quizzes));
       if (!quizType) {
         setNotFound(true);
         setLoading(false);

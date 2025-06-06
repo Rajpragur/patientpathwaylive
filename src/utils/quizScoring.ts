@@ -47,18 +47,28 @@ export function calculateQuizScore(quizType: QuizType, answers: QuizAnswer[] | n
       };
 
     case 'NOSE':
-      // NOSE scoring: 0-4 scale for 5 questions (max 20)
-      const noseScore = answerIndices.reduce((sum, answer) => sum + answer, 0);
+      // NOSE scoring: Each question is scored 0, 5, 10, 15, or 20. Sum and multiply by 5 for max 100.
+      // Parse the value from the option string if needed.
+      const noseRawScore = answerIndices.reduce((sum, answer, idx) => {
+        // If answer is a number (0-4), convert to 0,5,10,15,20
+        // If answer is already 0,5,10,15,20, use as is
+        if (typeof answer === 'number' && answer >= 0 && answer <= 4) {
+          return sum + answer * 5;
+        }
+        // fallback: just add
+        return sum + answer;
+      }, 0);
+      const noseScore = noseRawScore; // Already scaled to 100 max
       let noseSeverity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
       let noseInterpretation = '';
 
-      if (noseScore >= 15) {
+      if (noseScore >= 75) {
         noseSeverity = 'severe';
         noseInterpretation = 'Severe nasal obstruction significantly affecting breathing and quality of life. Surgical consultation recommended.';
-      } else if (noseScore >= 10) {
+      } else if (noseScore >= 50) {
         noseSeverity = 'moderate';
         noseInterpretation = 'Moderate nasal obstruction with noticeable impact on breathing. Medical evaluation recommended.';
-      } else if (noseScore >= 5) {
+      } else if (noseScore >= 25) {
         noseSeverity = 'mild';
         noseInterpretation = 'Mild nasal obstruction with some breathing difficulties. Consider medical consultation.';
       } else {
@@ -69,7 +79,7 @@ export function calculateQuizScore(quizType: QuizType, answers: QuizAnswer[] | n
         score: noseScore,
         severity: noseSeverity,
         interpretation: noseInterpretation,
-        summary: `NOSE Score: ${noseScore}/20 - ${noseSeverity} nasal obstruction`
+        summary: `NOSE Score: ${noseScore}/100 - ${noseSeverity} nasal obstruction`
       };
 
     case 'HHIA':
