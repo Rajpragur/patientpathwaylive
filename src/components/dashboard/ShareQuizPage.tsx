@@ -29,6 +29,7 @@ import { toast } from 'sonner';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { quizzes } from '@/data/quizzes';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 // Quiz descriptions and messages
 const quizMessages = {
@@ -86,18 +87,36 @@ export function ShareQuizPage() {
   const { quizType, customQuizId } = useParams<{ quizType?: string; customQuizId?: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [customQuiz, setCustomQuiz] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('full-page');
   const [copied, setCopied] = useState(false);
+  const [doctorProfile, setDoctorProfile] = useState<any>(null);
   const baseUrl = window.location.origin;
   const source = searchParams.get('source') || 'direct';
   const campaign = searchParams.get('campaign') || 'default';
   const medium = searchParams.get('medium') || 'none';
 
   useEffect(() => {
-    const fetchQuizData = async () => {
+    const fetchData = async () => {
       try {
+        // First, get the doctor profile to ensure we have the doctor_id
+        if (user) {
+          const { data: profile, error: profileError } = await supabase
+            .from('doctor_profiles')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
+          
+          if (profileError) {
+            console.error('Error fetching doctor profile:', profileError);
+          } else {
+            setDoctorProfile(profile);
+          }
+        }
+
+        // Then fetch custom quiz if needed
         if (customQuizId) {
           const { data, error } = await supabase
             .from('custom_quizzes')
@@ -116,10 +135,10 @@ export function ShareQuizPage() {
       }
     };
 
-    fetchQuizData();
-  }, [customQuizId]);
+    fetchData();
+  }, [customQuizId, user]);
 
-  // Generate the appropriate URL with tracking parameters
+  // Generate the appropriate URL with tracking parameters and doctor ID
   const getQuizUrl = () => {
     const baseQuizUrl = customQuizId 
       ? `${baseUrl}/quiz/custom/${customQuizId}`
@@ -134,6 +153,11 @@ export function ShareQuizPage() {
       utm_medium: medium,
       shared_at: new Date().toISOString()
     });
+
+    // Add doctor ID if available
+    if (doctorProfile?.id) {
+      trackingParams.set('doctor', doctorProfile.id);
+    }
 
     return `${baseQuizUrl}?${trackingParams.toString()}`;
   };
@@ -174,10 +198,8 @@ export function ShareQuizPage() {
       return {
         title: standardQuiz.title,
         description: standardQuiz.description,
-        shareMessage: quizMessages[quizType?.toLowerCase() as keyof typeof quizMessages]?.shareMessage || 
-          `Take this ${standardQuiz.title} assessment to evaluate your symptoms.`,
-        linkedinMessage: quizMessages[quizType?.toLowerCase() as keyof typeof quizMessages]?.linkedinMessage || 
-          `Share this ${standardQuiz.title} assessment with your patients to evaluate their symptoms.`
+        shareMessage: `Take this ${standardQuiz.title} assessment to evaluate your symptoms.`,
+        linkedinMessage: `Share this ${standardQuiz.title} assessment with your patients to evaluate their symptoms.`
       };
     }
 
@@ -292,19 +314,24 @@ export function ShareQuizPage() {
       {/* Header */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-6 py-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button 
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button 
                 variant="ghost" 
-            onClick={() => navigate('/portal')}
+                onClick={() => navigate('/portal')}
                 className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
-          >
-            <ArrowLeft className="w-4 h-4" />
+              >
+                <ArrowLeft className="w-4 h-4" />
                 Back to Dashboard
-          </Button>
-          <div>
+              </Button>
+              <div>
                 <h1 className="text-2xl font-bold text-gray-900">Share Assessment</h1>
                 <p className="text-gray-600">{quizInfo.title}</p>
+                {doctorProfile && (
+                  <p className="text-sm text-gray-500">
+                    Doctor ID: {doctorProfile.id} | {doctorProfile.first_name} {doctorProfile.last_name}
+                  </p>
+                )}
               </div>
             </div>
             <Badge className="bg-gradient-to-r from-[#f7904f] to-[#04748f] text-white px-4 py-2">
@@ -330,20 +357,25 @@ export function ShareQuizPage() {
 
           <TabsContent value="full-page" className="space-y-6">
             <Card>
-          <CardHeader>
+              <CardHeader>
                 <CardTitle>Full Page Link</CardTitle>
                 <CardDescription>
                   Share this link to allow patients to take the assessment on a dedicated page
+                  {doctorProfile && (
+                    <span className="block text-sm text-green-600 mt-1">
+                      ✓ Doctor ID ({doctorProfile.id}) is included in the URL
+                    </span>
+                  )}
                 </CardDescription>
-          </CardHeader>
+              </CardHeader>
               <CardContent className="space-y-6">
-              <div className="flex gap-2">
-                <Input
+                <div className="flex gap-2">
+                  <Input
                     value={quizUrl} 
-                  readOnly
+                    readOnly
                     className="flex-1 font-mono text-sm"
-                />
-                <Button
+                  />
+                  <Button
                     onClick={() => handleCopy(quizUrl, 'Link copied to clipboard!')}
                     className="min-w-[100px]"
                   >
@@ -358,15 +390,15 @@ export function ShareQuizPage() {
                         Copy
                       </>
                     )}
-                </Button>
-                <Button
-                  variant="outline"
+                  </Button>
+                  <Button
+                    variant="outline"
                     onClick={() => window.open(quizUrl, '_blank')}
-                >
+                  >
                     <ExternalLink className="w-4 h-4 mr-2" />
                     Preview
-                </Button>
-            </div>
+                  </Button>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Card>
@@ -459,20 +491,25 @@ export function ShareQuizPage() {
 
           <TabsContent value="embed" className="space-y-6">
             <Card>
-        <CardHeader>
+              <CardHeader>
                 <CardTitle>Embed Code</CardTitle>
                 <CardDescription>
                   Add this assessment directly to your website using the embed code below
+                  {doctorProfile && (
+                    <span className="block text-sm text-green-600 mt-1">
+                      ✓ Doctor ID ({doctorProfile.id}) is included in the embed URL
+                    </span>
+                  )}
                 </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-                  <div className="flex gap-2">
-                    <Input 
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex gap-2">
+                  <Input 
                     value={embedCode} 
-                      readOnly 
+                    readOnly 
                     className="flex-1 font-mono text-sm"
-                    />
-                    <Button
+                  />
+                  <Button
                     onClick={() => handleCopy(embedCode, 'Embed code copied to clipboard!')}
                     className="min-w-[100px]"
                   >
@@ -487,8 +524,8 @@ export function ShareQuizPage() {
                         Copy
                       </>
                     )}
-                    </Button>
-                  </div>
+                  </Button>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Card>

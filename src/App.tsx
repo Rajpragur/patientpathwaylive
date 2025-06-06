@@ -81,7 +81,7 @@ function ShortLinkRedirect() {
           .eq('share_key', shareKey)
           .maybeSingle();
 
-        if (!leadError && leadData) {
+        if (leadData && !leadError) {
           const doctorParam = leadData.doctor_id ? `&doctor=${leadData.doctor_id}` : '';
           if (leadData.custom_quiz_id) {
             navigate(`/quiz/custom/${leadData.custom_quiz_id}?key=${shareKey}${doctorParam}`, { replace: true });
@@ -98,7 +98,7 @@ function ShortLinkRedirect() {
           .eq('share_key', shareKey)
           .maybeSingle();
 
-        if (!customError && customData?.id) {
+        if (customData && !customError) {
           const doctorParam = customData.doctor_id ? `&doctor=${customData.doctor_id}` : '';
           navigate(`/quiz/custom/${customData.id}?key=${shareKey}${doctorParam}`, { replace: true });
           return;
@@ -113,7 +113,7 @@ function ShortLinkRedirect() {
             .eq('id', customQuizId)
             .maybeSingle();
 
-          if (!directError && directCustomData?.id) {
+          if (directCustomData && !directError) {
             const doctorParam = directCustomData.doctor_id ? `&doctor=${directCustomData.doctor_id}` : '';
             navigate(`/quiz/custom/${directCustomData.id}?key=${shareKey}${doctorParam}`, { replace: true });
             return;
