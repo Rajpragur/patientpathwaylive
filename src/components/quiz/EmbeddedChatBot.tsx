@@ -290,53 +290,79 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
   };
 
   const submitLead = async () => {
+    console.log('Starting lead submission process...', {
+      doctorId,
+      shareKey,
+      userInfo,
+      result,
+      quizData
+    });
+
     if (!doctorId) {
-      toast.error('No doctor is associated with this quiz. Please use a valid quiz link.');
-      console.error('No doctorId provided for lead insert', { doctorId, shareKey, quizData });
-      return;
+      // Try to get doctor from search params
+      const doctorFromParams = searchParams.get('doctor');
+      if (!doctorFromParams) {
+        console.error('No doctor ID available for lead submission');
+        toast.error('Unable to save results - no doctor associated with this quiz');
+        return;
+      }
+      console.log('Using doctor ID from search params:', doctorFromParams);
     }
 
+    const finalDoctorId = doctorId || searchParams.get('doctor');
+    
     setIsSubmittingLead(true);
     
     try {
-      console.log('Submitting lead with data:', {
+      const leadData = {
         name: userInfo.name,
         email: userInfo.email || null,
         phone: userInfo.phone || null,
         quiz_type: quizData.isCustom ? `custom_${quizData.id}` : quizData.id,
         score: result.score,
         answers: result.detailedAnswers,
-        lead_source: 'website',
+        lead_source: shareKey ? 'shared_link' : 'website',
         lead_status: 'NEW',
-        doctor_id: doctorId,
+        doctor_id: finalDoctorId,
         share_key: shareKey,
-        incident_source: shareKey || 'default'
-      });
+        incident_source: shareKey || 'default',
+        submitted_at: new Date().toISOString()
+      };
+
+      console.log('Submitting lead with data:', leadData);
 
       const { data, error } = await supabase
         .from('quiz_leads')
-        .insert([{
-          name: userInfo.name,
-          email: userInfo.email || null,
-          phone: userInfo.phone || null,
-          quiz_type: quizData.isCustom ? `custom_${quizData.id}` : quizData.id,
-          score: result.score,
-          answers: result.detailedAnswers,
-          lead_source: 'website',
-          lead_status: 'NEW',
-          doctor_id: doctorId,
-          share_key: shareKey,
-          incident_source: shareKey || 'default'
-        }])
+        .insert([leadData])
         .select();
 
       if (error) {
         console.error('Supabase lead insert error:', error);
         toast.error('Failed to save results. Please try again or contact support.');
-      } else {
-        console.log('Lead saved successfully:', data);
-        toast.success('Results saved successfully!');
+        return;
+      } 
+
+      console.log('Lead saved successfully:', data);
+      toast.success('Results saved successfully! Your information has been sent to the healthcare provider.');
+
+      // Create notification for the doctor
+      if (finalDoctorId) {
+        const { error: notificationError } = await supabase
+          .from('doctor_notifications')
+          .insert([{
+            doctor_id: finalDoctorId,
+            title: 'New Assessment Completed',
+            message: `${userInfo.name} completed a ${quizData.title} assessment with a score of ${result.score}/${quizData.maxScore}`,
+            type: 'new_lead'
+          }]);
+
+        if (notificationError) {
+          console.error('Error creating notification:', notificationError);
+        } else {
+          console.log('Notification created successfully');
+        }
       }
+
     } catch (error) {
       console.error('Error submitting lead:', error);
       toast.error('Failed to save results. Please try again.');
@@ -439,7 +465,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
         )}
       </div>
       
-      <div className="flex-1 overflow-hidden flex flex-col max-w-2xl mx-auto w-full rounded-2xl shadow-lg bg-white" style={{ minHeight: 400 }}>
+      <div className="flex-1 overflow-hidden flex flex-col max-w-4xl mx-auto w-full rounded-2xl shadow-lg bg-white" style={{ minHeight: 400 }}>
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           <AnimatePresence initial={false}>
             {messages.map((message, index) => (
@@ -451,14 +477,14 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
                 transition={{ duration: 0.35, ease: 'easeInOut' }}
                 className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <div className="flex items-end gap-2">
+                <div className="flex items-end gap-2 max-w-4xl">
                   {message.role === 'assistant' && (
                     <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="flex-shrink-0">
                       <Bot className="w-7 h-7 bg-white rounded-full border border-gray-200 shadow p-1" style={{ color: teal }} />
                     </motion.div>
                   )}
                   <div
-                    className={`rounded-2xl px-5 py-3 max-w-[80%] shadow-md transition-all duration-200 ${
+                    className={`rounded-2xl px-5 py-3 max-w-full shadow-md transition-all duration-200 ${
                       message.role === 'user'
                         ? 'text-gray-900 hover:shadow-lg'
                         : 'bg-white border border-gray-200 text-gray-700 hover:shadow-lg'
@@ -467,24 +493,25 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
                   >
                     <span className="whitespace-pre-wrap text-base leading-relaxed">{message.content}</span>
                     {message.isQuestion && message.options && !quizCompleted && (
-                      <div className="mt-4 space-y-2">
+                      <div className="mt-4 space-y-2 w-full">
                         {message.options.map((option, optionIndex) => (
                           <motion.div
                             key={optionIndex}
-                            whileHover={{ scale: 1.03 }}
+                            whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
+                            className="w-full"
                           >
                             <Button
                               variant="outline"
-                              className="w-full justify-start text-left h-auto p-3 rounded-xl border border-gray-200 bg-white text-gray-700 transition-all duration-150"
+                              className="w-full justify-start text-left h-auto p-4 rounded-xl border border-gray-200 bg-white text-gray-700 transition-all duration-150 min-h-[60px]"
                               style={{ borderColor: `${teal}40` }}
                               onClick={() => {
                                 handleAnswer(option, optionIndex);
                                 setInput('');
                               }}
                             >
-                              <span className="mr-2 font-medium text-gray-400">{String.fromCharCode(65 + optionIndex)}.</span>
-                              {option}
+                              <span className="mr-3 font-medium text-gray-400 text-lg">{String.fromCharCode(65 + optionIndex)}.</span>
+                              <span className="text-left flex-1">{option}</span>
                             </Button>
                           </motion.div>
                         ))}
@@ -596,7 +623,6 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
                 }
                 onKeyDown={handleKeyDown}
                 className="flex-1 rounded-xl border border-gray-200 px-4 py-2 text-base bg-white shadow focus:ring-2 focus:outline-none transition-all duration-150"
-                style={{ focusRingColor: `${orange}40` }}
                 disabled={isSubmittingLead}
               />
               <Button 
@@ -618,7 +644,6 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
                 placeholder="Type your message..."
                 onKeyDown={handleKeyDown}
                 className="flex-1 rounded-xl border border-gray-200 px-4 py-2 text-base bg-white shadow focus:ring-2 focus:outline-none transition-all duration-150"
-                style={{ focusRingColor: `${orange}40` }}
               />
               <Button 
                 onClick={handlePostQuizSend} 

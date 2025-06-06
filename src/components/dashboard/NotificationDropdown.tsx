@@ -152,7 +152,7 @@ export function NotificationDropdown() {
 
       setNotifications([]);
       setUnreadCount(0);
-      toast.success('All notifications cleared');
+      toast.success('All notifications cleared permanently');
     } catch (error) {
       console.error('Error clearing notifications:', error);
       toast.error('Failed to clear notifications');

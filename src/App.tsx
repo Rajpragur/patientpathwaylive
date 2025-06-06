@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth';
@@ -21,17 +22,6 @@ import { supabase } from './integrations/supabase/client';
 import UniversalQuizPage from './pages/UniversalQuizPage';
 import CustomQuizPage from './pages/CustomQuizPage';
 import { PageLoader } from './components/ui/PageLoader';
-
-// Add types for expected data (move outside function to avoid TS recursion bug)
-type LeadData = {
-  quiz_type?: string;
-  custom_quiz_id?: string;
-  doctor_id?: string;
-};
-type CustomQuizData = {
-  id: string;
-  doctor_id?: string;
-};
 
 function App() {
   return (
@@ -72,8 +62,9 @@ function App() {
 }
 
 function ShortLinkRedirect() {
-  const { shareKey } = useParams();
+  const params = useParams();
   const navigate = useNavigate();
+  const shareKey = params.shareKey;
 
   useEffect(() => {
     async function resolveShareKey() {
@@ -84,12 +75,11 @@ function ShortLinkRedirect() {
 
       try {
         // First try to find in quiz_leads
-        const { data: leadDataRaw } = await supabase
+        const { data: leadData } = await supabase
           .from('quiz_leads')
           .select('quiz_type, custom_quiz_id, doctor_id')
           .eq('share_key', shareKey)
           .single();
-        const leadData = (leadDataRaw as any) as LeadData | undefined;
 
         if (leadData) {
           const doctorParam = leadData.doctor_id ? `&doctor=${leadData.doctor_id}` : '';
@@ -102,13 +92,11 @@ function ShortLinkRedirect() {
         }
 
         // If not found in quiz_leads, try custom_quizzes
-        const { data: customDataRaw } = await supabase
+        const { data: customData } = await supabase
           .from('custom_quizzes')
           .select('id, doctor_id')
           .eq('share_key', shareKey)
           .single();
-        // @ts-expect-error: Type instantiation is excessively deep and possibly infinite
-        const customData = (customDataRaw as any) as CustomQuizData | undefined;
 
         if (customData?.id) {
           const doctorParam = customData.doctor_id ? `&doctor=${customData.doctor_id}` : '';
@@ -119,12 +107,11 @@ function ShortLinkRedirect() {
         // If still not found, try direct ID lookup for custom quizzes
         if (shareKey.startsWith('custom_')) {
           const customQuizId = shareKey.replace('custom_', '');
-          const { data: directCustomDataRaw } = await supabase
+          const { data: directCustomData } = await supabase
             .from('custom_quizzes')
             .select('id, doctor_id')
             .eq('id', customQuizId)
             .single();
-          const directCustomData = (directCustomDataRaw as any) as CustomQuizData | undefined;
 
           if (directCustomData?.id) {
             const doctorParam = directCustomData.doctor_id ? `&doctor=${directCustomData.doctor_id}` : '';
