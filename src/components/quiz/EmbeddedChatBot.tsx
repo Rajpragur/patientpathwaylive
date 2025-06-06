@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -298,19 +297,15 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
       quizData
     });
 
-    if (!doctorId) {
-      // Try to get doctor from search params
-      const doctorFromParams = searchParams.get('doctor');
-      if (!doctorFromParams) {
-        console.error('No doctor ID available for lead submission');
-        toast.error('Unable to save results - no doctor associated with this quiz');
-        return;
-      }
-      console.log('Using doctor ID from search params:', doctorFromParams);
-    }
-
+    // Get doctor ID from various sources
     const finalDoctorId = doctorId || searchParams.get('doctor');
     
+    if (!finalDoctorId) {
+      console.error('No doctor ID available for lead submission');
+      toast.error('Unable to save results - no doctor associated with this quiz');
+      return;
+    }
+
     setIsSubmittingLead(true);
     
     try {
@@ -319,6 +314,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
         email: userInfo.email || null,
         phone: userInfo.phone || null,
         quiz_type: quizData.isCustom ? `custom_${quizData.id}` : quizData.id,
+        custom_quiz_id: quizData.isCustom ? quizData.id : null,
         score: result.score,
         answers: result.detailedAnswers,
         lead_source: shareKey ? 'shared_link' : 'website',
