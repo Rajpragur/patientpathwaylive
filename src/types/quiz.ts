@@ -29,7 +29,7 @@ export interface QuizResult {
   summary: string;
 }
 
-export type QuizType = 'SNOT22' | 'NOSE' | 'HHIA' | 'Epworth' | 'DHI' | 'STOP' | 'TNSS';
+export type QuizType = 'SNOT22' | 'NOSE' | 'HHIA' | 'EPWORTH' | 'DHI' | 'STOP' | 'TNSS';
 
 export interface Lead {
   id: string;
@@ -47,4 +47,13 @@ export interface Lead {
   doctor_id?: string;
   share_key?: string;
   scheduled_date?: string;
+  custom_quiz_id?: string;
+}
+
+export interface QuizIncident {
+  id: string;
+  name: string;
+  description?: string;
+  doctor_id: string;
+  created_at: string;
 }

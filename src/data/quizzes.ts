@@ -1,4 +1,3 @@
-
 import { Quiz } from '@/types/quiz';
 
 export const quizzes: Record<string, Quiz> = {
@@ -7,6 +6,12 @@ export const quizzes: Record<string, Quiz> = {
     title: 'SNOT-22 Assessment',
     description: 'Comprehensive evaluation of sinus and nasal symptoms',
     maxScore: 110,
+    scoring: {
+      normal: 'Normal (0-20): Minimal symptoms',
+      mild: 'Mild (21-50): Mild symptoms affecting quality of life',
+      moderate: 'Moderate (51-80): Moderate symptoms requiring attention',
+      severe: 'Severe (81-110): Severe symptoms requiring immediate medical attention'
+    },
     questions: [
       {
         id: '1',
@@ -126,6 +131,12 @@ export const quizzes: Record<string, Quiz> = {
     title: 'NOSE Scale Assessment',
     description: 'Nasal Obstruction Symptom Evaluation for breathing difficulties',
     maxScore: 100,
+    scoring: {
+      normal: 'Normal (0-25): Minimal nasal obstruction',
+      mild: 'Mild (26-50): Mild nasal obstruction affecting daily activities',
+      moderate: 'Moderate (51-75): Moderate nasal obstruction requiring intervention',
+      severe: 'Severe (76-100): Severe nasal obstruction requiring immediate medical attention'
+    },
     questions: [
       {
         id: '1',
@@ -160,6 +171,12 @@ export const quizzes: Record<string, Quiz> = {
     title: 'Hearing Handicap Inventory for Adults',
     description: 'Assessment of hearing difficulties and their impact on daily life',
     maxScore: 100,
+    scoring: {
+      normal: 'Normal (0-16): No hearing handicap',
+      mild: 'Mild (17-42): Mild-to-moderate hearing handicap',
+      moderate: 'Moderate (43-70): Moderate hearing handicap',
+      severe: 'Severe (71-100): Significant hearing handicap requiring immediate attention'
+    },
     questions: [
       {
         id: '1',
@@ -294,6 +311,12 @@ export const quizzes: Record<string, Quiz> = {
     title: 'Epworth Sleepiness Scale',
     description: 'Measure your general level of daytime sleepiness',
     maxScore: 24,
+    scoring: {
+      normal: 'Normal (0-10): Normal daytime sleepiness',
+      mild: 'Mild (11-12): Mild excessive daytime sleepiness',
+      moderate: 'Moderate (13-15): Moderate excessive daytime sleepiness',
+      severe: 'Severe (16-24): Severe excessive daytime sleepiness requiring medical attention'
+    },
     questions: [
       {
         id: '1',
@@ -343,6 +366,12 @@ export const quizzes: Record<string, Quiz> = {
     title: 'Dizziness Handicap Inventory',
     description: 'Assessment of dizziness impact on daily activities',
     maxScore: 100,
+    scoring: {
+      normal: 'Normal (0-30): No dizziness handicap',
+      mild: 'Mild (31-60): Mild dizziness handicap',
+      moderate: 'Moderate (61-100): Moderate to severe dizziness handicap requiring medical attention',
+      severe: 'Severe (>100): Severe dizziness handicap requiring immediate intervention'
+    },
     questions: [
       {
         id: '1',
@@ -477,6 +506,12 @@ export const quizzes: Record<string, Quiz> = {
     title: 'STOP-Bang Sleep Apnea Screening',
     description: 'Screening tool for obstructive sleep apnea risk assessment',
     maxScore: 8,
+    scoring: {
+      normal: 'Low Risk (0-2): Low risk for obstructive sleep apnea',
+      mild: 'Intermediate Risk (3-4): Intermediate risk for obstructive sleep apnea',
+      moderate: 'High Risk (5-6): High risk for moderate to severe obstructive sleep apnea',
+      severe: 'Very High Risk (7-8): Very high risk for severe obstructive sleep apnea'
+    },
     questions: [
       {
         id: '1',
@@ -526,6 +561,12 @@ export const quizzes: Record<string, Quiz> = {
     title: 'Total Nasal Symptom Score',
     description: 'Assessment of nasal congestion and rhinitis symptoms',
     maxScore: 12,
+    scoring: {
+      normal: 'Normal (0-3): Minimal nasal symptoms',
+      mild: 'Mild (4-6): Mild nasal symptoms',
+      moderate: 'Moderate (7-9): Moderate nasal symptoms',
+      severe: 'Severe (10-12): Severe nasal symptoms requiring medical attention'
+    },
     questions: [
       {
         id: '1',

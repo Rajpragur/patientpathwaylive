@@ -75,13 +75,13 @@ function ShortLinkRedirect() {
 
       try {
         // First try to find in quiz_leads
-        const { data: leadData } = await supabase
+        const { data: leadData, error: leadError } = await supabase
           .from('quiz_leads')
           .select('quiz_type, custom_quiz_id, doctor_id')
           .eq('share_key', shareKey)
-          .single();
+          .maybeSingle();
 
-        if (leadData) {
+        if (!leadError && leadData) {
           const doctorParam = leadData.doctor_id ? `&doctor=${leadData.doctor_id}` : '';
           if (leadData.custom_quiz_id) {
             navigate(`/quiz/custom/${leadData.custom_quiz_id}?key=${shareKey}${doctorParam}`, { replace: true });
@@ -92,13 +92,13 @@ function ShortLinkRedirect() {
         }
 
         // If not found in quiz_leads, try custom_quizzes
-        const { data: customData } = await supabase
+        const { data: customData, error: customError } = await supabase
           .from('custom_quizzes')
           .select('id, doctor_id')
           .eq('share_key', shareKey)
-          .single();
+          .maybeSingle();
 
-        if (customData?.id) {
+        if (!customError && customData?.id) {
           const doctorParam = customData.doctor_id ? `&doctor=${customData.doctor_id}` : '';
           navigate(`/quiz/custom/${customData.id}?key=${shareKey}${doctorParam}`, { replace: true });
           return;
@@ -107,13 +107,13 @@ function ShortLinkRedirect() {
         // If still not found, try direct ID lookup for custom quizzes
         if (shareKey.startsWith('custom_')) {
           const customQuizId = shareKey.replace('custom_', '');
-          const { data: directCustomData } = await supabase
+          const { data: directCustomData, error: directError } = await supabase
             .from('custom_quizzes')
             .select('id, doctor_id')
             .eq('id', customQuizId)
-            .single();
+            .maybeSingle();
 
-          if (directCustomData?.id) {
+          if (!directError && directCustomData?.id) {
             const doctorParam = directCustomData.doctor_id ? `&doctor=${directCustomData.doctor_id}` : '';
             navigate(`/quiz/custom/${directCustomData.id}?key=${shareKey}${doctorParam}`, { replace: true });
             return;

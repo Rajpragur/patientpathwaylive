@@ -225,6 +225,7 @@ export type Database = {
         Row: {
           answers: Json | null
           created_at: string
+          custom_quiz_id: string | null
           doctor_id: string
           email: string | null
           id: string
@@ -234,6 +235,7 @@ export type Database = {
           name: string
           phone: string | null
           quiz_type: string
+          scheduled_date: string | null
           score: number
           share_key: string | null
           submitted_at: string
@@ -241,6 +243,7 @@ export type Database = {
         Insert: {
           answers?: Json | null
           created_at?: string
+          custom_quiz_id?: string | null
           doctor_id: string
           email?: string | null
           id?: string
@@ -250,6 +253,7 @@ export type Database = {
           name: string
           phone?: string | null
           quiz_type: string
+          scheduled_date?: string | null
           score: number
           share_key?: string | null
           submitted_at?: string
@@ -257,6 +261,7 @@ export type Database = {
         Update: {
           answers?: Json | null
           created_at?: string
+          custom_quiz_id?: string | null
           doctor_id?: string
           email?: string | null
           id?: string
@@ -266,11 +271,19 @@ export type Database = {
           name?: string
           phone?: string | null
           quiz_type?: string
+          scheduled_date?: string | null
           score?: number
           share_key?: string | null
           submitted_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "quiz_leads_custom_quiz_id_fkey"
+            columns: ["custom_quiz_id"]
+            isOneToOne: false
+            referencedRelation: "custom_quizzes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "quiz_leads_doctor_id_fkey"
             columns: ["doctor_id"]
