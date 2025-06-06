@@ -4,14 +4,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { MoreHorizontal, Mail, MessageSquare, Phone, Calendar, User, Eye } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { Calendar } from '@/components/ui/calendar';
+import { MoreHorizontal, Mail, MessageSquare, Phone, Calendar as CalendarIcon, User, Eye, CalendarDays } from 'lucide-react';
+import { formatDistanceToNow, format } from 'date-fns';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Lead } from '@/types/quiz';
+import { useNavigate } from 'react-router-dom';
 
 interface EnhancedLeadsTableProps {
   leads: Lead[];
@@ -19,12 +21,16 @@ interface EnhancedLeadsTableProps {
 }
 
 export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTableProps) {
+  const navigate = useNavigate();
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [communicationType, setCommunicationType] = useState<'email' | 'sms'>('email');
   const [message, setMessage] = useState('');
   const [subject, setSubject] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [showCommunicationDialog, setShowCommunicationDialog] = useState(false);
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [isScheduling, setIsScheduling] = useState(false);
 
   const handleSendCommunication = async () => {
     if (!selectedLead || !message) {
@@ -79,9 +85,48 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
       
       toast.success('Lead status updated');
       onLeadUpdate?.();
+      
+      // If status is changed to SCHEDULED, navigate to schedule page
+      if (status === 'SCHEDULED') {
+        navigate('/portal?tab=schedule');
+      }
     } catch (error: any) {
       console.error('Error updating lead status:', error);
       toast.error('Failed to update lead status');
+    }
+  };
+
+  const handleScheduleLead = async () => {
+    if (!selectedDate || !selectedLead) {
+      toast.error('Please select a date');
+      return;
+    }
+
+    setIsScheduling(true);
+    try {
+      const { error } = await supabase
+        .from('quiz_leads')
+        .update({ 
+          scheduled_date: selectedDate.toISOString(),
+          lead_status: 'SCHEDULED'
+        })
+        .eq('id', selectedLead.id);
+
+      if (error) throw error;
+      
+      toast.success('Lead scheduled successfully!');
+      setShowScheduleDialog(false);
+      setSelectedDate(undefined);
+      setSelectedLead(null);
+      onLeadUpdate?.();
+      
+      // Navigate to schedule page to see the scheduled lead
+      navigate('/portal?tab=schedule');
+    } catch (error: any) {
+      console.error('Error scheduling lead:', error);
+      toast.error('Failed to schedule lead');
+    } finally {
+      setIsScheduling(false);
     }
   };
 
@@ -164,7 +209,14 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
                 </DropdownMenu>
               </TableCell>
               <TableCell>
-                {formatDistanceToNow(new Date(lead.submitted_at), { addSuffix: true })}
+                <div>
+                  {formatDistanceToNow(new Date(lead.submitted_at), { addSuffix: true })}
+                  {lead.scheduled_date && (
+                    <div className="text-xs text-blue-600">
+                      Scheduled: {format(new Date(lead.scheduled_date), 'MMM dd, HH:mm')}
+                    </div>
+                  )}
+                </div>
               </TableCell>
               <TableCell>
                 <DropdownMenu>
@@ -196,13 +248,18 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
                       <MessageSquare className="w-4 h-4 mr-2" />
                       Send SMS
                     </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setSelectedLead(lead);
+                        setShowScheduleDialog(true);
+                      }}
+                    >
+                      <CalendarDays className="w-4 h-4 mr-2" />
+                      Schedule Date
+                    </DropdownMenuItem>
                     <DropdownMenuItem disabled>
                       <Phone className="w-4 h-4 mr-2" />
                       Call
-                    </DropdownMenuItem>
-                    <DropdownMenuItem disabled>
-                      <Calendar className="w-4 h-4 mr-2" />
-                      Schedule
                     </DropdownMenuItem>
                     <DropdownMenuItem disabled>
                       <Eye className="w-4 h-4 mr-2" />
@@ -216,6 +273,7 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
         </TableBody>
       </Table>
 
+      {/* Communication Dialog */}
       <Dialog open={showCommunicationDialog} onOpenChange={setShowCommunicationDialog}>
         <DialogContent>
           <DialogHeader>
@@ -242,6 +300,38 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
                 {isSending ? 'Sending...' : `Send ${communicationType === 'email' ? 'Email' : 'SMS'}`}
               </Button>
               <Button variant="outline" onClick={() => setShowCommunicationDialog(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule Dialog */}
+      <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Schedule appointment for {selectedLead?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={(date) => setSelectedDate(date as Date)}
+              className="rounded-md border p-3 pointer-events-auto"
+              disabled={(date) => date < new Date()}
+            />
+            <div className="flex gap-2">
+              <Button onClick={handleScheduleLead} disabled={!selectedDate || isScheduling}>
+                {isScheduling ? 'Scheduling...' : 'Schedule Appointment'}
+              </Button>
+              <Button variant="outline" onClick={() => {
+                setShowScheduleDialog(false);
+                setSelectedDate(undefined);
+                setSelectedLead(null);
+              }}>
                 Cancel
               </Button>
             </div>
