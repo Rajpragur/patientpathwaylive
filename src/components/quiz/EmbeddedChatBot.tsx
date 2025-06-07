@@ -507,6 +507,34 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
     }
   };
 
+  // Helper to render answer options for questions (fixes deep type instantiation error)
+  function renderAnswerOption(option: any, optionIndex: number, handleAnswer: (text: string, idx: number) => void, setInput: (v: string) => void, teal: string) {
+    if (option == null) return null;
+    const isObject = typeof option === 'object';
+    const displayText = isObject ? option.text : option;
+    return (
+      <motion.div
+        key={optionIndex}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        className="w-full"
+      >
+        <Button
+          variant="outline"
+          className="w-full justify-start text-left h-auto p-4 rounded-xl border border-gray-200 bg-white text-gray-700 transition-all duration-150 min-h-[60px]"
+          style={{ borderColor: `${teal}40` }}
+          onClick={() => {
+            handleAnswer(displayText, optionIndex);
+            setInput('');
+          }}
+        >
+          <span className="mr-3 font-medium text-gray-400 text-lg">{String.fromCharCode(65 + optionIndex)}.</span>
+          <span className="text-left flex-1">{displayText}</span>
+        </Button>
+      </motion.div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen" style={{ background: lightBg }}>
       <div className="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
@@ -556,27 +584,9 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
                     <span className="whitespace-pre-wrap text-base leading-relaxed">{message.content}</span>
                     {message.isQuestion && message.options && !quizCompleted && (
                       <div className="mt-4 space-y-2 w-full">
-                        {message.options.map((option, optionIndex) => (
-                          <motion.div
-                            key={optionIndex}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            className="w-full"
-                          >
-                            <Button
-                              variant="outline"
-                              className="w-full justify-start text-left h-auto p-4 rounded-xl border border-gray-200 bg-white text-gray-700 transition-all duration-150 min-h-[60px]"
-                              style={{ borderColor: `${teal}40` }}
-                              onClick={() => {
-                                handleAnswer(option, optionIndex);
-                                setInput('');
-                              }}
-                            >
-                              <span className="mr-3 font-medium text-gray-400 text-lg">{String.fromCharCode(65 + optionIndex)}.</span>
-                              <span className="text-left flex-1">{option}</span>
-                            </Button>
-                          </motion.div>
-                        ))}
+                        {Array.isArray(message.options) && message.options.map((option: any, optionIndex: number) =>
+                          renderAnswerOption(option, optionIndex, handleAnswer, setInput, teal)
+                        )}
                       </div>
                     )}
                   </div>

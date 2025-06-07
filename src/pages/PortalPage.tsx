@@ -20,7 +20,6 @@ export default function PortalPage() {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [tabLoading, setTabLoading] = useState(false);
-  const tabTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -45,16 +44,19 @@ export default function PortalPage() {
   const handleTabChange = (page: string) => {
     setTabLoading(true);
     setCurrentPage(page);
-    if (tabTimeoutRef.current) clearTimeout(tabTimeoutRef.current);
-    tabTimeoutRef.current = setTimeout(() => setTabLoading(false), 1200);
   };
 
-  if (loading) {
-    return <PageLoader />;
-  }
+  // Set tabLoading to false after the page content is loaded
+  useEffect(() => {
+    if (!tabLoading) return;
+    // Wait for the next tick to ensure renderCurrentPage is mounted
+    const timeout = setTimeout(() => setTabLoading(false), 100);
+    return () => clearTimeout(timeout);
+  }, [currentPage, tabLoading]);
 
-  if (tabLoading) {
-    return <PageLoader />;
+  // Show loader overlay if loading or tabLoading
+  if (loading || tabLoading) {
+    return <PageLoader loading={true} />;
   }
 
   if (!user) {
@@ -93,13 +95,6 @@ export default function PortalPage() {
       />
       <main className="flex-1 overflow-auto relative bg-gradient-to-br from-[#f8fafc] via-[#e0e7ef] to-[#f0f4fa]">
         <DashboardHeader />
-        {tabLoading && (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-md">
-            <div className="drop-shadow-2xl">
-              <PageLoader />
-            </div>
-          </div>
-        )}
         <div className="p-6">
           <AnimatePresence mode="wait">
             <motion.div

@@ -223,8 +223,7 @@ export function CustomQuizCreator({ baseQuizId, onQuizCreated }: CustomQuizCreat
 
   const questionTypes = [
     { value: 'multiple_choice', label: 'Multiple Choice' },
-    { value: 'likert_scale', label: 'Likert Scale (0-4)' },
-    { value: 'yes_no', label: 'Yes/No' }
+    { value: 'likert_scale', label: 'Slider (Likert Scale 0-4)' }
   ];
 
   const addOption = () => {
@@ -282,11 +281,6 @@ export function CustomQuizCreator({ baseQuizId, onQuizCreated }: CustomQuizCreat
         { text: 'Sometimes (2)', value: 2 },
         { text: 'Often (3)', value: 3 },
         { text: 'Always (4)', value: 4 }
-      ];
-    } else if (currentQuestion.type === 'yes_no') {
-      finalOptions = [
-        { text: 'No', value: 0 },
-        { text: 'Yes', value: 1 }
       ];
     } else {
       finalOptions = currentQuestion.options?.filter(opt => opt.text.trim()) || [];
@@ -667,16 +661,6 @@ export function CustomQuizCreator({ baseQuizId, onQuizCreated }: CustomQuizCreat
                   <li>• Sometimes (2 points)</li>
                   <li>• Often (3 points)</li>
                   <li>• Always (4 points)</li>
-                </ul>
-              </div>
-            )}
-
-            {currentQuestion.type === 'yes_no' && (
-              <div className="text-sm text-gray-600 p-3 bg-gray-50 rounded">
-                <p className="font-medium mb-2">Yes/No Options (Auto-generated):</p>
-                <ul className="space-y-1">
-                  <li>• No (0 points)</li>
-                  <li>• Yes (1 point)</li>
                 </ul>
               </div>
             )}

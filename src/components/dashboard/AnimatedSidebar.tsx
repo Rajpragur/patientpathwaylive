@@ -77,7 +77,7 @@ const bottomMenuItems = [
 ];
 
 export const AnimatedSidebar: React.FC<AnimatedSidebarProps> = ({ currentPage, onPageChange, onSignOut }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isFullyExpanded, setIsFullyExpanded] = useState(true);
 
@@ -108,7 +108,7 @@ export const AnimatedSidebar: React.FC<AnimatedSidebarProps> = ({ currentPage, o
     >
       <span className="mr-0.5 flex-shrink-0">{item.icon}</span>
       <AnimatePresence>
-        {!isCollapsed && (
+        {isFullyExpanded && !isCollapsed && (
           <motion.span
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
@@ -130,9 +130,9 @@ export const AnimatedSidebar: React.FC<AnimatedSidebarProps> = ({ currentPage, o
         className={cn(
           'hidden md:flex flex-col h-full bg-white dark:bg-neutral-900 border-r border-gray-200 dark:border-neutral-800 shadow-sm z-30',
           isCollapsed ? 'w-16' : 'w-64',
-          'transition-all duration-300'
+          'transition-all duration-100'
         )}
-        animate={{ width: isCollapsed ? 64 : 256 }}
+        animate={{ width: isCollapsed ? 64 : 256, transition: { duration: 0.12 } }}
         onAnimationComplete={handleAnimationComplete}
         onMouseEnter={() => setIsCollapsed(false)}
         onMouseLeave={() => setIsCollapsed(true)}
@@ -162,7 +162,7 @@ export const AnimatedSidebar: React.FC<AnimatedSidebarProps> = ({ currentPage, o
             title={isCollapsed ? 'Sign Out' : undefined}
           >
             <LogOut className="flex-shrink-0 mr-0.5" size={20} />
-            {!isCollapsed && <span className="ml-3">Sign Out</span>}
+            {isFullyExpanded && !isCollapsed && <span className="ml-3">Sign Out</span>}
           </button>
         </div>
       </motion.aside>

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Bell, X, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -153,6 +152,7 @@ export function NotificationDropdown() {
       setNotifications([]);
       setUnreadCount(0);
       toast.success('All notifications cleared permanently');
+      fetchNotifications();
     } catch (error) {
       console.error('Error clearing notifications:', error);
       toast.error('Failed to clear notifications');

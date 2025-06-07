@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -8,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
-import { MoreHorizontal, Mail, MessageSquare, Phone, Calendar as CalendarIcon, User, Eye, CalendarDays } from 'lucide-react';
+import { MoreHorizontal, Mail, MessageSquare, Phone, Calendar as CalendarIcon, User, Eye, CalendarDays, Trash2 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -127,6 +126,22 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
       toast.error('Failed to schedule lead');
     } finally {
       setIsScheduling(false);
+    }
+  };
+
+  const handleDeleteLead = async (leadId: string) => {
+    if (!window.confirm('Are you sure you want to delete this lead? This action cannot be undone.')) return;
+    try {
+      const { error } = await supabase
+        .from('quiz_leads')
+        .delete()
+        .eq('id', leadId);
+      if (error) throw error;
+      toast.success('Lead deleted successfully');
+      onLeadUpdate?.();
+    } catch (err) {
+      toast.error('Failed to delete lead');
+      console.error(err);
     }
   };
 
@@ -264,6 +279,13 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
                     <DropdownMenuItem disabled>
                       <Eye className="w-4 h-4 mr-2" />
                       View Details
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleDeleteLead(lead.id)}
+                      className="text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete Lead
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
