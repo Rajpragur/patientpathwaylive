@@ -38,9 +38,10 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
 
   const quiz = quizzes[quizType];
   const doctorShareKey = shareKey || searchParams.get('key');
+  const doctorParam = searchParams.get('doctor');
 
   useEffect(() => {
-    if (doctorShareKey) {
+    if (doctorShareKey || doctorParam) {
       findDoctorByShareKey();
     }
     
@@ -50,7 +51,7 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
         ['Yes, let\'s start', 'Tell me more first']
       );
     }
-  }, [quiz.title, doctorShareKey]);
+  }, [quiz.title, doctorShareKey, doctorParam]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -65,15 +66,54 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
   }, [phase]);
 
   const findDoctorByShareKey = async () => {
-    if (!doctorShareKey) return;
-    
     try {
+      // First try to get doctor ID from URL parameter
+      if (doctorParam) {
+        console.log('Found doctor ID from URL parameter:', doctorParam);
+        setDoctorId(doctorParam);
+        return;
+      }
+
+      // If share key is provided, try to find the doctor from quiz_leads or custom_quizzes
+      if (doctorShareKey) {
+        console.log('Looking up doctor by share key:', doctorShareKey);
+        
+        // First try to find in quiz_leads
+        const { data: leadData, error: leadError } = await supabase
+          .from('quiz_leads')
+          .select('doctor_id')
+          .eq('share_key', doctorShareKey)
+          .maybeSingle();
+
+        if (leadData && !leadError) {
+          console.log('Found doctor ID from quiz_leads:', leadData.doctor_id);
+          setDoctorId(leadData.doctor_id);
+          return;
+        }
+
+        // If not found in quiz_leads, try custom_quizzes
+        const { data: customData, error: customError } = await supabase
+          .from('custom_quizzes')
+          .select('doctor_id')
+          .eq('share_key', doctorShareKey)
+          .maybeSingle();
+
+        if (customData && !customError) {
+          console.log('Found doctor ID from custom_quizzes:', customData.doctor_id);
+          setDoctorId(customData.doctor_id);
+          return;
+        }
+      }
+      
+      // Fallback: get the first doctor profile (for testing)
+      console.log('No specific doctor found, using first available doctor');
       const { data: doctorProfiles } = await supabase
         .from('doctor_profiles')
         .select('id')
         .limit(1);
       
       if (doctorProfiles && doctorProfiles.length > 0) {
+        console.log('Using fallback doctor ID:', doctorProfiles[0].id);
         setDoctorId(doctorProfiles[0].id);
       }
     } catch (error) {
@@ -168,30 +208,57 @@ export function ChatBot({ quizType, shareKey }: ChatBotProps) {
       return;
     }
 
+    if (!doctorId) {
+      console.error('No doctor ID available for lead submission');
+      toast.error('Unable to submit - doctor information missing');
+      return;
+    }
+
     setPhase('results');
     const result = calculateQuizScore(quizType, answers);
     setQuizResult(result);
 
-    // Only save to database when quiz is actually submitted with user info
+    // Save to database with proper data structure
     try {
+      console.log('Starting lead submission process...', {
+        doctorId,
+        userInfo,
+        quizType,
+        result,
+        answers,
+        doctorShareKey
+      });
+
       const leadSource = doctorShareKey ? 'shared_link' : 'website';
       
-      const { data, error } = await supabase.from('quiz_leads').insert({
+      const leadData = {
         doctor_id: doctorId,
         name: userInfo.name,
         email: userInfo.email,
-        phone: userInfo.phone,
-        quiz_type: quizType,
+        phone: userInfo.phone || null,
+        quiz_type: quizType.toUpperCase(),
         score: result.score,
         answers: answers,
         lead_source: leadSource,
-        share_key: doctorShareKey,
+        share_key: doctorShareKey || null,
         lead_status: 'NEW',
+        incident_source: 'default',
         submitted_at: new Date().toISOString()
-      }).select();
+      };
 
-      if (error) throw error;
+      console.log('Submitting lead with data:', leadData);
+
+      const { data, error } = await supabase
+        .from('quiz_leads')
+        .insert(leadData)
+        .select();
+
+      if (error) {
+        console.error('Supabase lead insert error:', error);
+        throw error;
+      }
       
+      console.log('Lead submitted successfully:', data);
       toast.success('Results saved successfully!');
       addBotMessage(`Perfect, ${userInfo.name}! 🎯 Your ${quiz.title} assessment is complete. Here are your personalized results:`);
     } catch (error) {
