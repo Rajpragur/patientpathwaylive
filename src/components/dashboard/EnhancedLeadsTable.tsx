@@ -167,6 +167,7 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
         <TableHeader>
           <TableRow>
             <TableHead>Patient</TableHead>
+            <TableHead>Contact Information</TableHead>
             <TableHead>Quiz Type</TableHead>
             <TableHead>Score</TableHead>
             <TableHead>Source</TableHead>
@@ -181,11 +182,13 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
               <TableCell>
                 <div>
                   <div className="font-medium">{lead.name}</div>
-                  <div className="text-sm text-gray-500">
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="text-sm text-gray-1000">
                     {lead.email && <div>{lead.email}</div>}
                     {lead.phone && <div>{lead.phone}</div>}
                   </div>
-                </div>
               </TableCell>
               <TableCell>
                 <Badge variant="outline">{lead.quiz_type}</Badge>
@@ -226,8 +229,8 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
               <TableCell>
                 <div>
                   {formatDistanceToNow(new Date(lead.submitted_at), { addSuffix: true })}
-                  {lead.scheduled_date && (
-                    <div className="text-xs text-blue-600">
+                  {lead.scheduled_date && lead.lead_status === 'SCHEDULED' && (
+                    <div className="text-xs text-gray-500">
                       Scheduled: {format(new Date(lead.scheduled_date), 'MMM dd, HH:mm')}
                     </div>
                   )}
@@ -243,20 +246,18 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
                   <DropdownMenuContent>
                     <DropdownMenuItem
                       onClick={() => {
-                        setSelectedLead(lead);
-                        setCommunicationType('email');
-                        setShowCommunicationDialog(true);
+                        const emailSubject = `Regarding your ${lead.quiz_type} Assessment`;
+                        const emailBody = `Hello, ${lead.name}!\n\nI hope this message finds you well. I wanted to follow up regarding your recent ${lead.quiz_type} assessment.\n\n`;
+                        window.open(`mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`, '_blank', '');
                       }}
-                      disabled={!lead.email}
                     >
                       <Mail className="w-4 h-4 mr-2" />
                       Send Email
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => {
-                        setSelectedLead(lead);
-                        setCommunicationType('sms');
-                        setShowCommunicationDialog(true);
+                        const messageBody = `Hello, ${lead.name}!\n\nI hope this message finds you well. I wanted to follow up regarding your recent ${lead.quiz_type} assessment.\n\n`;
+                        window.open(`sms:?body=${encodeURIComponent(messageBody)}`, '_blank', '');
                       }}
                       disabled={!lead.phone}
                     >
@@ -272,13 +273,13 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
                       <CalendarDays className="w-4 h-4 mr-2" />
                       Schedule Date
                     </DropdownMenuItem>
-                    <DropdownMenuItem disabled>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        window.open(`tel:${lead.phone}`, '_blank');
+                      }}
+                    >
                       <Phone className="w-4 h-4 mr-2" />
                       Call
-                    </DropdownMenuItem>
-                    <DropdownMenuItem disabled>
-                      <Eye className="w-4 h-4 mr-2" />
-                      View Details
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => handleDeleteLead(lead.id)}
