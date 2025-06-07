@@ -394,33 +394,17 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
 
       console.log('Submitting lead with data:', leadData);
 
-      // Use the service role to bypass RLS for lead insertion
-      const response = await fetch('/api/submit-lead', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(leadData)
+      // Use the Supabase edge function to submit the lead
+      const { data, error } = await supabase.functions.invoke('submit-lead', {
+        body: leadData
       });
 
-      if (!response.ok) {
-        // Fallback to direct supabase insert
-        const { data, error } = await supabase
-          .from('quiz_leads')
-          .insert([leadData])
-          .select();
-
-        if (error) {
-          console.error('Supabase lead insert error:', error);
-          throw error;
-        }
-        
-        console.log('Lead saved successfully via fallback:', data);
-      } else {
-        const data = await response.json();
-        console.log('Lead saved successfully via API:', data);
+      if (error) {
+        console.error('Edge function error:', error);
+        throw error;
       }
-
+      
+      console.log('Lead saved successfully via edge function:', data);
       toast.success('Results saved successfully! Your information has been sent to the healthcare provider.');
 
       // Create notification for the doctor
