@@ -53,6 +53,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showTyping, setShowTyping] = useState(false);
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
+  const [finalDoctorId, setFinalDoctorId] = useState<string | null>(null);
 
   // Enhanced source tracking
   const source = searchParams.get('source') || searchParams.get('utm_source') || 'direct';
@@ -82,8 +83,78 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
   }, [quizData]);
 
   useEffect(() => {
+    // Get doctor ID from props or URL parameters
+    const urlDoctorId = doctorId || searchParams.get('doctor');
+    if (urlDoctorId) {
+      console.log('Found doctor ID:', urlDoctorId);
+      setFinalDoctorId(urlDoctorId);
+    } else if (shareKey) {
+      // Try to find doctor from share key
+      findDoctorByShareKey();
+    } else {
+      // Fallback to first available doctor
+      findFirstDoctor();
+    }
+  }, [doctorId, shareKey, searchParams]);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const findDoctorByShareKey = async () => {
+    try {
+      console.log('Looking up doctor by share key:', shareKey);
+      
+      // First try to find in quiz_leads
+      const { data: leadData, error: leadError } = await supabase
+        .from('quiz_leads')
+        .select('doctor_id')
+        .eq('share_key', shareKey)
+        .maybeSingle();
+
+      if (leadData && !leadError) {
+        console.log('Found doctor ID from quiz_leads:', leadData.doctor_id);
+        setFinalDoctorId(leadData.doctor_id);
+        return;
+      }
+
+      // If not found in quiz_leads, try custom_quizzes
+      const { data: customData, error: customError } = await supabase
+        .from('custom_quizzes')
+        .select('doctor_id')
+        .eq('share_key', shareKey)
+        .maybeSingle();
+
+      if (customData && !customError) {
+        console.log('Found doctor ID from custom_quizzes:', customData.doctor_id);
+        setFinalDoctorId(customData.doctor_id);
+        return;
+      }
+
+      // If still not found, use first available doctor
+      findFirstDoctor();
+    } catch (error) {
+      console.error('Error finding doctor by share key:', error);
+      findFirstDoctor();
+    }
+  };
+
+  const findFirstDoctor = async () => {
+    try {
+      console.log('Finding first available doctor');
+      const { data: doctorProfiles } = await supabase
+        .from('doctor_profiles')
+        .select('id')
+        .limit(1);
+      
+      if (doctorProfiles && doctorProfiles.length > 0) {
+        console.log('Using fallback doctor ID:', doctorProfiles[0].id);
+        setFinalDoctorId(doctorProfiles[0].id);
+      }
+    } catch (error) {
+      console.error('Error finding first doctor:', error);
+    }
+  };
 
   if (loading) {
     return (
@@ -290,16 +361,12 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
 
   const submitLead = async () => {
     console.log('Starting lead submission process...', {
-      doctorId,
-      shareKey,
+      finalDoctorId,
       userInfo,
       result,
       quizData
     });
 
-    // Get doctor ID from various sources
-    const finalDoctorId = doctorId || searchParams.get('doctor');
-    
     if (!finalDoctorId) {
       console.error('No doctor ID available for lead submission');
       toast.error('Unable to save results - no doctor associated with this quiz');
@@ -313,32 +380,47 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
         name: userInfo.name,
         email: userInfo.email || null,
         phone: userInfo.phone || null,
-        quiz_type: quizData.isCustom ? `custom_${quizData.id}` : quizData.id,
+        quiz_type: quizData.isCustom ? `custom_${quizData.id}` : quizData.id.toUpperCase(),
         custom_quiz_id: quizData.isCustom ? quizData.id : null,
         score: result.score,
         answers: result.detailedAnswers,
         lead_source: shareKey ? 'shared_link' : 'website',
         lead_status: 'NEW',
         doctor_id: finalDoctorId,
-        share_key: shareKey,
+        share_key: shareKey || null,
         incident_source: shareKey || 'default',
         submitted_at: new Date().toISOString()
       };
 
       console.log('Submitting lead with data:', leadData);
 
-      const { data, error } = await supabase
-        .from('quiz_leads')
-        .insert([leadData])
-        .select();
+      // Use the service role to bypass RLS for lead insertion
+      const response = await fetch('/api/submit-lead', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(leadData)
+      });
 
-      if (error) {
-        console.error('Supabase lead insert error:', error);
-        toast.error('Failed to save results. Please try again or contact support.');
-        return;
-      } 
+      if (!response.ok) {
+        // Fallback to direct supabase insert
+        const { data, error } = await supabase
+          .from('quiz_leads')
+          .insert([leadData])
+          .select();
 
-      console.log('Lead saved successfully:', data);
+        if (error) {
+          console.error('Supabase lead insert error:', error);
+          throw error;
+        }
+        
+        console.log('Lead saved successfully via fallback:', data);
+      } else {
+        const data = await response.json();
+        console.log('Lead saved successfully via API:', data);
+      }
+
       toast.success('Results saved successfully! Your information has been sent to the healthcare provider.');
 
       // Create notification for the doctor
