@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowUpDown, ChevronDown, ChevronUp, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
+import { quizzes } from '@/data/quizzes';
 
 interface QuizLead {
   id: string;
@@ -20,6 +21,7 @@ interface QuizLead {
   email: string;
   phone: string;
   quiz_type: string;
+  quiz_name?: string;
   score: number;
   lead_status: string;
   submitted_at: string;
@@ -32,6 +34,17 @@ interface QuizLeadsTableProps {
 
 type SortField = 'name' | 'email' | 'submitted_at' | 'score';
 type SortDirection = 'asc' | 'desc';
+
+const getQuizName = (quizType: string, customName?: string) => {
+  if (!quizType) return 'Unknown Quiz';
+  
+  if (quizType.startsWith('custom_')) {
+    return customName || 'Custom Quiz';
+  }
+  
+  const standardQuiz = quizzes[quizType.toUpperCase()];
+  return standardQuiz?.title || quizType.toUpperCase();
+};
 
 export function QuizLeadsTable({ leads, onStatusChange }: QuizLeadsTableProps) {
   const [sortField, setSortField] = useState<SortField>('submitted_at');
@@ -91,7 +104,18 @@ export function QuizLeadsTable({ leads, onStatusChange }: QuizLeadsTableProps) {
     return sortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />;
   };
 
-  const uniqueQuizTypes = Array.from(new Set(leads.map(lead => lead.quiz_type)));
+  const uniqueQuizTypes = Array.from(new Set(leads.map(lead => lead.quiz_type)))
+    .sort((a, b) => {
+      // Put custom quizzes at the end of the list
+      const aIsCustom = a.startsWith('custom_');
+      const bIsCustom = b.startsWith('custom_');
+      if (aIsCustom && !bIsCustom) return 1;
+      if (!aIsCustom && bIsCustom) return -1;
+      // Sort by display name
+      const aName = getQuizName(a);
+      const bName = getQuizName(b);
+      return aName.localeCompare(bName);
+    });
 
   const totalPages = Math.ceil(filteredLeads.length / pageSize);
   const startIndex = (currentPage - 1) * pageSize;
@@ -131,11 +155,20 @@ export function QuizLeadsTable({ leads, onStatusChange }: QuizLeadsTableProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">All Quiz Types</SelectItem>
-            {uniqueQuizTypes.map((type) => (
-              <SelectItem key={type} value={type}>
-                {type}
-              </SelectItem>
-            ))}
+            {uniqueQuizTypes.map((type) => {
+              const isCustom = type.startsWith('custom_');
+              const lead = leads.find(l => l.quiz_type === type);
+              const displayName = isCustom 
+                ? `${lead?.quiz_name || 'Custom Quiz'}`
+                : quizzes[type]?.title || type;
+              
+              return (
+                <SelectItem key={type} value={type} className="flex flex-col items-start gap-0.5">
+                  <div>{displayName}</div>
+                  <div className="text-xs text-gray-500">Type: {type}</div>
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
       </div>
@@ -191,8 +224,18 @@ export function QuizLeadsTable({ leads, onStatusChange }: QuizLeadsTableProps) {
               <TableRow key={lead.id}>
                 <TableCell className="font-medium">{lead.name}</TableCell>
                 <TableCell>{lead.email}</TableCell>
-                <TableCell>{lead.phone || '-'}</TableCell>
-                <TableCell>{lead.quiz_type}</TableCell>
+                <TableCell>{lead.phone || '-'}</TableCell>                <TableCell>
+                  <div className="flex flex-col gap-0.5">
+                    <Badge variant="outline">
+                      {lead.quiz_type.startsWith('custom_')
+                        ? (lead.quiz_name || 'Custom Quiz')
+                        : (quizzes[lead.quiz_type]?.title || lead.quiz_type)}
+                    </Badge>
+                    <div className="text-xs text-gray-500 italic">
+                      Type: {lead.quiz_type}
+                    </div>
+                  </div>
+                </TableCell>
                 <TableCell>{lead.score}</TableCell>
                 <TableCell>
                   <Badge
@@ -298,4 +341,4 @@ export function QuizLeadsTable({ leads, onStatusChange }: QuizLeadsTableProps) {
       </div>
     </div>
   );
-} 
+}

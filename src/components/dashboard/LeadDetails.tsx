@@ -1,14 +1,22 @@
-
 import { Lead } from '@/types/quiz';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { X, User, Mail, Phone, Calendar, FileText } from 'lucide-react';
+import { quizzes } from '@/data/quizzes';
 
 interface LeadDetailsProps {
   lead: Lead;
   onClose: () => void;
 }
+
+// Helper function to get human-readable quiz name
+const getQuizName = (quizType: string, customName?: string) => {
+  if (quizType.startsWith('custom_')) {
+    return customName || 'Custom Quiz'; // Fall back to Custom Quiz if no name provided
+  }
+  return quizzes[quizType]?.title || quizType;
+};
 
 export function LeadDetails({ lead, onClose }: LeadDetailsProps) {
   const getSeverityColor = (score: number) => {
@@ -36,7 +44,7 @@ export function LeadDetails({ lead, onClose }: LeadDetailsProps) {
             </div>
             <div>
               <CardTitle className="text-2xl">{lead.name}</CardTitle>
-              <p className="text-slate-600">{lead.quiz_type} Assessment</p>
+              <p className="text-slate-600">{getQuizName(lead.quiz_type, lead.quiz_name)}</p>
             </div>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose}>
@@ -86,7 +94,10 @@ export function LeadDetails({ lead, onClose }: LeadDetailsProps) {
                 <div className="flex items-center justify-between">
                   <span>Quiz Type:</span>
                   <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                    {lead.quiz_type}
+                    {getQuizName(lead.quiz_type, lead.quiz_name)}
+                    {lead.quiz_type !== getQuizName(lead.quiz_type, lead.quiz_name) && (
+                      <span className="ml-1 text-gray-500 text-xs">({lead.quiz_type})</span>
+                    )}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">

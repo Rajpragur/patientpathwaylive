@@ -1,4 +1,3 @@
-
 export interface Quiz {
   id: string;
   title: string;
@@ -37,6 +36,8 @@ export interface Lead {
   email?: string;
   phone?: string;
   quiz_type: string;
+  quiz_name?: string;  // The human-readable name of the quiz/assessment
+  quiz_title?: string;
   score: number;
   created_at: string;
   submitted_at: string;

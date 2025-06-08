@@ -170,56 +170,147 @@ export function CustomQuizCreator({ baseQuizId, onQuizCreated }: CustomQuizCreat
   };
 
   const handleAIGenerate = async () => {
-    if (!aiPrompt.trim()) {
-      toast.error('Please enter a prompt for AI generation');
-      return;
-    }
+        if (!aiPrompt.trim()) {
+          toast.error('Please enter a prompt for AI generation');
+          return;
+        }
+        setIsGenerating(true);
+        try {
+          const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${import.meta.env.VITE_OPENROUTER_API_KEY}`,
+              'HTTP-Referer': window.location.origin,
+              'X-Title': 'Custom Quiz Creator'
+            },
+            body: JSON.stringify({
+              model: 'meta-llama/llama-3.1-8b-instruct:free',
+              messages: [
+                {
+                  role: 'system',
+                  content: `You are an expert medical quiz generator. You create high-quality, clinically relevant assessment questions for healthcare professionals. Always respond with valid JSON only, no additional text or explanations.
 
-    setIsGenerating(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      const response = await fetch('/functions/v1/ai-quiz-generator', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`
-        },
-        body: JSON.stringify({
-          baseQuizId: baseQuizId || null,
-          customPrompt: aiPrompt,
-          quizTitle: quiz.title || 'AI Generated Quiz',
-          quizDescription: quiz.description || 'Generated with AI assistance'
-        })
-      });
-
-      const result = await response.json();
-      
-      if (result.questions) {
-        setQuiz(prev => ({
-          ...prev,
-          questions: [...prev.questions, ...result.questions.map((q: any) => ({
-            id: `q_${Date.now()}_${Math.random()}`,
-            text: q.text,
-            type: q.type || 'multiple_choice',
-            options: q.options || [],
-            required: true
-          }))],
-          title: result.title || prev.title,
-          description: result.description || prev.description
-        }));
-        
-        toast.success('AI questions generated successfully!');
-        setAiPrompt('');
-        setShowAIHelper(false);
+      Your response must follow this exact JSON structure:
+      {
+        "title": "Generated Quiz Title",
+        "description": "Brief description of the quiz purpose",
+        "questions": [
+          {
+            "text": "Question text here",
+            "type": "multiple_choice",
+            "options": [
+              {"text": "Option 1", "value": 0},
+              {"text": "Option 2", "value": 1},
+              {"text": "Option 3", "value": 2},
+              {"text": "Option 4", "value": 3}
+            ]
+          }
+        ]
       }
-    } catch (error) {
-      console.error('Error generating with AI:', error);
-      toast.error('Failed to generate questions with AI');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
+
+      Guidelines:
+      - Generate 5-10 relevant questions based on the user's request
+      - Each question should have 3-5 answer options
+      - Assign appropriate point values (0-4) based on severity/frequency
+      - Questions should be clinically accurate and professionally worded
+      - Avoid overly obvious answers
+      - Ensure questions are unique and non-repetitive
+      - Use intermediate difficulty level
+      - For Likert scale requests, use type "likert_scale" instead of "multiple_choice"`
+                },
+                {
+                  role: 'user',
+                  content: `Generate a medical assessment quiz based on this request: "${aiPrompt}". 
+                  
+      Context: This is for a custom medical assessment tool used by healthcare professionals. 
+      Base quiz context: ${baseQuizId ? `Building upon ${quizzes[baseQuizId as keyof typeof quizzes]?.title || 'selected quiz'}` : 'Creating from scratch'}
+      Current quiz title: "${quiz.title || 'New Assessment'}"
+      Current description: "${quiz.description || 'Custom medical assessment'}"
+
+      Please generate questions that are:
+      1. Medically accurate and relevant
+      2. Appropriate for the specified condition/topic
+      3. Suitable for scoring and assessment
+      4. Professional in tone and language
+
+      Return only the JSON object, no additional text. Also please sort the options by their score (Options which have more points are below and the ones which have least points is above or first)`
+                }
+              ],
+              temperature: 0.7,
+              max_tokens: 2000,
+              top_p: 0.9
+            })
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
+          }
+
+          const data = await response.json();
+          const aiResponse = data.choices?.[0]?.message?.content;
+
+          if (!aiResponse) {
+            throw new Error('No response content received from AI');
+          }
+
+          // Parse the JSON response
+          let parsedResponse;
+          try {
+            // Clean the response in case there's any extra text
+            const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+            const cleanJson = jsonMatch ? jsonMatch[0] : aiResponse;
+            parsedResponse = JSON.parse(cleanJson);
+          } catch (parseError) {
+            console.error('JSON parsing error:', parseError);
+            console.error('Raw AI response:', aiResponse);
+            throw new Error('Invalid JSON response from AI. Please try again.');
+          }
+
+          // Validate the response structure
+          if (!parsedResponse.questions || !Array.isArray(parsedResponse.questions)) {
+            throw new Error('Invalid response format: missing questions array');
+          }
+
+          // Convert AI response to your quiz format
+          const newQuestions = parsedResponse.questions.map((q: any, index: number) => ({
+            id: `ai_q_${Date.now()}_${index}`,
+            text: q.text,
+            type: q.type === 'likert_scale' ? 'likert_scale' : 'multiple_choice',
+            options: q.type === 'likert_scale' ? [
+              { text: 'Never (0)', value: 0 },
+              { text: 'Rarely (1)', value: 1 },
+              { text: 'Sometimes (2)', value: 2 },
+              { text: 'Often (3)', value: 3 },
+              { text: 'Always (4)', value: 4 }
+            ] : (Array.isArray(q.options) ? q.options.map((opt: any) => ({
+              text: opt.text || opt,
+              value: typeof opt.value === 'number' ? opt.value : 0
+            })) : []),
+            required: true
+          }));
+
+          // Update the quiz state
+          setQuiz(prev => ({
+            ...prev,
+            title: parsedResponse.title || prev.title || 'AI Generated Quiz',
+            description: parsedResponse.description || prev.description || 'Generated with AI assistance',
+            questions: [...prev.questions, ...newQuestions]
+          }));
+
+          toast.success(`Successfully generated ${newQuestions.length} questions!`);
+          setAiPrompt('');
+          setShowAIHelper(false);
+
+        } catch (error) {
+          console.error('Error generating with AI:', error);
+          toast.error(error instanceof Error ? error.message : 'Failed to generate questions with AI');
+        } finally {
+          setIsGenerating(false);
+        }
+      };
+
 
   const questionTypes = [
     { value: 'multiple_choice', label: 'Multiple Choice' },

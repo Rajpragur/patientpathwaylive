@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Lead } from '@/types/quiz';
 import { useNavigate } from 'react-router-dom';
+import { quizzes } from '@/data/quizzes';
 
 interface EnhancedLeadsTableProps {
   leads: Lead[];
@@ -186,12 +187,17 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
               </TableCell>
               <TableCell>
                 <div className="text-sm text-gray-1000">
-                    {lead.email && <div>{lead.email}</div>}
-                    {lead.phone && <div>{lead.phone}</div>}
-                  </div>
+                  {lead.email && <div>{lead.email}</div>}
+                  {lead.phone && <div>{lead.phone}</div>}
+                </div>
               </TableCell>
               <TableCell>
-                <Badge variant="outline">{lead.quiz_type}</Badge>
+                <Badge variant="outline">
+                  {lead.quiz_title}
+                  {lead.quiz_type !== lead.quiz_title && (
+                    <span className="ml-1 text-gray-500 text-xs">{lead.quiz_type}</span>
+                  )}
+                </Badge>
               </TableCell>
               <TableCell>
                 <Badge className={getSeverityColor(lead.score)}>
