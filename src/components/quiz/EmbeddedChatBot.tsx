@@ -510,26 +510,37 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
   // Helper to render answer options for questions (fixes deep type instantiation error)
   function renderAnswerOption(option: any, optionIndex: number, handleAnswer: (text: string, idx: number) => void, setInput: (v: string) => void, teal: string) {
     if (option == null) return null;
+    
+    // Improved option handling for both custom and standard quiz formats
     const isObject = typeof option === 'object';
-    const displayText = isObject ? option.text : option;
+    const displayText = isObject && 'text' in option ? option.text : isObject && 'label' in option ? option.label : option;
+    const value = isObject ? (
+      'value' in option ? option.value :
+      'score' in option ? option.score :
+      optionIndex
+    ) : optionIndex;
+    
+    // Generate a unique key for the option that includes both index and text
+    const optionKey = `option-${optionIndex}-${displayText}`;
+
     return (
       <motion.div
-        key={optionIndex}
+        key={optionKey}
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
         className="w-full"
       >
         <Button
           variant="outline"
-          className="w-full justify-start text-left h-auto p-4 rounded-xl border border-gray-200 bg-white text-gray-700 transition-all duration-150 min-h-[60px]"
+          className="w-full justify-start text-left h-auto p-4 rounded-xl border border-gray-200 bg-white text-gray-700 transition-all duration-150 min-h-[60px] hover:bg-gray-50 hover:text-gray-900 hover:border-gray-300"
           style={{ borderColor: `${teal}40` }}
           onClick={() => {
-            handleAnswer(displayText, optionIndex);
+            handleAnswer(displayText, value);
             setInput('');
           }}
         >
           <span className="mr-3 font-medium text-gray-400 text-lg">{String.fromCharCode(65 + optionIndex)}.</span>
-          <span className="text-left flex-1">{displayText}</span>
+          <span className="text-left flex-1 font-medium">{displayText}</span>
         </Button>
       </motion.div>
     );

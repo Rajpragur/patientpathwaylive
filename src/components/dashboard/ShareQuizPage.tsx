@@ -150,8 +150,7 @@ export function ShareQuizPage() {
       medium,
       utm_source: source,
       utm_campaign: campaign,
-      utm_medium: medium,
-      shared_at: new Date().toISOString()
+      utm_medium: medium
     });
 
     // Add doctor ID if available

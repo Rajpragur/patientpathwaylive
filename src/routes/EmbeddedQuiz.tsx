@@ -17,17 +17,42 @@ export function EmbeddedQuiz() {
 
   useEffect(() => {
     const fetchCustomQuiz = async () => {
-      if (!quizType?.startsWith('custom_')) return;
-      
-      const customQuizId = quizType.replace('custom_', '');
-      const { data, error } = await supabase
-        .from('custom_quizzes')
-        .select('*')
-        .eq('id', customQuizId)
-        .single();
-      
-      if (!error && data) {
-        setQuizData(data);
+      if (!quizType) return;
+
+      // Only fetch for custom quizzes
+      if (quizType.startsWith('custom_')) {
+        const customQuizId = quizType.replace('custom_', '');
+        const { data, error } = await supabase
+          .from('custom_quizzes')
+          .select('*')
+          .eq('id', customQuizId)
+          .single();
+        
+        if (!error && data) {
+          // Transform custom quiz data to match expected format
+          setQuizData({
+            id: data.id,
+            title: data.title,
+            description: data.description,
+            questions: data.questions,
+            maxScore: data.max_score,
+            scoring: data.scoring,
+            isCustom: true
+          });
+        }
+      } else {
+        // For standard quizzes, use the data from quizzes object
+        const standardQuiz = quizzes[quizType as keyof typeof quizzes];
+        if (standardQuiz) {
+          setQuizData({
+            id: standardQuiz.id,
+            title: standardQuiz.title,
+            description: standardQuiz.description,
+            questions: standardQuiz.questions,
+            maxScore: standardQuiz.maxScore,
+            isCustom: false
+          });
+        }
       }
     };
 
@@ -86,11 +111,16 @@ export function EmbeddedQuiz() {
           </Button>
         </div>
       )}
-      <EmbeddedChatBot 
-        quizType={quizType} 
-        shareKey={shareKey || undefined}
-        doctorId={doctorId || undefined}
-      />
+      <div className="flex-1">
+        {quizData && (
+          <EmbeddedChatBot 
+            quizType={quizType}
+            quizData={quizData}
+            shareKey={shareKey || undefined}
+            doctorId={doctorId || undefined}
+          />
+        )}
+      </div>
     </div>
   );
 }

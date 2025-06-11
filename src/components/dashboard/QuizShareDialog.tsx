@@ -23,14 +23,30 @@ export function QuizShareDialog({ isOpen, onClose, quizType, isCustom = false, c
   
   // Generate the appropriate URL based on quiz type
   const getQuizUrl = () => {
-    if (isCustom && customQuizId) {
-      return `${baseUrl}/quiz/custom/${customQuizId}`;
-    }
-    return `${baseUrl}/quiz/${quizType.toLowerCase()}`;
+    const baseQuizUrl = isCustom && customQuizId 
+      ? `${baseUrl}/embed/quiz/custom/${customQuizId}` 
+      : `${baseUrl}/embed/quiz/${quizType.toLowerCase()}`;
+    
+    // Add mode parameter to specify embed type and prevent reloading
+    const url = new URL(baseQuizUrl);
+    url.searchParams.set('mode', 'embed');
+    return url.toString();
   };
 
-  const quizUrl = getQuizUrl();
-  const embedCode = `<iframe src="${quizUrl}" width="100%" height="600px" frameborder="0"></iframe>`;
+  // Memoize the quiz URL to prevent regeneration
+  const quizUrl = React.useMemo(getQuizUrl, [baseUrl, isCustom, customQuizId, quizType]);
+
+  // Create a stable embed code with fixed dimensions and style
+  const embedCode = React.useMemo(() => 
+    `<iframe 
+      src="${quizUrl}" 
+      width="100%" 
+      height="600" 
+      style="border: none; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" 
+      title="${quizType} Assessment"
+    ></iframe>`,
+    [quizUrl, quizType]
+  );
   const chatWidgetCode = `<script src="${baseUrl}/widget.js" data-quiz="${quizType.toLowerCase()}" async></script>`;
 
   const handleCopy = (text: string, message: string) => {
