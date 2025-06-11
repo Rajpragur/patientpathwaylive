@@ -51,7 +51,9 @@ export function ProfilePage() {
         .eq('user_id', user.id)
         .single();
 
-      if (error) throw error;
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
 
       if (data) {
         setDoctorProfile(data);
@@ -65,6 +67,12 @@ export function ProfilePage() {
           avatar_url: data.avatar_url || '',
           doctor_id: data.doctor_id || ''
         });
+      } else {
+        // No profile exists, set default values
+        setFormData(prev => ({
+          ...prev,
+          email: user.email || ''
+        }));
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -76,7 +84,7 @@ export function ProfilePage() {
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !user) return;
 
     // Validate file type and size
     if (!file.type.startsWith('image/')) {
@@ -91,29 +99,52 @@ export function ProfilePage() {
 
     setUploading(true);
     try {
-      // Create a unique file name
+      // Create a unique file name with user ID
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user?.id}-${Date.now()}.${fileExt}`;
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
 
+      console.log('Uploading file:', filePath);
+
+      // Delete old avatar if exists
+      if (formData.avatar_url) {
+        try {
+          const oldPath = formData.avatar_url.split('/').pop();
+          if (oldPath) {
+            await supabase.storage
+              .from('profiles')
+              .remove([`avatars/${oldPath}`]);
+          }
+        } catch (error) {
+          console.log('Could not delete old avatar:', error);
+        }
+      }
+
       // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('profiles')
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw uploadError;
+      }
+
+      console.log('Upload successful:', uploadData);
 
       // Get the public URL
-      const { data: { publicUrl } } = supabase.storage
+      const { data: urlData } = supabase.storage
         .from('profiles')
         .getPublicUrl(filePath);
 
+      console.log('Public URL:', urlData.publicUrl);
+
       // Update the form data with the new URL
-      setFormData(prev => ({ ...prev, avatar_url: publicUrl }));
-      toast.success('Profile picture uploaded! Remember to save your changes.');
+      setFormData(prev => ({ ...prev, avatar_url: urlData.publicUrl }));
+      toast.success('Profile picture uploaded successfully!');
     } catch (error: any) {
       console.error('Error uploading image:', error);
       toast.error('Failed to upload profile picture: ' + (error.message || 'Unknown error'));
@@ -123,10 +154,12 @@ export function ProfilePage() {
   };
 
   const handleSave = async () => {
+    if (!user) return;
+    
     setSaving(true);
     try {
       const profileData = {
-        user_id: user?.id,
+        user_id: user.id,
         ...formData,
         updated_at: new Date().toISOString()
       };
