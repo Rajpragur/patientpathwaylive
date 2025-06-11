@@ -5,7 +5,6 @@ import { AuthProvider } from './hooks/useAuth';
 import AuthPage from './pages/AuthPage';
 import Index from './pages/Index';
 import PortalPage from './pages/PortalPage';
-import EmbeddedQuiz from './pages/EmbeddedQuiz';
 import NotFound from './pages/NotFound';
 import EmailVerificationPage from './pages/EmailVerificationPage';
 import { CustomQuizCreator } from './components/dashboard/CustomQuizCreator';
@@ -41,7 +40,7 @@ function App() {
             <Route path="/embed/quiz/custom/:customQuizId" element={<CustomQuizPage />} />
             
             {/* Short link redirect */}
-            <Route path="/q/:shareKey" element={<ShortLinkRedirect />} />
+            <Route path="/q/:shareKey" element={<ShortLinkRedirectComponent />} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
@@ -51,8 +50,8 @@ function App() {
   );
 }
 
-function ShortLinkRedirect() {
-  const params = useParams();
+function ShortLinkRedirectComponent() {
+  const params = useParams<{ shareKey: string }>();
   const navigate = useNavigate();
   const shareKey = params.shareKey;
 
