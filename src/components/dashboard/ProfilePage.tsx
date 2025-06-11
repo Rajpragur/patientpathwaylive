@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,9 +15,11 @@ import {
   Calendar,
   Camera,
   Save,
-  Upload
+  Upload,
+  CheckCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export function ProfilePage() {
   const { user } = useAuth();
@@ -36,6 +37,7 @@ export function ProfilePage() {
     avatar_url: '',
     doctor_id: ''
   });
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDoctorProfile();
@@ -104,8 +106,6 @@ export function ProfilePage() {
       const fileName = `avatar-${user.id}-${Date.now()}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
 
-      console.log('Uploading file:', filePath);
-
       // Delete old avatar if exists
       if (formData.avatar_url) {
         try {
@@ -135,7 +135,6 @@ export function ProfilePage() {
         throw uploadError;
       }
 
-      console.log('Upload successful:', uploadData);
 
       // Get the public URL
       const { data: urlData } = supabase.storage
@@ -146,10 +145,28 @@ export function ProfilePage() {
 
       // Update the form data with the new URL
       setFormData(prev => ({ ...prev, avatar_url: urlData.publicUrl }));
-      toast.success('Profile picture uploaded successfully!');
+      
+      // Update success message
+      setSuccessMessage('Profile picture updated successfully!');
+      
+      // Show toast
+      toast.success('Profile picture updated!', {
+        description: 'Your new profile picture has been successfully uploaded.',
+        duration: 3000,
+        action: {
+          label: 'View',
+          onClick: () => window.open(urlData.publicUrl, '_blank')
+        }
+      });
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(null), 3000);
+
     } catch (error: any) {
       console.error('Error uploading image:', error);
-      toast.error('Failed to upload profile picture: ' + (error.message || 'Unknown error'));
+      toast.error('Failed to upload profile picture', {
+        description: error.message || 'Please try again later'
+      });
     } finally {
       setUploading(false);
     }
@@ -187,7 +204,12 @@ export function ProfilePage() {
         setDoctorProfile(data);
       }
 
+      setSuccessMessage('Profile updated successfully! All changes have been saved.');
       toast.success('Profile updated successfully!');
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(null), 3000);
+      
       fetchDoctorProfile();
     } catch (error) {
       console.error('Error saving profile:', error);
@@ -222,6 +244,27 @@ export function ProfilePage() {
 
   return (
     <div className="p-8 space-y-8">
+      {/* Show success message if exists */}
+      <AnimatePresence>
+        {successMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-4 right-4 left-4 z-50 mx-auto max-w-md"
+          >
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 shadow-lg">
+              <div className="flex items-center gap-2">
+                <div className="flex-shrink-0">
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                </div>
+                <p className="text-green-800 font-medium">{successMessage}</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="text-center">
         <h1 className="text-4xl font-bold bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] bg-clip-text text-transparent mb-4">
           Doctor Profile

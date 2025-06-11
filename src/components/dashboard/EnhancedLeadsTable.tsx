@@ -194,7 +194,7 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
               <TableCell>
                 <Badge variant="outline">
                   {lead.quiz_title}
-                  {lead.quiz_type !== lead.quiz_title && (
+                  {lead.quiz_type && lead.quiz_type !== lead.quiz_title && (
                     <span className="ml-1 text-gray-500 text-xs">{lead.quiz_type}</span>
                   )}
                 </Badge>
