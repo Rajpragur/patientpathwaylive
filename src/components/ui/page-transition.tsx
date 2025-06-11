@@ -1,3 +1,4 @@
+
 import { motion } from 'framer-motion';
 import type { ReactNode } from 'react';
 
@@ -47,10 +48,10 @@ export function PageTransition({ children, className = '' }: PageTransitionProps
   );
 }
 
-export default function UniversalQuizPage() {
+export default function UniversalQuizPageTransition({ children }: { children: ReactNode }) {
   return (
     <PageTransition>
-      {/* Your existing page content */}
+      {children}
     </PageTransition>
   );
 }

@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { QuizType } from '@/types/quiz';
-import { Question } from '@/types/question';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,7 +23,7 @@ interface EmbeddedChatBotProps {
 interface Message {
   text: string;
   type: 'bot' | 'user' | 'question' | 'error';
-  question?: Question;
+  question?: any;
   options?: string[];
 }
 
@@ -91,17 +90,17 @@ function EmbeddedChatBot({ quizType, quizData, shareKey, doctorId }: EmbeddedCha
     try {
       const { data, error } = await supabase
         .from('quiz_leads')
-        .insert([{
+        .insert({
           quiz_type: quizType,
           custom_quiz_id: quizData.isCustom ? quizData.id : null,
-          lead_name: leadInfo.name,
-          lead_email: leadInfo.email,
-          lead_phone: leadInfo.phone,
+          name: leadInfo.name,
+          email: leadInfo.email,
+          phone: leadInfo.phone,
           answers: userAnswers,
           score: calculateScore(),
           share_key: extractedShareKey,
           doctor_id: extractedDoctorId,
-        }])
+        })
         .select()
         .single();
 
@@ -162,7 +161,7 @@ function EmbeddedChatBot({ quizType, quizData, shareKey, doctorId }: EmbeddedCha
       }
     });
   
-    return `${score} / ${quizData.questions.length}`;
+    return score;
   };
 
   const renderQuestion = (message: Message) => {
@@ -173,7 +172,7 @@ function EmbeddedChatBot({ quizType, quizData, shareKey, doctorId }: EmbeddedCha
     return getQuestionComponent(message.question, message.options);
   };
 
-  const getQuestionComponent = (question: Question, options: string[]) => {
+  const getQuestionComponent = (question: any, options: string[]) => {
     return (
       <div className="space-y-3">
         {options && options.map((option, index) => (

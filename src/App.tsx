@@ -21,13 +21,11 @@ import { EmbeddedQuiz as EmbeddedQuizRoute } from './routes/EmbeddedQuiz';
 import { supabase } from './integrations/supabase/client';
 import UniversalQuizPage from './pages/UniversalQuizPage';
 import CustomQuizPage from './pages/CustomQuizPage';
-import { PageLoader } from './components/ui/PageLoader';
 
 function App() {
   return (
     <Router>
       <AuthProvider>
-        <PageLoader />
         <div className="min-h-screen bg-gray-50">
           <Routes>
             <Route path="/" element={<Index />} />
