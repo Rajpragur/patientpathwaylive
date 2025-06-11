@@ -84,7 +84,7 @@ export const DesktopSidebar = ({
   className,
   children,
   ...props
-}: React.ComponentProps<typeof motion.div>) => {
+}: React.ComponentProps<"div">) => {
   const { open, setOpen, animate } = useSidebar();
   return (
     <div
@@ -98,6 +98,7 @@ export const DesktopSidebar = ({
         width: animate ? (open ? "300px" : "60px") : "300px",
         transition: "width 0.3s ease"
       }}
+      {...props}
     >
       {children}
     </div>

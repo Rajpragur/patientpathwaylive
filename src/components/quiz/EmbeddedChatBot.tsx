@@ -88,6 +88,7 @@ function EmbeddedChatBot({ quizType, quizData, shareKey, doctorId }: EmbeddedCha
 
     setIsSubmitting(true);
     try {
+      const score = calculateScore();
       const { data, error } = await supabase
         .from('quiz_leads')
         .insert({
@@ -97,7 +98,7 @@ function EmbeddedChatBot({ quizType, quizData, shareKey, doctorId }: EmbeddedCha
           email: leadInfo.email,
           phone: leadInfo.phone,
           answers: userAnswers,
-          score: calculateScore(),
+          score: typeof score === 'number' ? score : 0,
           share_key: extractedShareKey,
           doctor_id: extractedDoctorId,
         })
@@ -147,7 +148,7 @@ function EmbeddedChatBot({ quizType, quizData, shareKey, doctorId }: EmbeddedCha
 
   const calculateScore = () => {
     if (!quizData.scoring) {
-      return 'N/A';
+      return 0;
     }
   
     let score = 0;
