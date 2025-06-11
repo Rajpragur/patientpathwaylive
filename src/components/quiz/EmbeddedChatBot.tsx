@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -17,6 +18,7 @@ interface EmbeddedChatBotProps {
   quizData: any;
   shareKey?: string;
   doctorId?: string;
+  customQuiz?: any;
 }
 
 interface Message {
@@ -26,7 +28,7 @@ interface Message {
   options?: string[];
 }
 
-export default function EmbeddedChatBot({ quizType, quizData, shareKey, doctorId }: EmbeddedChatBotProps) {
+function EmbeddedChatBot({ quizType, quizData, shareKey, doctorId }: EmbeddedChatBotProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<string[]>([]);
@@ -337,3 +339,9 @@ export default function EmbeddedChatBot({ quizType, quizData, shareKey, doctorId
     </div>
   );
 }
+
+// Named export for compatibility
+export { EmbeddedChatBot };
+
+// Default export
+export default EmbeddedChatBot;

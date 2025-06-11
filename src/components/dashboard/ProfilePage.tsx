@@ -355,7 +355,7 @@ export function ProfilePage() {
               <>
                 <Save className="w-5 h-5 mr-2" />
                 Save Profile
-              </>,
+              </>
             )}
           </Button>
         </div>
