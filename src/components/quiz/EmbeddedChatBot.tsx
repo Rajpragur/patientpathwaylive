@@ -56,6 +56,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
   const [finalDoctorId, setFinalDoctorId] = useState<string | null>(null);
   const [doctorProfile, setDoctorProfile] = useState<any>(null);
+  const [isPublicAccess, setIsPublicAccess] = useState(false);
 
   // Enhanced source tracking
   const source = searchParams.get('source') || searchParams.get('utm_source') || 'direct';
@@ -83,6 +84,71 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
     const phoneRegex = /^\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/;
     return phoneRegex.test(phone);
   };
+
+  useEffect(() => {
+    const initializeQuiz = async () => {
+      setLoading(true);
+      try {
+        // If we have a share key, this is a public access
+        if (shareKey) {
+          setIsPublicAccess(true);
+          
+          // First try to find the quiz in public routes
+          const { data: publicQuizData, error: publicQuizError } = await supabase
+            .from('custom_quizzes')
+            .select('*')
+            .eq('share_key', shareKey)
+            .single();
+
+          if (publicQuizData) {
+            setQuizData(publicQuizData);
+            // Also set the doctor ID from the quiz data
+            setFinalDoctorId(publicQuizData.doctor_id);
+          } else {
+            // If not found in custom quizzes, try quiz_leads
+            const { data: leadData, error: leadError } = await supabase
+              .from('quiz_leads')
+              .select('doctor_id, quiz_type')
+              .eq('share_key', shareKey)
+              .single();
+
+            if (leadData) {
+              setFinalDoctorId(leadData.doctor_id);
+              // Use the standard quiz data based on quiz_type
+              const standardQuizData = quizzes[leadData.quiz_type];
+              if (standardQuizData) {
+                setQuizData(standardQuizData);
+              } else {
+                setNotFound(true);
+              }
+            } else {
+              setNotFound(true);
+            }
+          }
+        } else if (customQuiz) {
+          // Handle custom quiz directly provided
+          setQuizData(customQuiz);
+        } else if (quizType) {
+          // Handle standard quiz type
+          const standardQuizData = quizzes[quizType];
+          if (standardQuizData) {
+            setQuizData(standardQuizData);
+          } else {
+            setNotFound(true);
+          }
+        } else {
+          setNotFound(true);
+        }
+      } catch (error) {
+        console.error('Error initializing quiz:', error);
+        setNotFound(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeQuiz();
+  }, [shareKey, customQuiz, quizType]);
 
   useEffect(() => {
     if (quizData) {
@@ -433,14 +499,8 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
     }
   };
 
+  // Update the submit lead function to handle public access
   const submitLead = async () => {
-    console.log('Starting lead submission process...', {
-      finalDoctorId,
-      userInfo,
-      result,
-      quizData
-    });
-
     if (!finalDoctorId) {
       console.error('No doctor ID available for lead submission');
       toast.error('Unable to save results - no doctor associated with this quiz');
@@ -454,6 +514,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
         name: userInfo.name,
         email: userInfo.email,
         phone: userInfo.phone,
+        quiz_title: quizData.title,
         quiz_type: quizData.isCustom ? `custom_${quizData.id}` : quizData.id.toUpperCase(),
         custom_quiz_id: quizData.isCustom ? quizData.id : null,
         score: result.score,
@@ -466,39 +527,17 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
         submitted_at: new Date().toISOString()
       };
 
-      console.log('Submitting lead with data:', leadData);
+      // Use the public API endpoint for lead submission
+      const { data, error } = await supabase
+        .from('quiz_leads')
+        .insert([leadData])
+        .select()
+        .single();
 
-      // Use the Supabase edge function to submit the lead
-      const { data, error } = await supabase.functions.invoke('submit-lead', {
-        body: leadData
-      });
+      if (error) throw error;
 
-      if (error) {
-        console.error('Edge function error:', error);
-        throw error;
-      }
+      toast.success('Assessment results saved successfully!');
       
-      console.log('Lead saved successfully via edge function:', data);
-      toast.success('Results saved successfully! Your information has been sent to the healthcare provider.');
-
-      // Create notification for the doctor
-      if (finalDoctorId) {
-        const { error: notificationError } = await supabase
-          .from('doctor_notifications')
-          .insert([{
-            doctor_id: finalDoctorId,
-            title: 'New Assessment Completed',
-            message: `${userInfo.name} completed a ${quizData.title} assessment with a score of ${result.score}/${quizData.maxScore}`,
-            type: 'new_lead'
-          }]);
-
-        if (notificationError) {
-          console.error('Error creating notification:', notificationError);
-        } else {
-          console.log('Notification created successfully');
-        }
-      }
-
     } catch (error) {
       console.error('Error submitting lead:', error);
       toast.error('Failed to save results. Please try again.');
