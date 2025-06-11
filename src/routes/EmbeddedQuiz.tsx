@@ -1,5 +1,5 @@
 import { useParams, useSearchParams } from 'react-router-dom';
-import { EmbeddedChatBot } from '@/components/quiz/EmbeddedChatBot';
+import EmbeddedChatBot from '@/components/quiz/EmbeddedChatBot';
 import { QuizType } from '@/types/quiz';
 import { Button } from '@/components/ui/button';
 import { Home, ArrowLeft } from 'lucide-react';

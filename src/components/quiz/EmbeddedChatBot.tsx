@@ -626,7 +626,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
                   <div className="rounded-2xl px-5 py-3 max-w-[80%] shadow-md bg-white border border-gray-200 text-gray-700 flex items-center gap-2">
                     <span className="inline-block w-2 h-2 bg-gray-400 rounded-full animate-bounce mr-1" style={{ animationDelay: '0ms' }}></span>
                     <span className="inline-block w-2 h-2 bg-gray-400 rounded-full animate-bounce mr-1" style={{ animationDelay: '120ms' }}></span>
-                    <span className="inline-block w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '240ms' }}></span>
+                    <span className="inline-block w-2 h-2 bg-gray-400 rounded-full animate-bounce mr-1" style={{ animationDelay: '240ms' }}></span>
                   </div>
                 </div>
               </motion.div>
@@ -753,3 +753,5 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
     </div>
   );
 }
+
+export default EmbeddedChatBot

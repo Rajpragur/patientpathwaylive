@@ -86,6 +86,11 @@ export default function PortalPage() {
     }
   };
 
+  // Define theme colors to match the quiz components
+  const orange = '#f97316';
+  const teal = '#0f766e';
+  const lightBg = '#fef7f0';
+
   return (
     <div className="flex h-screen bg-gray-50">
       <AnimatedSidebar
@@ -93,7 +98,7 @@ export default function PortalPage() {
         onPageChange={handleTabChange}
         onSignOut={handleSignOut}
       />
-      <main className="flex-1 overflow-auto relative bg-gradient-to-br from-[#f8fafc] via-[#e0e7ef] to-[#f0f4fa]">
+      <main className="flex-1 overflow-auto relative bg-gradient-to-br from-[#fef7f0] via-[#f8fafc] to-[#f0f4f9]">
         <DashboardHeader />
         <div className="p-6">
           <AnimatePresence mode="wait">
@@ -102,10 +107,36 @@ export default function PortalPage() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -24 }}
-              transition={{ duration: 0.45, ease: 'easeInOut' }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
               className="min-h-[calc(100vh-120px)]"
             >
-              {renderCurrentPage()}
+              <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+                <div className="border-b border-gray-100 bg-white px-6 py-4">
+                  <h1 className="text-xl font-bold" style={{ color: teal }}>
+                    {currentPage === 'dashboard' && 'Dashboard'}
+                    {currentPage === 'analytics' && 'Analytics'}
+                    {currentPage === 'trends' && 'Trends'}
+                    {currentPage === 'quizzes' && 'Assessments'}
+                    {currentPage === 'schedule' && 'Schedule'}
+                    {currentPage === 'profile' && 'Profile'}
+                    {currentPage === 'settings' && 'Settings'}
+                    {currentPage === 'support' && 'Support'}
+                  </h1>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {currentPage === 'dashboard' && 'Overview of your leads and recent activity'}
+                    {currentPage === 'analytics' && 'Performance metrics and insights'}
+                    {currentPage === 'trends' && 'Data trends and analysis'}
+                    {currentPage === 'quizzes' && 'Manage your assessments and quizzes'}
+                    {currentPage === 'schedule' && 'View and manage your appointments'}
+                    {currentPage === 'profile' && 'Manage your account information'}
+                    {currentPage === 'settings' && 'Configure your preferences'}
+                    {currentPage === 'support' && 'Get help and support'}
+                  </p>
+                </div>
+                <div className="p-6">
+                  {renderCurrentPage()}
+                </div>
+              </div>
             </motion.div>
           </AnimatePresence>
         </div>

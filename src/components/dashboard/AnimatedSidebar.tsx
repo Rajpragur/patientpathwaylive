@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard,
-  BarChart3,
+  Home,
+  BarChart,
   TrendingUp,
-  TestTube,
+  ListChecks,
   Settings,
   HelpCircle,
   User,
@@ -12,7 +12,8 @@ import {
   LogOut,
   Menu,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  UserCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -26,13 +27,13 @@ const mainMenuItems = [
   {
     id: 'dashboard',
     label: 'Dashboard',
-    icon: <LayoutDashboard size={22} />,
+    icon: <Home size={22} />,
     description: 'Overview and leads'
   },
   {
     id: 'analytics',
     label: 'Analytics',
-    icon: <BarChart3 size={22} />,
+    icon: <BarChart size={22} />,
     description: 'Performance metrics'
   },
   {
@@ -44,7 +45,7 @@ const mainMenuItems = [
   {
     id: 'quizzes',
     label: 'Assessments',
-    icon: <TestTube size={22} />,
+    icon: <ListChecks size={22} />,
     description: 'Manage quizzes'
   },
   {
@@ -59,7 +60,7 @@ const bottomMenuItems = [
   {
     id: 'profile',
     label: 'Profile',
-    icon: <User size={22} />,
+    icon: <UserCircle size={22} />,
     description: 'Account settings'
   },
   {
@@ -97,7 +98,7 @@ export const AnimatedSidebar: React.FC<AnimatedSidebarProps> = ({ currentPage, o
         'flex items-center w-full rounded-lg transition-all duration-200 px-3 py-2 mb-1',
         currentPage === item.id
           ? 'bg-gradient-to-r from-[#FF6B35] to-[#0E7C9D] text-white shadow-lg'
-          : 'hover:bg-gray-100 text-gray-700 dark:hover:bg-neutral-700 dark:text-gray-200',
+          : 'hover:bg-gray-50 text-gray-700 dark:hover:bg-neutral-700 dark:text-gray-200',
         isCollapsed ? 'justify-center' : 'justify-start'
       )}
       onClick={() => {
@@ -128,7 +129,7 @@ export const AnimatedSidebar: React.FC<AnimatedSidebarProps> = ({ currentPage, o
       {/* Desktop Sidebar */}
       <motion.aside
         className={cn(
-          'hidden md:flex flex-col h-full bg-white dark:bg-neutral-900 border-r border-gray-200 dark:border-neutral-800 shadow-sm z-30',
+          'hidden md:flex flex-col h-full bg-gray-50 dark:bg-neutral-900 border-r border-gray-100 dark:border-neutral-800 shadow-sm z-30',
           isCollapsed ? 'w-16' : 'w-64',
           'transition-all duration-100'
         )}
@@ -138,21 +139,21 @@ export const AnimatedSidebar: React.FC<AnimatedSidebarProps> = ({ currentPage, o
         onMouseLeave={() => setIsCollapsed(true)}
       >
         {/* Logo and Collapse Button */}
-        <div className="p-4 border-b border-gray-200 dark:border-neutral-800 flex items-center justify-between">
+        <div className="p-4 border-b border-gray-100 dark:border-neutral-800 flex items-center justify-between">
           {(isFullyExpanded && !isCollapsed) && (
             <div className="flex flex-col items-start">
               <img src="/patient-pathway-logo.jpeg" alt="Patient Pathway Logo" className="w-10 h-10 object-contain mb-1" />
               <h2 className="text-lg font-bold bg-gradient-to-r from-[#FF6B35] to-[#0E7C9D] bg-clip-text text-transparent">Patient Pathway</h2>
-              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">ENT Medical Platform</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">ENT Medical Platform</p>
             </div>
           )}
         </div>
         {/* Main Navigation */}
         <div className={cn('flex-1 overflow-y-auto py-4', isCollapsed ? 'px-1' : 'px-3')}>{mainMenuItems.map(renderMenuItem)}</div>
         {/* Bottom Navigation */}
-        <div className={cn('border-t border-gray-200 dark:border-neutral-800 py-2', isCollapsed ? 'px-1' : 'px-3')}>{bottomMenuItems.map(renderMenuItem)}</div>
+        <div className={cn('border-t border-gray-100 dark:border-neutral-800 py-2', isCollapsed ? 'px-1' : 'px-3')}>{bottomMenuItems.map(renderMenuItem)}</div>
         {/* Sign Out */}
-        <div className={cn('p-4 border-t border-gray-200 dark:border-neutral-800', isCollapsed ? 'px-1' : 'px-4')}>
+        <div className={cn('p-4 border-t border-gray-100 dark:border-neutral-800', isCollapsed ? 'px-1' : 'px-4')}>
           <button
             className={cn(
               'flex items-center w-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900 transition-all duration-200 rounded',
@@ -161,7 +162,7 @@ export const AnimatedSidebar: React.FC<AnimatedSidebarProps> = ({ currentPage, o
             onClick={onSignOut}
             title={isCollapsed ? 'Sign Out' : undefined}
           >
-            <LogOut className="flex-shrink-0 mr-0.5" size={20} />
+            <LogOut className="flex-shrink-0 mr-2" size={20} />
             {isFullyExpanded && !isCollapsed && <span className="ml-3">Sign Out</span>}
           </button>
         </div>
@@ -206,4 +207,4 @@ export const AnimatedSidebar: React.FC<AnimatedSidebarProps> = ({ currentPage, o
       </AnimatePresence>
     </>
   );
-}; 
+};
