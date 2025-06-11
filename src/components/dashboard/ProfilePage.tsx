@@ -99,9 +99,9 @@ export function ProfilePage() {
 
     setUploading(true);
     try {
-      // Create a unique file name with user ID
+      // Create a unique file name
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const fileName = `avatar-${user.id}-${Date.now()}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
 
       console.log('Uploading file:', filePath);
@@ -109,11 +109,13 @@ export function ProfilePage() {
       // Delete old avatar if exists
       if (formData.avatar_url) {
         try {
-          const oldPath = formData.avatar_url.split('/').pop();
-          if (oldPath) {
+          const urlParts = formData.avatar_url.split('/');
+          const oldFileName = urlParts[urlParts.length - 1];
+          if (oldFileName && oldFileName.includes(user.id)) {
+            console.log('Attempting to delete old file:', `avatars/${oldFileName}`);
             await supabase.storage
               .from('profiles')
-              .remove([`avatars/${oldPath}`]);
+              .remove([`avatars/${oldFileName}`]);
           }
         } catch (error) {
           console.log('Could not delete old avatar:', error);
@@ -125,7 +127,7 @@ export function ProfilePage() {
         .from('profiles')
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: false
+          upsert: true
         });
 
       if (uploadError) {
