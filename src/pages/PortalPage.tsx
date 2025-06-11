@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { AnimatedSidebar } from '@/components/dashboard/AnimatedSidebar';
@@ -20,12 +21,18 @@ export default function PortalPage() {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [tabLoading, setTabLoading] = useState(false);
+  const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) {
-      navigate('/auth');
+    // Only check auth once loading is complete and we haven't checked before
+    if (!loading && !hasCheckedAuth) {
+      setHasCheckedAuth(true);
+      if (!user) {
+        console.log('No user found, redirecting to auth');
+        navigate('/auth', { replace: true });
+      }
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, hasCheckedAuth]);
 
   const handleSignOut = async () => {
     try {
@@ -33,7 +40,6 @@ export default function PortalPage() {
       await signOut();
       console.log('Sign out completed successfully');
       toast.success('Signed out successfully');
-      navigate('/auth');
     } catch (error: any) {
       console.error('Sign out error:', error);
       toast.error('Failed to sign out. Please try again.');
@@ -55,10 +61,11 @@ export default function PortalPage() {
   }, [currentPage, tabLoading]);
 
   // Show loader overlay if loading or tabLoading
-  if (loading || tabLoading) {
+  if (loading || !hasCheckedAuth) {
     return <PageLoader loading={true} />;
   }
 
+  // Don't render anything if no user (will redirect)
   if (!user) {
     return null;
   }
@@ -87,9 +94,7 @@ export default function PortalPage() {
   };
 
   // Define theme colors to match the quiz components
-  const orange = '#f97316';
   const teal = '#0f766e';
-  const lightBg = '#fef7f0';
 
   return (
     <div className="flex h-screen bg-gray-50">

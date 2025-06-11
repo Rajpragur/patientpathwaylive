@@ -13,10 +13,13 @@ export type Database = {
         Row: {
           category: string
           created_at: string
+          cta_text: string | null
+          cta_type: string | null
           description: string
           doctor_id: string
           id: string
           instructions: string | null
+          is_active: boolean | null
           max_score: number
           questions: Json
           scoring: Json
@@ -26,10 +29,13 @@ export type Database = {
         Insert: {
           category?: string
           created_at?: string
+          cta_text?: string | null
+          cta_type?: string | null
           description: string
           doctor_id: string
           id?: string
           instructions?: string | null
+          is_active?: boolean | null
           max_score?: number
           questions?: Json
           scoring?: Json
@@ -39,10 +45,13 @@ export type Database = {
         Update: {
           category?: string
           created_at?: string
+          cta_text?: string | null
+          cta_type?: string | null
           description?: string
           doctor_id?: string
           id?: string
           instructions?: string | null
+          is_active?: boolean | null
           max_score?: number
           questions?: Json
           scoring?: Json

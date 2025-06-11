@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,7 +16,7 @@ import {
   Calendar,
   Camera,
   Save,
-  Bell
+  Upload
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -23,6 +24,7 @@ export function ProfilePage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [doctorProfile, setDoctorProfile] = useState<any>(null);
   const [formData, setFormData] = useState({
     first_name: '',
@@ -76,6 +78,18 @@ export function ProfilePage() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Validate file type and size
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      toast.error('Image must be less than 5MB');
+      return;
+    }
+
+    setUploading(true);
     try {
       // Create a unique file name
       const fileExt = file.name.split('.').pop();
@@ -85,7 +99,10 @@ export function ProfilePage() {
       // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('profiles')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
       if (uploadError) throw uploadError;
 
@@ -96,10 +113,12 @@ export function ProfilePage() {
 
       // Update the form data with the new URL
       setFormData(prev => ({ ...prev, avatar_url: publicUrl }));
-      toast.success('Profile picture updated! Remember to save your changes.');
-    } catch (error) {
+      toast.success('Profile picture uploaded! Remember to save your changes.');
+    } catch (error: any) {
       console.error('Error uploading image:', error);
-      toast.error('Failed to upload profile picture');
+      toast.error('Failed to upload profile picture: ' + (error.message || 'Unknown error'));
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -189,15 +208,16 @@ export function ProfilePage() {
               </Avatar>
               <label 
                 htmlFor="avatar-upload" 
-                className="absolute bottom-2 right-2 bg-[#0E7C9D] text-white p-2 rounded-full cursor-pointer hover:bg-[#0E7C9D]/90 transition-colors shadow-lg"
+                className={`absolute bottom-2 right-2 bg-[#0E7C9D] text-white p-2 rounded-full cursor-pointer hover:bg-[#0E7C9D]/90 transition-colors shadow-lg ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                <Camera className="w-4 h-4" />
+                {uploading ? <Upload className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
               </label>
               <input
                 id="avatar-upload"
                 type="file"
                 accept="image/*"
                 onChange={handleImageUpload}
+                disabled={uploading}
                 className="hidden"
               />
             </div>
@@ -323,7 +343,7 @@ export function ProfilePage() {
 
           <Button 
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || uploading}
             className="w-full py-4 bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] hover:from-[#0E7C9D]/90 hover:to-[#FD904B]/90 rounded-2xl text-lg font-semibold shadow-lg"
           >
             {saving ? (
@@ -335,7 +355,7 @@ export function ProfilePage() {
               <>
                 <Save className="w-5 h-5 mr-2" />
                 Save Profile
-              </>
+              </>,
             )}
           </Button>
         </div>
