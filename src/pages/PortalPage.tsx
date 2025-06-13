@@ -11,6 +11,7 @@ import { SchedulePage } from '@/components/dashboard/SchedulePage';
 import { ProfilePage } from '@/components/dashboard/ProfilePage';
 import { SettingsPage } from '@/components/dashboard/SettingsPage';
 import { SupportPage } from '@/components/dashboard/SupportPage';
+import { SocialIntegrationsPage } from '@/components/dashboard/SocialIntegrationsPage';
 import { toast } from 'sonner';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { PageLoader } from '@/components/ui/PageLoader';
@@ -82,6 +83,8 @@ export default function PortalPage() {
         return <QuizManagementPage />;
       case 'schedule':
         return <SchedulePage />;
+      case 'social':
+        return <SocialIntegrationsPage />;
       case 'profile':
         return <ProfilePage />;
       case 'settings':
@@ -123,6 +126,7 @@ export default function PortalPage() {
                     {currentPage === 'trends' && 'Trends'}
                     {currentPage === 'quizzes' && 'Assessments'}
                     {currentPage === 'schedule' && 'Schedule'}
+                    {currentPage === 'social' && 'Social Integrations'}
                     {currentPage === 'profile' && 'Profile'}
                     {currentPage === 'settings' && 'Settings'}
                     {currentPage === 'support' && 'Support'}
@@ -133,6 +137,7 @@ export default function PortalPage() {
                     {currentPage === 'trends' && 'Data trends and analysis'}
                     {currentPage === 'quizzes' && 'Manage your assessments and quizzes'}
                     {currentPage === 'schedule' && 'View and manage your appointments'}
+                    {currentPage === 'social' && 'Connect and manage your social media accounts and communication tools'}
                     {currentPage === 'profile' && 'Manage your account information'}
                     {currentPage === 'settings' && 'Configure your preferences'}
                     {currentPage === 'support' && 'Get help and support'}

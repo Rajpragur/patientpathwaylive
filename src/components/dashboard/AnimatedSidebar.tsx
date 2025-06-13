@@ -13,7 +13,8 @@ import {
   Menu,
   ChevronLeft,
   ChevronRight,
-  UserCircle
+  UserCircle,
+  Share2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -53,6 +54,12 @@ const mainMenuItems = [
     label: 'Schedule',
     icon: <Calendar size={22} />,
     description: 'Appointments'
+  },
+  {
+    id: 'social',
+    label: 'Social',
+    icon: <Share2 size={22} />,
+    description: 'Social integrations'
   }
 ];
 
@@ -83,7 +90,6 @@ export const AnimatedSidebar: React.FC<AnimatedSidebarProps> = ({ currentPage, o
   const [isFullyExpanded, setIsFullyExpanded] = useState(true);
 
   const handleAnimationComplete = (definition: any) => {
-    // definition.width is 256 when expanded, 64 when collapsed
     if (definition.width === 256) {
       setIsFullyExpanded(true);
     } else {
