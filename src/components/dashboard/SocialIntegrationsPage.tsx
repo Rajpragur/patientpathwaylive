@@ -84,14 +84,18 @@ export function SocialIntegrationsPage() {
         });
       }
 
-      // Load social accounts
-      const { data: accounts } = await supabase
-        .from('social_accounts')
-        .select('*')
-        .eq('doctor_id', user.id);
+      // Load social accounts - using any type temporarily until types are regenerated
+      try {
+        const { data: accounts } = await (supabase as any)
+          .from('social_accounts')
+          .select('*')
+          .eq('doctor_id', user.id);
 
-      if (accounts) {
-        setSocialAccounts(accounts);
+        if (accounts) {
+          setSocialAccounts(accounts);
+        }
+      } catch (error) {
+        console.log('Social accounts table not ready yet');
       }
     } catch (error) {
       console.error('Error loading configurations:', error);
@@ -133,7 +137,7 @@ export function SocialIntegrationsPage() {
     };
 
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('social_accounts')
         .insert({
           doctor_id: user?.id,
@@ -153,7 +157,7 @@ export function SocialIntegrationsPage() {
 
   const disconnectSocialAccount = async (accountId: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('social_accounts')
         .delete()
         .eq('id', accountId);

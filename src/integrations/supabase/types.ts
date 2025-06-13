@@ -9,6 +9,36 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      automation_webhooks: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          doctor_id: string
+          id: string
+          updated_at: string | null
+          webhook_type: string
+          webhook_url: string
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          doctor_id: string
+          id?: string
+          updated_at?: string | null
+          webhook_type?: string
+          webhook_url: string
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          doctor_id?: string
+          id?: string
+          updated_at?: string | null
+          webhook_type?: string
+          webhook_url?: string
+        }
+        Relationships: []
+      }
       custom_quizzes: {
         Row: {
           category: string
@@ -163,6 +193,39 @@ export type Database = {
         }
         Relationships: []
       }
+      email_domains: {
+        Row: {
+          created_at: string | null
+          doctor_id: string
+          domain: string
+          id: string
+          landing_page_url: string | null
+          updated_at: string | null
+          verification_token: string | null
+          verified: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          doctor_id: string
+          domain: string
+          id?: string
+          landing_page_url?: string | null
+          updated_at?: string | null
+          verification_token?: string | null
+          verified?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          doctor_id?: string
+          domain?: string
+          id?: string
+          landing_page_url?: string | null
+          updated_at?: string | null
+          verification_token?: string | null
+          verified?: boolean | null
+        }
+        Relationships: []
+      }
       lead_communications: {
         Row: {
           communication_type: string
@@ -301,6 +364,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      social_accounts: {
+        Row: {
+          access_token: string | null
+          connected: boolean | null
+          created_at: string | null
+          doctor_id: string
+          id: string
+          platform: string
+          refresh_token: string | null
+          updated_at: string | null
+          username: string
+        }
+        Insert: {
+          access_token?: string | null
+          connected?: boolean | null
+          created_at?: string | null
+          doctor_id: string
+          id?: string
+          platform: string
+          refresh_token?: string | null
+          updated_at?: string | null
+          username: string
+        }
+        Update: {
+          access_token?: string | null
+          connected?: boolean | null
+          created_at?: string | null
+          doctor_id?: string
+          id?: string
+          platform?: string
+          refresh_token?: string | null
+          updated_at?: string | null
+          username?: string
+        }
+        Relationships: []
       }
     }
     Views: {
