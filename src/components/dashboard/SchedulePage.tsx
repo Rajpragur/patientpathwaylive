@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar as CalendarIcon, Clock, User, Phone, Mail, CalendarDays } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { TimeSelector } from './TimeSelector';
@@ -265,46 +265,56 @@ export function SchedulePage() {
         </CardContent>
       </Card>
 
-      {/* Schedule Dialog */}
+      {/* Schedule Dialog with Horizontal Layout */}
       <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>
               {selectedLead ? `Schedule appointment for ${selectedLead.name}` : 'Schedule Appointment'}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={(date) => setSelectedDate(date as Date)}
-              className="rounded-md border p-3 pointer-events-auto"
-              disabled={(date) => date < new Date()}
-            />
-            <TimeSelector
-              selectedTime={selectedTime}
-              onTimeSelect={setSelectedTime}
-            />
-            <div className="flex gap-2">
-              <Button
-                onClick={handleScheduleLead}
-                disabled={!selectedDate || !selectedTime || updating}
-                className="flex-1"
-              >
-                {updating ? 'Scheduling...' : 'Schedule Appointment'}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowScheduleDialog(false);
-                  setSelectedDate(undefined);
-                  setSelectedTime('09:00');
-                  setSelectedLead(null);
-                }}
-              >
-                Cancel
-              </Button>
+          <div className="flex gap-8 items-start">
+            {/* Calendar Section */}
+            <div className="flex-1">
+              <h3 className="font-medium mb-3">Select Date</h3>
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => setSelectedDate(date as Date)}
+                className="rounded-md border p-3 pointer-events-auto w-full"
+                disabled={(date) => date < new Date()}
+              />
             </div>
+            
+            {/* Time Selector Section */}
+            <div className="flex-1">
+              <h3 className="font-medium mb-3">Select Time</h3>
+              <TimeSelector
+                selectedTime={selectedTime}
+                onTimeSelect={setSelectedTime}
+              />
+            </div>
+          </div>
+          
+          <div className="flex gap-2 mt-6">
+            <Button
+              onClick={handleScheduleLead}
+              disabled={!selectedDate || !selectedTime || updating}
+              className="flex-1"
+            >
+              {updating ? 'Scheduling...' : 'Schedule Appointment'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowScheduleDialog(false);
+                setSelectedDate(undefined);
+                setSelectedTime('09:00');
+                setSelectedLead(null);
+              }}
+            >
+              Cancel
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

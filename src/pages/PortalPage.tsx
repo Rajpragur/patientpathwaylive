@@ -11,12 +11,12 @@ import { SchedulePage } from '@/components/dashboard/SchedulePage';
 import { ProfilePage } from '@/components/dashboard/ProfilePage';
 import { SettingsPage } from '@/components/dashboard/SettingsPage';
 import { SupportPage } from '@/components/dashboard/SupportPage';
-import { SocialIntegrationsPage } from '@/components/dashboard/SocialIntegrationsPage';
 import { AIChatAgent } from '@/components/dashboard/AIChatAgent';
 import { toast } from 'sonner';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function PortalPage() {
   const { user, loading, signOut } = useAuth();
@@ -86,15 +86,24 @@ export default function PortalPage() {
       case 'dashboard':
         return <LeadsPage />;
       case 'analytics':
-        return <AnalyticsPage />;
-      case 'trends':
-        return <TrendsPage />;
+        return (
+          <Tabs defaultValue="analytics" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="analytics">Analytics</TabsTrigger>
+              <TabsTrigger value="trends">Trends</TabsTrigger>
+            </TabsList>
+            <TabsContent value="analytics" className="mt-6">
+              <AnalyticsPage />
+            </TabsContent>
+            <TabsContent value="trends" className="mt-6">
+              <TrendsPage />
+            </TabsContent>
+          </Tabs>
+        );
       case 'quizzes':
         return <QuizManagementPage />;
       case 'schedule':
         return <SchedulePage />;
-      case 'social':
-        return <SocialIntegrationsPage />;
       case 'profile':
         return <ProfilePage />;
       case 'settings':
@@ -132,22 +141,18 @@ export default function PortalPage() {
                 <div className="border-b border-gray-100 bg-white px-6 py-4">
                   <h1 className="text-xl font-bold" style={{ color: teal }}>
                     {currentPage === 'dashboard' && 'Dashboard'}
-                    {currentPage === 'analytics' && 'Analytics'}
-                    {currentPage === 'trends' && 'Trends'}
+                    {currentPage === 'analytics' && 'Analytics & Trends'}
                     {currentPage === 'quizzes' && 'Assessments'}
                     {currentPage === 'schedule' && 'Schedule'}
-                    {currentPage === 'social' && 'Social Integrations'}
                     {currentPage === 'profile' && 'Profile'}
                     {currentPage === 'settings' && 'Settings'}
                     {currentPage === 'support' && 'Support'}
                   </h1>
                   <p className="text-sm text-gray-500 mt-1">
                     {currentPage === 'dashboard' && 'Overview of your leads and recent activity'}
-                    {currentPage === 'analytics' && 'Performance metrics and insights'}
-                    {currentPage === 'trends' && 'Data trends and analysis'}
+                    {currentPage === 'analytics' && 'Performance metrics, insights, and data trends'}
                     {currentPage === 'quizzes' && 'Manage your assessments and quizzes'}
                     {currentPage === 'schedule' && 'View and manage your appointments'}
-                    {currentPage === 'social' && 'Connect and manage your social media accounts and communication tools'}
                     {currentPage === 'profile' && 'Manage your account information'}
                     {currentPage === 'settings' && 'Configure your preferences'}
                     {currentPage === 'support' && 'Get help and support'}

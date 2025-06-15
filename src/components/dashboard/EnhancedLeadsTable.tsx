@@ -8,13 +8,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
-import { MoreHorizontal, Mail, MessageSquare, Phone, Calendar as CalendarIcon, User, Eye, CalendarDays, Trash2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { MoreHorizontal, Mail, MessageSquare, Phone, Calendar as CalendarIcon, User, Eye, CalendarDays, Trash2, Download } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Lead } from '@/types/quiz';
 import { useNavigate } from 'react-router-dom';
-import { quizzes } from '@/data/quizzes';
 import { TimeSelector } from './TimeSelector';
 
 interface EnhancedLeadsTableProps {
@@ -31,9 +31,11 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
   const [isSending, setIsSending] = useState(false);
   const [showCommunicationDialog, setShowCommunicationDialog] = useState(false);
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState<string>('09:00');
   const [isScheduling, setIsScheduling] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'csv' | 'json' | 'pdf'>('csv');
 
   const handleSendCommunication = async () => {
     if (!selectedLead || !message) {
@@ -162,6 +164,137 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
     }
   };
 
+  const handleExportLeads = () => {
+    try {
+      const currentDate = new Date().toISOString().split('T')[0];
+      
+      if (exportFormat === 'csv') {
+        const csvContent = [
+          ['Name', 'Email', 'Phone', 'Quiz Type', 'Score', 'Status', 'Source', 'Date'].join(','),
+          ...leads.map(lead => [
+            `"${lead.name}"`,
+            `"${lead.email || ''}"`,
+            `"${lead.phone || ''}"`,
+            `"${getQuizDisplayName(lead)}"`,
+            lead.score,
+            `"${lead.lead_status}"`,
+            `"${lead.lead_source || ''}"`,
+            `"${new Date(lead.submitted_at).toLocaleDateString()}"`
+          ].join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `leads-export-${currentDate}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      } else if (exportFormat === 'json') {
+        const jsonData = leads.map(lead => ({
+          name: lead.name,
+          email: lead.email || '',
+          phone: lead.phone || '',
+          quiz_type: getQuizDisplayName(lead),
+          score: lead.score,
+          status: lead.lead_status,
+          source: lead.lead_source || '',
+          date: new Date(lead.submitted_at).toISOString(),
+          scheduled_date: lead.scheduled_date || null
+        }));
+        
+        const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `leads-export-${currentDate}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      } else if (exportFormat === 'pdf') {
+        // For PDF, we'll create an HTML table and open it in a new window for printing
+        const htmlContent = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Leads Export - ${currentDate}</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+              th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+              th { background-color: #f2f2f2; font-weight: bold; }
+              .header { text-align: center; margin-bottom: 20px; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>Leads Export</h1>
+              <p>Generated on: ${new Date().toLocaleDateString()}</p>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Quiz Type</th>
+                  <th>Score</th>
+                  <th>Status</th>
+                  <th>Source</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${leads.map(lead => `
+                  <tr>
+                    <td>${lead.name}</td>
+                    <td>${lead.email || ''}</td>
+                    <td>${lead.phone || ''}</td>
+                    <td>${getQuizDisplayName(lead)}</td>
+                    <td>${lead.score}</td>
+                    <td>${lead.lead_status}</td>
+                    <td>${lead.lead_source || ''}</td>
+                    <td>${new Date(lead.submitted_at).toLocaleDateString()}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            <script>window.print();</script>
+          </body>
+          </html>
+        `;
+        
+        const newWindow = window.open('', '_blank');
+        if (newWindow) {
+          newWindow.document.write(htmlContent);
+          newWindow.document.close();
+        }
+      }
+      
+      toast.success(`Leads exported as ${exportFormat.toUpperCase()} successfully!`);
+      setShowExportDialog(false);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export leads');
+    }
+  };
+
+  const getQuizDisplayName = (lead: Lead) => {
+    // If it's a custom quiz, try to get the title from quiz_title field
+    if (lead.custom_quiz_id && lead.quiz_title) {
+      return lead.quiz_title;
+    }
+    // If quiz_title exists, use it
+    if (lead.quiz_title) {
+      return lead.quiz_title;
+    }
+    // Fallback to quiz_type
+    return lead.quiz_type || 'Unknown Quiz';
+  };
+
   const getSeverityColor = (score: number, maxScore: number = 110) => {
     const percentage = (score / maxScore) * 100;
     if (percentage <= 25) return 'bg-green-100 text-green-800';
@@ -180,6 +313,16 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
 
   return (
     <>
+      <div className="mb-4 flex justify-end">
+        <Button 
+          onClick={() => setShowExportDialog(true)} 
+          className="bg-green-600 hover:bg-green-700"
+        >
+          <Download className="w-4 h-4 mr-2" />
+          Export Leads
+        </Button>
+      </div>
+
       <Table>
         <TableHeader>
           <TableRow>
@@ -209,10 +352,7 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
               </TableCell>
               <TableCell>
                 <Badge variant="outline">
-                  {lead.quiz_title}
-                  {lead.quiz_type && lead.quiz_type !== lead.quiz_title && (
-                    <span className="ml-1 text-gray-500 text-xs">{lead.quiz_type}</span>
-                  )}
+                  {getQuizDisplayName(lead)}
                 </Badge>
               </TableCell>
               <TableCell>
@@ -268,8 +408,8 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
                   <DropdownMenuContent>
                     <DropdownMenuItem
                       onClick={() => {
-                        const emailSubject = `Regarding your ${lead.quiz_type} Assessment`;
-                        const emailBody = `Hello, ${lead.name}!\n\nI hope this message finds you well. I wanted to follow up regarding your recent ${lead.quiz_type} assessment.\n\n`;
+                        const emailSubject = `Regarding your ${getQuizDisplayName(lead)} Assessment`;
+                        const emailBody = `Hello, ${lead.name}!\n\nI hope this message finds you well. I wanted to follow up regarding your recent ${getQuizDisplayName(lead)} assessment.\n\n`;
                         window.open(`mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`, '_blank', '');
                       }}
                     >
@@ -278,7 +418,7 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => {
-                        const messageBody = `Hello, ${lead.name}!\n\nI hope this message finds you well. I wanted to follow up regarding your recent ${lead.quiz_type} assessment.\n\n`;
+                        const messageBody = `Hello, ${lead.name}!\n\nI hope this message finds you well. I wanted to follow up regarding your recent ${getQuizDisplayName(lead)} assessment.\n\n`;
                         window.open(`sms:?body=${encodeURIComponent(messageBody)}`, '_blank', '');
                       }}
                       disabled={!lead.phone}
@@ -327,6 +467,38 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
         </TableBody>
       </Table>
 
+      {/* Export Dialog */}
+      <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Export Leads</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Select Export Format:</label>
+              <Select value={exportFormat} onValueChange={(value: 'csv' | 'json' | 'pdf') => setExportFormat(value)}>
+                <SelectTrigger className="mt-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="csv">CSV (Excel Compatible)</SelectItem>
+                  <SelectItem value="json">JSON (Data Format)</SelectItem>
+                  <SelectItem value="pdf">PDF (Print Ready)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleExportLeads} className="flex-1">
+                Export as {exportFormat.toUpperCase()}
+              </Button>
+              <Button variant="outline" onClick={() => setShowExportDialog(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Communication Dialog */}
       <Dialog open={showCommunicationDialog} onOpenChange={setShowCommunicationDialog}>
         <DialogContent>
@@ -361,41 +533,49 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
         </DialogContent>
       </Dialog>
 
-      {/* Schedule Dialog */}
+      {/* Schedule Dialog with Horizontal Layout */}
       <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>
               Schedule appointment for {selectedLead?.name}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
+          <div className="flex gap-8 items-start">
+            {/* Calendar Section */}
+            <div className="flex-1">
+              <h3 className="font-medium mb-3">Select Date</h3>
               <Calendar
                 mode="single"
                 selected={selectedDate}
                 onSelect={(date) => setSelectedDate(date as Date)}
-                className="rounded-md border p-3 pointer-events-auto"
+                className="rounded-md border p-3 pointer-events-auto w-full"
                 disabled={(date) => date < new Date()}
               />
             </div>
-            <TimeSelector
-              selectedTime={selectedTime}
-              onTimeSelect={setSelectedTime}
-            />
-            <div className="flex gap-2">
-              <Button onClick={handleScheduleLead} disabled={!selectedDate || !selectedTime || isScheduling}>
-                {isScheduling ? 'Scheduling...' : 'Schedule Appointment'}
-              </Button>
-              <Button variant="outline" onClick={() => {
-                setShowScheduleDialog(false);
-                setSelectedDate(undefined);
-                setSelectedTime('09:00');
-                setSelectedLead(null);
-              }}>
-                Cancel
-              </Button>
+            
+            {/* Time Selector Section */}
+            <div className="flex-1">
+              <h3 className="font-medium mb-3">Select Time</h3>
+              <TimeSelector
+                selectedTime={selectedTime}
+                onTimeSelect={setSelectedTime}
+              />
             </div>
+          </div>
+          
+          <div className="flex gap-2 mt-6">
+            <Button onClick={handleScheduleLead} disabled={!selectedDate || !selectedTime || isScheduling}>
+              {isScheduling ? 'Scheduling...' : 'Schedule Appointment'}
+            </Button>
+            <Button variant="outline" onClick={() => {
+              setShowScheduleDialog(false);
+              setSelectedDate(undefined);
+              setSelectedTime('09:00');
+              setSelectedLead(null);
+            }}>
+              Cancel
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

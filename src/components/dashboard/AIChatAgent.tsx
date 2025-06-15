@@ -1,30 +1,31 @@
 
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bot, Send, X, MessageCircle } from 'lucide-react';
-import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { MessageSquare, Send, Bot, User, Minimize2, Maximize2, Lightbulb, HeadphonesIcon } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Message {
   id: string;
   content: string;
-  role: 'user' | 'assistant';
+  sender: 'user' | 'bot';
   timestamp: Date;
 }
 
 export function AIChatAgent() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: "Hi! I'm your AI assistant. I can help you with strategy planning, SOPs training, and general support. How can I assist you today?",
-      role: 'assistant',
+      content: 'Hi! I\'m your AI strategy assistant. I can help you with:\n\n• Business strategy and planning\n• SOPs and best practices\n• Lead management optimization\n• Marketing strategies\n• Technical support\n\nHow can I assist you today?',
+      sender: 'bot',
       timestamp: new Date()
     }
   ]);
-  const [inputMessage, setInputMessage] = useState('');
+  const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -36,18 +37,18 @@ export function AIChatAgent() {
     scrollToBottom();
   }, [messages]);
 
-  const sendMessage = async () => {
-    if (!inputMessage.trim() || isLoading) return;
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      content: inputMessage,
-      role: 'user',
+      content: newMessage,
+      sender: 'user',
       timestamp: new Date()
     };
 
     setMessages(prev => [...prev, userMessage]);
-    setInputMessage('');
+    setNewMessage('');
     setIsLoading(true);
 
     try {
@@ -57,27 +58,36 @@ export function AIChatAgent() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${import.meta.env.VITE_OPENROUTER_API_KEY}`,
           'HTTP-Referer': window.location.origin,
-          'X-Title': 'AI Chat Agent'
+          'X-Title': 'Medical Practice AI Assistant'
         },
         body: JSON.stringify({
           model: 'google/gemma-2-9b-it:free',
           messages: [
             {
               role: 'system',
-              content: 'You are a helpful AI assistant for a medical practice management system. You help doctors with strategy planning, Standard Operating Procedures (SOPs) training, and general support. Be professional, concise, and helpful. Focus on medical practice management, lead generation, patient scheduling, and workflow optimization.'
+              content: `You are an expert AI assistant for medical practices specializing in strategy, SOPs, lead management, and business optimization. Help doctors and medical professionals with:
+
+1. Business strategy and growth planning
+2. Standard Operating Procedures (SOPs) development
+3. Lead management and patient acquisition strategies
+4. Marketing and patient engagement tactics
+5. Practice management best practices
+6. Technical support for their systems
+
+Provide actionable, professional advice tailored to medical practices. Be concise but thorough. Always consider compliance with healthcare regulations like HIPAA when relevant.`
             },
-            ...messages.slice(-5).map(msg => ({
-              role: msg.role,
-              content: msg.content
+            ...messages.slice(-5).map(m => ({
+              role: m.sender === 'user' ? 'user' : 'assistant',
+              content: m.content
             })),
             {
               role: 'user',
-              content: inputMessage
+              content: newMessage
             }
           ],
-          temperature: 0.7,
-          max_tokens: 500
-        }),
+          max_tokens: 500,
+          temperature: 0.7
+        })
       });
 
       if (!response.ok) {
@@ -85,27 +95,24 @@ export function AIChatAgent() {
       }
 
       const data = await response.json();
-      const aiResponse = data.choices[0]?.message?.content || 'Sorry, I couldn\'t process that request.';
+      const botResponse = data.choices?.[0]?.message?.content || 'I apologize, but I\'m having trouble responding right now. Please try again.';
 
-      const assistantMessage: Message = {
+      const botMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: aiResponse,
-        role: 'assistant',
+        content: botResponse,
+        sender: 'bot',
         timestamp: new Date()
       };
 
-      setMessages(prev => [...prev, assistantMessage]);
+      setMessages(prev => [...prev, botMessage]);
     } catch (error) {
-      console.error('AI Chat error:', error);
-      toast.error('Failed to get AI response. Please try again.');
-      
+      console.error('Error sending message:', error);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: 'Sorry, I encountered an error. Please try again later.',
-        role: 'assistant',
+        content: 'I apologize, but I\'m experiencing technical difficulties. Please try again later.',
+        sender: 'bot',
         timestamp: new Date()
       };
-      
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -115,120 +122,168 @@ export function AIChatAgent() {
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      handleSendMessage();
     }
   };
 
-  return (
-    <>
-      {/* Chat Toggle Button */}
-      <div className="fixed bottom-6 right-6 z-50">
+  if (!isOpen) {
+    return (
+      <motion.div
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="fixed bottom-6 right-6 z-50"
+      >
         <Button
-          onClick={() => setIsOpen(!isOpen)}
-          className="w-14 h-14 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-300 group"
+          onClick={() => setIsOpen(true)}
+          className="rounded-full w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-xl hover:shadow-2xl transition-all duration-300 border-2 border-white"
         >
-          {isOpen ? (
-            <X className="w-6 h-6 text-white" />
-          ) : (
-            <div className="relative">
-              <Bot className="w-6 h-6 text-white group-hover:scale-110 transition-transform" />
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-            </div>
-          )}
+          <div className="flex flex-col items-center">
+            <Bot className="w-6 h-6 text-white mb-0.5" />
+            <span className="text-xs text-white font-medium">AI</span>
+          </div>
         </Button>
-      </div>
+        <div className="absolute -top-2 -right-2 w-4 h-4 bg-green-500 rounded-full border-2 border-white animate-pulse"></div>
+      </motion.div>
+    );
+  }
 
-      {/* Chat Window */}
-      {isOpen && (
-        <div className="fixed bottom-24 right-6 w-96 h-[500px] z-40 animate-in slide-in-from-bottom-5 duration-300">
-          <Card className="h-full shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
-            <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-t-lg py-4">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Bot className="w-5 h-5" />
-                AI Assistant
-                <div className="ml-auto flex items-center gap-1">
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  <span className="text-xs">Online</span>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            
-            <CardContent className="p-0 h-full flex flex-col">
-              <ScrollArea className="flex-1 p-4">
-                <div className="space-y-4">
+  return (
+    <motion.div
+      initial={{ scale: 0, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      exit={{ scale: 0, opacity: 0 }}
+      className="fixed bottom-6 right-6 z-50"
+    >
+      <Card className={`w-96 shadow-2xl border-0 ${isMinimized ? 'h-16' : 'h-[500px]'} transition-all duration-300 overflow-hidden`}>
+        <CardHeader className="p-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 text-white">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Bot className="w-6 h-6" />
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border border-white"></div>
+              </div>
+              <div>
+                <CardTitle className="text-sm font-semibold">AI Strategy Assistant</CardTitle>
+                <p className="text-xs text-purple-100">SOPs • Strategy • Support</p>
+              </div>
+              <Badge variant="secondary" className="text-xs bg-white/20 text-white border-white/30">
+                <Lightbulb className="w-3 h-3 mr-1" />
+                Online
+              </Badge>
+            </div>
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsMinimized(!isMinimized)}
+                className="h-7 w-7 p-0 text-white hover:bg-white/20 rounded-full"
+              >
+                {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsOpen(false)}
+                className="h-7 w-7 p-0 text-white hover:bg-white/20 rounded-full"
+              >
+                ✕
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        
+        <AnimatePresence>
+          {!isMinimized && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="flex flex-col h-[436px]"
+            >
+              <CardContent className="p-0 flex flex-col h-full bg-gradient-to-b from-gray-50 to-white">
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
                   {messages.map((message) => (
                     <div
                       key={message.id}
-                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                      className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-                          message.role === 'user'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-800 border'
+                        className={`max-w-[85%] rounded-xl p-3 text-sm shadow-sm ${
+                          message.sender === 'user'
+                            ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white'
+                            : 'bg-white text-gray-800 border border-gray-200'
                         }`}
                       >
-                        {message.role === 'assistant' && (
-                          <div className="flex items-center gap-1 mb-1">
-                            <Bot className="w-3 h-3" />
-                            <span className="text-xs font-medium">AI Assistant</span>
+                        <div className="flex items-start gap-2">
+                          {message.sender === 'bot' && (
+                            <div className="flex-shrink-0 w-6 h-6 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center">
+                              <Bot className="w-3 h-3 text-white" />
+                            </div>
+                          )}
+                          {message.sender === 'user' && (
+                            <div className="flex-shrink-0 w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
+                              <User className="w-3 h-3 text-white" />
+                            </div>
+                          )}
+                          <div className="flex-1">
+                            <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
+                            <div className={`text-xs mt-1 opacity-70 ${message.sender === 'user' ? 'text-purple-100' : 'text-gray-500'}`}>
+                              {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
                           </div>
-                        )}
-                        <p className="whitespace-pre-wrap">{message.content}</p>
-                        <div className={`text-xs mt-1 ${
-                          message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
-                        }`}>
-                          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </div>
                       </div>
                     </div>
                   ))}
-                  
                   {isLoading && (
                     <div className="flex justify-start">
-                      <div className="bg-gray-100 rounded-lg px-3 py-2 border">
-                        <div className="flex items-center gap-1 mb-1">
-                          <Bot className="w-3 h-3" />
-                          <span className="text-xs font-medium">AI Assistant</span>
-                        </div>
-                        <div className="flex space-x-1">
-                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                      <div className="bg-white rounded-xl p-3 text-sm shadow-sm border border-gray-200">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center">
+                            <Bot className="w-3 h-3 text-white" />
+                          </div>
+                          <div className="flex space-x-1">
+                            <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
+                            <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                            <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                          </div>
                         </div>
                       </div>
                     </div>
                   )}
+                  <div ref={messagesEndRef} />
                 </div>
-                <div ref={messagesEndRef} />
-              </ScrollArea>
-              
-              <div className="p-4 border-t bg-gray-50 rounded-b-lg">
-                <div className="flex gap-2">
-                  <Input
-                    value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Ask about strategy, SOPs, or get help..."
-                    className="flex-1 border-gray-300 focus:border-blue-500"
-                    disabled={isLoading}
-                  />
-                  <Button
-                    onClick={sendMessage}
-                    disabled={!inputMessage.trim() || isLoading}
-                    className="bg-blue-600 hover:bg-blue-700 px-3"
-                  >
-                    <Send className="w-4 h-4" />
-                  </Button>
+                
+                <div className="p-4 border-t border-gray-200 bg-white">
+                  <div className="flex gap-2">
+                    <Textarea
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      placeholder="Ask about strategy, SOPs, or get support..."
+                      className="flex-1 min-h-[44px] max-h-24 resize-none text-sm border-gray-300 focus:border-purple-500 focus:ring-purple-500"
+                      disabled={isLoading}
+                    />
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={!newMessage.trim() || isLoading}
+                      size="sm"
+                      className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 h-11 px-4"
+                    >
+                      <Send className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+                    <HeadphonesIcon className="w-3 h-3" />
+                    <span>Powered by AI • Strategy & Support</span>
+                  </div>
                 </div>
-                <div className="text-xs text-gray-500 mt-2 text-center">
-                  AI can help with strategy, SOPs, and support
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-    </>
+              </CardContent>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </Card>
+    </motion.div>
   );
 }
