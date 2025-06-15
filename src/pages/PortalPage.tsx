@@ -8,6 +8,7 @@ import { TrendsPage } from '@/components/dashboard/TrendsPage';
 import { LeadsPage } from '@/components/dashboard/LeadsPage';
 import { SchedulePage } from '@/components/dashboard/SchedulePage';
 import { ProfilePage } from '@/components/dashboard/ProfilePage';
+import { ConfigurationPage } from '@/components/dashboard/ConfigurationPage';
 import { SettingsPage } from '@/components/dashboard/SettingsPage';
 import { SupportPage } from '@/components/dashboard/SupportPage';
 import { AIChatAgent } from '@/components/dashboard/AIChatAgent';
@@ -93,6 +94,8 @@ export default function PortalPage() {
         return <SchedulePage />;
       case 'profile':
         return <ProfilePage />;
+      case 'configuration':
+        return <ConfigurationPage />;
       case 'settings':
         return <SettingsPage />;
       case 'support':
@@ -132,6 +135,7 @@ export default function PortalPage() {
                     {currentPage === 'quizzes' && 'Assessments'}
                     {currentPage === 'schedule' && 'Schedule'}
                     {currentPage === 'profile' && 'Profile'}
+                    {currentPage === 'configuration' && 'Configuration'}
                     {currentPage === 'settings' && 'Settings'}
                     {currentPage === 'support' && 'Support'}
                   </h1>
@@ -141,6 +145,7 @@ export default function PortalPage() {
                     {currentPage === 'quizzes' && 'Manage your assessments and quizzes'}
                     {currentPage === 'schedule' && 'View and manage your appointments'}
                     {currentPage === 'profile' && 'Manage your account information'}
+                    {currentPage === 'configuration' && 'Manage your clinic information and settings'}
                     {currentPage === 'settings' && 'Configure your preferences'}
                     {currentPage === 'support' && 'Get help and support'}
                   </p>

@@ -14,7 +14,8 @@ import {
   ChevronLeft,
   ChevronRight,
   UserCircle,
-  Share2
+  Share2,
+  Building
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -63,6 +64,12 @@ const bottomMenuItems = [
     label: 'Profile',
     icon: <UserCircle size={22} />,
     description: 'Account settings'
+  },
+  {
+    id: 'configuration',
+    label: 'Configuration',
+    icon: <Building size={22} />,
+    description: 'Clinic settings'
   },
   {
     id: 'settings',

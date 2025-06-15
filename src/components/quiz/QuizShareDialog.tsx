@@ -28,11 +28,16 @@ export function QuizShareDialog({
   const [copied, setCopied] = useState<string | null>(null);
   const baseUrl = window.location.origin;
   
-  // Generate URLs based on whether it's a custom quiz or standard quiz
-  const fullPageUrl = isCustom 
-    ? `${baseUrl}/quiz/custom/${quizType}?key=${shareKey}&doctor=${doctorId}`
-    : `${baseUrl}/quiz/${quizType.toLowerCase()}?key=${shareKey}&doctor=${doctorId}`;
+  // Generate URLs with source tracking
+  const generateUrlWithSource = (source: string = 'direct') => {
+    const baseQuizUrl = isCustom 
+      ? `${baseUrl}/quiz/custom/${quizType}?key=${shareKey}&doctor=${doctorId}`
+      : `${baseUrl}/quiz/${quizType.toLowerCase()}?key=${shareKey}&doctor=${doctorId}`;
+    
+    return `${baseQuizUrl}&utm_source=${source}&utm_medium=social&utm_campaign=quiz_share`;
+  };
   
+  const fullPageUrl = generateUrlWithSource();
   const shortUrl = `${baseUrl}/q/${shareKey}`;
   
   const embedUrl = isCustom
@@ -68,22 +73,23 @@ export function QuizShareDialog({
   };
 
   const handleSocialShare = (platform: string) => {
-    const shareText = `Take the ${quizTitle} assessment: ${fullPageUrl}`;
+    const platformUrl = generateUrlWithSource(platform.toLowerCase());
+    const shareText = `Take the ${quizTitle} assessment: ${platformUrl}`;
     
     switch (platform) {
       case 'facebook':
-        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(fullPageUrl)}`, '_blank');
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(platformUrl)}`, '_blank');
         break;
       case 'linkedin':
-        window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(fullPageUrl)}`, '_blank');
+        window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(platformUrl)}`, '_blank');
         break;
       case 'email':
         const emailSubject = `${quizTitle} Assessment`;
-        const emailBody = `Hi there,\n\nI'd like you to take this important medical assessment:\n\n${fullPageUrl}\n\nIt only takes 5-10 minutes and provides valuable health insights.\n\nBest regards`;
+        const emailBody = `Hi there,\n\nI'd like you to take this important medical assessment:\n\n${platformUrl}\n\nIt only takes 5-10 minutes and provides valuable health insights.\n\nBest regards`;
         window.location.href = `mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
         break;
       case 'qr':
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(fullPageUrl)}`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(platformUrl)}`;
         window.open(qrUrl, '_blank');
         break;
     }
@@ -192,7 +198,7 @@ export function QuizShareDialog({
                 </div>
               </div>
 
-              {/* Social Share Buttons */}
+              {/* Social Share Buttons with automatic source tracking */}
               <div className="flex gap-3 flex-wrap">
                 <Button 
                   variant="outline" 
