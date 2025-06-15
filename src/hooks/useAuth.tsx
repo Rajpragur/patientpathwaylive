@@ -28,10 +28,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session !== session) {
           setSession(session);
         }
-        if (session?.user !== user) {
-          setUser(session?.user ?? null);
-        }
-        setLoading(false);
+       setUser(session?.user ?? null);
+       setLoading(false);
 
         if (event === 'SIGNED_IN') {
           // Check if email is verified

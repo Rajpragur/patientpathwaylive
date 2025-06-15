@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,31 +31,52 @@ export function LeadsPage() {
 
     setLoading(true);
     try {
+      // Fetch doctor profile with explicit headers and error handling
       const { data: doctorProfile, error: profileError } = await supabase
         .from('doctor_profiles')
-        .select('id')
+        .select('id, first_name, last_name')
         .eq('user_id', user.id)
-        .single();
+        .limit(1)
+        .maybeSingle();
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Profile fetch error:', profileError);
+        toast.error('Could not fetch doctor profile');
+        return;
+      }
 
+      if (!doctorProfile?.id) {
+        toast.error('No doctor profile found. Please set up your profile first.');
+        return;
+      }
+
+      // Fetch leads with explicit error handling
       const { data: leadsData, error: leadsError } = await supabase
         .from('quiz_leads')
-        .select('*')
+        .select(`
+          *,
+          doctor:doctor_profiles(first_name, last_name)
+        `)
         .eq('doctor_id', doctorProfile.id)
         .order('submitted_at', { ascending: false });
 
-      if (leadsError) throw leadsError;
+      if (leadsError) {
+        console.error('Leads fetch error:', leadsError);
+        toast.error('Could not fetch leads');
+        return;
+      }
 
-      const transformedLeads = leadsData?.map(lead => ({
+      // Transform and set leads data
+      const transformedLeads = (leadsData || []).map(lead => ({
         ...lead,
-        lead_status: lead.lead_status || 'NEW'
-      })) || [];
+        lead_status: lead.lead_status || 'NEW',
+        submitted_at: new Date(lead.submitted_at).toISOString()
+      }));
 
       setLeads(transformedLeads);
     } catch (error) {
-      console.error('Error fetching leads:', error);
-      toast.error('Failed to fetch leads');
+      console.error('Unexpected error:', error);
+      toast.error('An unexpected error occurred');
     } finally {
       setLoading(false);
     }
