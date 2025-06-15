@@ -20,39 +20,54 @@ export function ClockTimeSelector({ selectedTime, onTimeSelect }: ClockTimeSelec
     setManualTime(selectedTime);
   }, [selectedTime]);
 
+  // Add global mouse event listeners when dragging
+  useEffect(() => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (!isDragging || !clockRef.current) return;
+
+      const rect = clockRef.current.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      
+      const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
+      
+      if (isDragging === 'hour') {
+        const newHours = getValueFromAngle(angle, 24);
+        onTimeSelect(`${newHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`);
+      } else if (isDragging === 'minute') {
+        const newMinutes = getValueFromAngle(angle, 60);
+        onTimeSelect(`${hours.toString().padStart(2, '0')}:${newMinutes.toString().padStart(2, '0')}`);
+      }
+    };
+
+    const handleGlobalMouseUp = () => {
+      setIsDragging(null);
+    };
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleGlobalMouseMove);
+      document.addEventListener('mouseup', handleGlobalMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleGlobalMouseMove);
+      document.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [isDragging, hours, minutes, onTimeSelect]);
+
   const getAngle = (value: number, max: number) => {
     return (value / max) * 360 - 90;
   };
 
   const getValueFromAngle = (angle: number, max: number) => {
-    const normalizedAngle = (angle + 90) % 360;
+    const normalizedAngle = (angle + 90 + 360) % 360;
     return Math.round((normalizedAngle / 360) * max) % max;
   };
 
-  const handleMouseDown = (type: 'hour' | 'minute') => {
+  const handleMouseDown = (type: 'hour' | 'minute') => (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setIsDragging(type);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !clockRef.current) return;
-
-    const rect = clockRef.current.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-    
-    const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
-    
-    if (isDragging === 'hour') {
-      const newHours = getValueFromAngle(angle, 24);
-      onTimeSelect(`${newHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`);
-    } else if (isDragging === 'minute') {
-      const newMinutes = getValueFromAngle(angle, 60);
-      onTimeSelect(`${hours.toString().padStart(2, '0')}:${newMinutes.toString().padStart(2, '0')}`);
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(null);
   };
 
   const handleManualTimeChange = (value: string) => {
@@ -99,10 +114,7 @@ export function ClockTimeSelector({ selectedTime, onTimeSelect }: ClockTimeSelec
           <CardContent className="p-6">
             <div
               ref={clockRef}
-              className="relative w-48 h-48 rounded-full border-4 border-teal-300 bg-gradient-to-br from-teal-50 to-cyan-100 cursor-pointer shadow-inner mx-auto"
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
+              className="relative w-48 h-48 rounded-full border-4 border-teal-300 bg-gradient-to-br from-teal-50 to-cyan-100 shadow-inner mx-auto select-none"
             >
               {/* Hour markers */}
               {Array.from({ length: 24 }, (_, i) => (
@@ -123,7 +135,7 @@ export function ClockTimeSelector({ selectedTime, onTimeSelect }: ClockTimeSelec
               {[0, 6, 12, 18].map((hour) => (
                 <div
                   key={`hour-num-${hour}`}
-                  className="absolute text-sm font-bold text-gray-700"
+                  className="absolute text-sm font-bold text-gray-700 select-none"
                   style={{
                     left: '50%',
                     top: '50%',
@@ -139,32 +151,32 @@ export function ClockTimeSelector({ selectedTime, onTimeSelect }: ClockTimeSelec
 
               {/* Hour hand */}
               <div
-                className="absolute w-1 bg-teal-600 rounded-full cursor-grab active:cursor-grabbing shadow-md"
+                className={`absolute w-1 bg-teal-600 rounded-full shadow-md cursor-pointer select-none ${isDragging === 'hour' ? 'cursor-grabbing scale-110' : 'cursor-grab hover:scale-105'} transition-transform`}
                 style={{
                   height: '60px',
                   left: '50%',
                   top: '50%',
                   transformOrigin: '50% 100%',
-                  transform: `translateX(-50%) translateY(-100%) rotate(${hourAngle}deg)`,
+                  transform: `translateX(-50%) translateY(-100%) rotate(${hourAngle}deg) ${isDragging === 'hour' ? 'scale(1.1)' : ''}`,
                   zIndex: 2,
                 }}
-                onMouseDown={() => handleMouseDown('hour')}
+                onMouseDown={handleMouseDown('hour')}
               >
                 <div className="absolute -top-2 -left-1 w-3 h-3 bg-teal-600 rounded-full"></div>
               </div>
 
               {/* Minute hand */}
               <div
-                className="absolute w-0.5 bg-red-500 rounded-full cursor-grab active:cursor-grabbing shadow-md"
+                className={`absolute w-0.5 bg-red-500 rounded-full shadow-md cursor-pointer select-none ${isDragging === 'minute' ? 'cursor-grabbing scale-110' : 'cursor-grab hover:scale-105'} transition-transform`}
                 style={{
                   height: '80px',
                   left: '50%',
                   top: '50%',
                   transformOrigin: '50% 100%',
-                  transform: `translateX(-50%) translateY(-100%) rotate(${minuteAngle}deg)`,
+                  transform: `translateX(-50%) translateY(-100%) rotate(${minuteAngle}deg) ${isDragging === 'minute' ? 'scale(1.1)' : ''}`,
                   zIndex: 3,
                 }}
-                onMouseDown={() => handleMouseDown('minute')}
+                onMouseDown={handleMouseDown('minute')}
               >
                 <div className="absolute -top-1.5 -left-1 w-2.5 h-2.5 bg-red-500 rounded-full"></div>
               </div>
