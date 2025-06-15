@@ -19,7 +19,7 @@ interface Message {
   content: string;
   isQuestion?: boolean;
   questionIndex?: number;
-  options?: string[];
+  options?: any[];
 }
 
 interface QuizAnswer {
@@ -36,6 +36,20 @@ interface EmbeddedChatBotProps {
   quizData?: any;
 }
 
+interface UserInfo {
+  name: string;
+  email: string;
+  phone: string;
+}
+
+interface QuizResult {
+  score: number;
+  interpretation: string;
+  severity: string;
+  summary?: string;
+  detailedAnswers?: Record<string, any>;
+}
+
 export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quizData }: EmbeddedChatBotProps) {
   const [searchParams] = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -44,8 +58,8 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
   const [answers, setAnswers] = useState<QuizAnswer[]>([]);
   const [quizCompleted, setQuizCompleted] = useState(false);
   const [quizStarted, setQuizStarted] = useState(false);
-  const [result, setResult] = useState<any>(null);
-  const [userInfo, setUserInfo] = useState({ name: '', email: '', phone: '' });
+  const [result, setResult] = useState<QuizResult | null>(null);
+  const [userInfo, setUserInfo] = useState<UserInfo>({ name: '', email: '', phone: '' });
   const [collectingInfo, setCollectingInfo] = useState(false);
   const [infoStep, setInfoStep] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -69,7 +83,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
   const cardBg = '#ffffff';
 
   // Add state for post-quiz chat
-  const [postQuizChat, setPostQuizChat] = useState([]);
+  const [postQuizChat, setPostQuizChat] = useState<any[]>([]);
   const [postQuizInput, setPostQuizInput] = useState('');
 
   // Add these validation functions at the top of your component
@@ -116,26 +130,27 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
   }, [messages]);
   
   useEffect(() => {
-  const fetchDoctorProfile = async () => {
-    if (finalDoctorId) {
-      try {
-        const { data } = await supabase
-          .from('doctor_profiles')
-          .select('*')
-          .eq('id', finalDoctorId)
-          .single();
-        
-        if (data) {
-          setDoctorProfile(data);
+    const fetchDoctorProfile = async () => {
+      if (finalDoctorId) {
+        try {
+          const { data } = await supabase
+            .from('doctor_profiles')
+            .select('*')
+            .eq('id', finalDoctorId)
+            .single();
+          
+          if (data) {
+            setDoctorProfile(data);
+          }
+        } catch (error) {
+          console.error('Error fetching doctor profile:', error);
         }
-      } catch (error) {
-        console.error('Error fetching doctor profile:', error);
       }
-    }
-  };
+    };
 
-  fetchDoctorProfile();
-}, [finalDoctorId]);
+    fetchDoctorProfile();
+  }, [finalDoctorId]);
+
   const findDoctorByShareKey = async () => {
     try {
       console.log('Looking up doctor by share key:', shareKey);
@@ -190,33 +205,6 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
       console.error('Error finding first doctor:', error);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen" style={{ background: lightBg }}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: orange }}></div>
-          <p className="text-lg text-gray-600">Loading assessment...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (notFound || !quizData) {
-    return (
-      <div className="flex items-center justify-center h-screen" style={{ background: lightBg }}>
-        <div className="text-center max-w-md mx-auto p-6">
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Assessment Not Found</h1>
-          <p className="text-gray-600 mb-4">The requested assessment could not be found or is no longer available.</p>
-          <Button onClick={() => window.location.href = '/'} style={{ backgroundColor: orange, borderColor: orange }}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Return to Home
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   const startQuiz = () => {
     setQuizStarted(true);
@@ -346,7 +334,6 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
     setInfoStep(0);
   };
 
-  // Update the handleInfoSubmit function
   const handleInfoSubmit = async () => {
     if (infoStep === 0) {
       if (!userInfo.name.trim()) {
@@ -423,7 +410,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
       setTimeout(() => {
         setMessages(prev => [...prev, {
           role: 'assistant',
-          content: `Thank you ${userInfo.name}! Your assessment results have been saved.\n\nYour Results:\n\nScore: ${result.score}/${quizData.maxScore}\nSeverity: ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}\n\nInterpretation: ${result.interpretation}\n\nA healthcare provider will review your results and may contact you for follow-up care if needed.`
+          content: `Thank you ${userInfo.name}! Your assessment results have been saved.\n\nYour Results:\n\nScore: ${result?.score}/${quizData.maxScore}\nSeverity: ${result?.severity.charAt(0).toUpperCase() + result?.severity.slice(1)}\n\nInterpretation: ${result?.interpretation}\n\nA healthcare provider will review your results and may contact you for follow-up care if needed.`
         }, { 
           role: 'assistant', 
           content: 'If you have any questions or want to chat, type below! Or click Retake Quiz to start again.' 
@@ -456,8 +443,8 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
         phone: userInfo.phone,
         quiz_type: quizData.isCustom ? `custom_${quizData.id}` : quizData.id.toUpperCase(),
         custom_quiz_id: quizData.isCustom ? quizData.id : null,
-        score: result.score,
-        answers: result.detailedAnswers,
+        score: result?.score,
+        answers: result?.detailedAnswers,
         lead_source: shareKey ? 'shared_link' : 'website',
         lead_status: 'NEW',
         doctor_id: finalDoctorId,
@@ -488,7 +475,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
           .insert([{
             doctor_id: finalDoctorId,
             title: 'New Assessment Completed',
-            message: `${userInfo.name} completed a ${quizData.title} assessment with a score of ${result.score}/${quizData.maxScore}`,
+            message: `${userInfo.name} completed a ${quizData.title} assessment with a score of ${result?.score}/${quizData.maxScore}`,
             type: 'new_lead'
           }]);
 
@@ -581,106 +568,100 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
     }
   };
 
-  // First, let's fix the theme implementation
-const theme = {
-  colors: {
-    primary: '#2563eb',
-    secondary: '#f59e0b',
-    accent: '#0ea5e9',
-    border: '#e2e8f0',
-    background: '#f8fafc',
-    surface: '#ffffff',
-    text: '#1e293b'
-  }
-};
+  const theme = {
+    colors: {
+      primary: '#2563eb',
+      secondary: '#f59e0b',
+      accent: '#0ea5e9',
+      border: '#e2e8f0',
+      background: '#f8fafc',
+      surface: '#ffffff',
+      text: '#1e293b'
+    }
+  };
 
-// Fix the renderMessage implementation
-const renderMessage = (message: Message, index: number) => (
-  <motion.div
-    key={index}
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.3 }}
-    className={`flex items-end gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-  >
-    {message.role === 'assistant' && (
-      <Avatar className="h-8 w-8 border border-gray-200 shadow-sm">
-        <AvatarImage 
-          src={doctorProfile?.avatar_url || "/placeholder-doctor.jpg"}
-          alt={`Dr. ${doctorProfile?.first_name || ''} ${doctorProfile?.last_name || ''}`}
-        />
-        <AvatarFallback className="bg-white">
-          <Bot className="w-4 h-4" style={{ color: theme.colors.primary }} />
-        </AvatarFallback>
-      </Avatar>
-    )}
-    
-    <div
-      className={`rounded-2xl px-5 py-3 max-w-[80%] shadow-sm transition-all duration-200 ${
-        message.role === 'user'
-          ? 'bg-primary text-white'
-          : 'bg-white border border-gray-200 text-gray-700'
-      }`}
-      style={
-        message.role === 'user' 
-          ? { backgroundColor: theme.colors.primary }
-          : undefined
-      }
+  const renderMessage = (message: Message, index: number) => (
+    <motion.div
+      key={index}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className={`flex items-end gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
     >
-      <span className="whitespace-pre-wrap text-base leading-relaxed">
-        {message.content}
-      </span>
-      {message.isQuestion && message.options && !quizCompleted && (
-        <div className="mt-4 space-y-2">
-          {Array.isArray(message.options) && message.options.map((option: any, optionIndex: number) =>
-            renderAnswerOption(option, optionIndex, handleAnswer, setInput)
-          )}
-        </div>
+      {message.role === 'assistant' && (
+        <Avatar className="h-8 w-8 border border-gray-200 shadow-sm">
+          <AvatarImage 
+            src={doctorProfile?.avatar_url || "/placeholder-doctor.jpg"}
+            alt={`Dr. ${doctorProfile?.first_name || ''} ${doctorProfile?.last_name || ''}`}
+          />
+          <AvatarFallback className="bg-white">
+            <Bot className="w-4 h-4" style={{ color: theme.colors.primary }} />
+          </AvatarFallback>
+        </Avatar>
       )}
-    </div>
+      
+      <div
+        className={`rounded-2xl px-5 py-3 max-w-[80%] shadow-sm transition-all duration-200 ${
+          message.role === 'user'
+            ? 'bg-primary text-white'
+            : 'bg-white border border-gray-200 text-gray-700'
+        }`}
+        style={
+          message.role === 'user' 
+            ? { backgroundColor: theme.colors.primary }
+            : undefined
+        }
+      >
+        <span className="whitespace-pre-wrap text-base leading-relaxed">
+          {message.content}
+        </span>
+        {message.isQuestion && message.options && !quizCompleted && (
+          <div className="mt-4 space-y-2">
+            {Array.isArray(message.options) && message.options.map((option, optionIndex) =>
+              renderAnswerOption(option, optionIndex)
+            )}
+          </div>
+        )}
+      </div>
 
-    {message.role === 'user' && (
-      <Avatar className="h-8 w-8 border border-gray-200 shadow-sm">
-        <AvatarFallback className="bg-white">
-          <UserCircle className="w-4 h-4" style={{ color: theme.colors.secondary }} />
-        </AvatarFallback>
-      </Avatar>
-    )}
-  </motion.div>
-);
+      {message.role === 'user' && (
+        <Avatar className="h-8 w-8 border border-gray-200 shadow-sm">
+          <AvatarFallback className="bg-white">
+            <UserCircle className="w-4 h-4" style={{ color: theme.colors.secondary }} />
+          </AvatarFallback>
+        </Avatar>
+      )}
+    </motion.div>
+  );
 
-// Fix the renderAnswerOption function
-const renderAnswerOption = (option: any, index: number, handleAnswer: Function, setInput: Function) => (
-  <motion.button
-    key={`option-${index}`}
-    whileHover={{ scale: 1.01 }}
-    whileTap={{ scale: 0.99 }}
-    onClick={() => {
-      handleAnswer(option.text || option, index);
-      setInput('');
-    }}
-    className="w-full p-4 text-left rounded-xl border border-gray-200 
-      bg-white hover:border-primary/30 hover:bg-gray-50
-      transition-all duration-200 shadow-sm hover:shadow
-      flex items-center gap-3"
-    style={{ 
-      '--tw-border-opacity': 0.5,
-      color: theme.colors.primary 
-    } as React.CSSProperties}
-  >
-    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-100
-      flex items-center justify-center text-gray-600 text-sm font-medium">
-      {String.fromCharCode(65 + index)}
-    </span>
-    <span className="flex-1 text-gray-700 font-medium">
-      {option.text || option}
-    </span>
-  </motion.button>
-);
+  const renderAnswerOption = (option: any, index: number) => (
+    <motion.button
+      key={`option-${index}`}
+      whileHover={{ scale: 1.01 }}
+      whileTap={{ scale: 0.99 }}
+      onClick={() => {
+        handleAnswer(option.text || option, index);
+        setInput('');
+      }}
+      className="w-full p-4 text-left rounded-xl border border-gray-200 
+        bg-white hover:border-primary/30 hover:bg-gray-50
+        transition-all duration-200 shadow-sm hover:shadow
+        flex items-center gap-3"
+      style={{ 
+        '--tw-border-opacity': 0.5,
+        color: theme.colors.primary 
+      } as React.CSSProperties}
+    >
+      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-100
+        flex items-center justify-center text-gray-600 text-sm font-medium">
+        {String.fromCharCode(65 + index)}
+      </span>
+      <span className="flex-1 text-gray-700 font-medium">
+        {option.text || option}
+      </span>
+    </motion.button>
+  );
 
-// Remove duplicate theme declarations and conflicting styles
-// Remove any references to primary-light, primary-dark etc
-// Use the simplified theme object above
   return (
     <div className="flex flex-col h-screen" style={{ background: lightBg }}>
       <div className="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
@@ -739,7 +720,7 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
                     {message.isQuestion && message.options && !quizCompleted && (
                       <div className="mt-4 space-y-2 w-full">
                         {Array.isArray(message.options) && message.options.map((option: any, optionIndex: number) =>
-                          renderAnswerOption(option, optionIndex, handleAnswer, setInput)
+                          renderAnswerOption(option, optionIndex)
                         )}
                       </div>
                     )}
@@ -891,4 +872,4 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
   );
 }
 
-export default EmbeddedChatBot
+export default EmbeddedChatBot;

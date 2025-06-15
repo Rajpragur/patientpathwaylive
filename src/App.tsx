@@ -50,8 +50,12 @@ function App() {
   );
 }
 
+interface ShortLinkParams {
+  shareKey?: string;
+}
+
 function ShortLinkRedirectComponent() {
-  const params = useParams();
+  const params = useParams<ShortLinkParams>();
   const navigate = useNavigate();
   const shareKey = params.shareKey;
 
