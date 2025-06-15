@@ -147,7 +147,11 @@ export type Database = {
           first_name: string | null
           id: string
           last_name: string | null
+          location: string | null
+          logo_url: string | null
+          mobile: string | null
           phone: string | null
+          providers: string | null
           specialty: string | null
           twilio_account_sid: string | null
           twilio_auth_token: string | null
@@ -165,7 +169,11 @@ export type Database = {
           first_name?: string | null
           id?: string
           last_name?: string | null
+          location?: string | null
+          logo_url?: string | null
+          mobile?: string | null
           phone?: string | null
+          providers?: string | null
           specialty?: string | null
           twilio_account_sid?: string | null
           twilio_auth_token?: string | null
@@ -183,7 +191,11 @@ export type Database = {
           first_name?: string | null
           id?: string
           last_name?: string | null
+          location?: string | null
+          logo_url?: string | null
+          mobile?: string | null
           phone?: string | null
+          providers?: string | null
           specialty?: string | null
           twilio_account_sid?: string | null
           twilio_auth_token?: string | null

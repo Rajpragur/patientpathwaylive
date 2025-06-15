@@ -1,329 +1,266 @@
-
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import React, { useState, useEffect } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Copy, QrCode, Mail, MessageSquare, Globe, Code, Printer, Share, Facebook, Linkedin } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { QRCodeSVG } from 'qrcode.react';
+import {
+  Share2,
+  Copy,
+  Check,
+  Facebook,
+  Twitter,
+  Linkedin,
+  MessageCircle,
+  Send,
+} from 'lucide-react';
 
 interface QuizShareDialogProps {
   isOpen: boolean;
   onClose: () => void;
   quizType: string;
-  quizTitle: string;
-  shareKey: string;
-  doctorId: string;
-  isCustom?: boolean;
+  customQuizId?: string;
 }
 
-export function QuizShareDialog({ 
-  isOpen, 
-  onClose, 
-  quizType, 
-  quizTitle, 
-  shareKey, 
-  doctorId,
-  isCustom = false
-}: QuizShareDialogProps) {
-  const [copied, setCopied] = useState<string | null>(null);
-  const baseUrl = window.location.origin;
-  
-  // Generate URLs with source tracking
-  const generateUrlWithSource = (source: string = 'direct') => {
-    const baseQuizUrl = isCustom 
-      ? `${baseUrl}/quiz/custom/${quizType}?key=${shareKey}&doctor=${doctorId}`
-      : `${baseUrl}/quiz/${quizType.toLowerCase()}?key=${shareKey}&doctor=${doctorId}`;
-    
-    return `${baseQuizUrl}&utm_source=${source}&utm_medium=social&utm_campaign=quiz_share`;
-  };
-  
-  const fullPageUrl = generateUrlWithSource();
-  const shortUrl = `${baseUrl}/q/${shareKey}`;
-  
-  const embedUrl = isCustom
-    ? `${baseUrl}/embed/quiz/custom/${quizType}?key=${shareKey}&doctor=${doctorId}`
-    : `${baseUrl}/embed/quiz/${quizType.toLowerCase()}?key=${shareKey}&doctor=${doctorId}`;
-  
-  const embedCode = `<iframe src="${embedUrl}" width="100%" height="600" frameborder="0" style="border: none; border-radius: 16px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);"></iframe>`;
+export function QuizShareDialog({ isOpen, onClose, quizType, customQuizId }: QuizShareDialogProps) {
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<any>(null);
+  const [shareUrl, setShareUrl] = useState('');
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [copied, setCopied] = useState(false);
 
-  const chatWidgetCode = `<!-- Chat Widget Code -->
-<div id="quiz-chat-widget"></div>
-<script>
-  (function() {
-    var widget = document.createElement('div');
-    widget.innerHTML = '<button onclick="openQuizChat()" style="position: fixed; bottom: 20px; right: 20px; background: linear-gradient(45deg, #f97316, #22c55e); color: white; border: none; border-radius: 50px; padding: 15px 20px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000;">💬 Take Assessment</button>';
-    document.body.appendChild(widget);
-    
-    window.openQuizChat = function() {
-      var chatWindow = window.open('${fullPageUrl}', 'quiz_chat', 'width=400,height=600,scrollbars=yes,resizable=yes');
-      chatWindow.focus();
-    };
-  })();
-</script>`;
-
-  const handleCopy = async (text: string, type: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(type);
-      toast.success('Copied to clipboard!');
-      setTimeout(() => setCopied(null), 2000);
-    } catch (err) {
-      toast.error('Failed to copy');
+  useEffect(() => {
+    if (user) {
+      loadProfile();
     }
+  }, [user]);
+
+  const loadProfile = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('doctor_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error loading profile:', error);
+        toast.error('Failed to load profile');
+        return;
+      }
+
+      setProfile(data);
+      generateShareUrl(data);
+    } catch (error) {
+      console.error('Unexpected error loading profile:', error);
+      toast.error('Unexpected error loading profile');
+    }
+  };
+
+  const generateShareUrl = (profileData: any) => {
+    if (!profileData) return;
+
+    let baseUrl = window.location.origin;
+    let path = `/quiz/${quizType}`;
+
+    if (customQuizId) {
+      path = `/custom-quiz/${customQuizId}`;
+    }
+
+    const params = new URLSearchParams();
+    params.append('clinic_name', profileData.clinic_name || '');
+    params.append('doctor_id', profileData.doctor_id || '');
+
+    const fullUrl = `${baseUrl}${path}?${params.toString()}`;
+    setShareUrl(fullUrl);
+
+    // Generate QR code
+    generateQrCode(fullUrl);
+  };
+
+  const generateQrCode = (url: string) => {
+    setQrCodeUrl(url);
   };
 
   const handleSocialShare = (platform: string) => {
-    const platformUrl = generateUrlWithSource(platform.toLowerCase());
-    const shareText = `Take the ${quizTitle} assessment: ${platformUrl}`;
-    
+    if (!shareUrl) return;
+
+    // Add source parameter to the URL for tracking
+    const urlWithSource = new URL(shareUrl);
+    urlWithSource.searchParams.set('source', platform);
+    const finalUrl = urlWithSource.toString();
+
+    let socialUrl = '';
+    const message = encodeURIComponent(`Take this ${quizType} assessment to evaluate your health.`);
+
     switch (platform) {
       case 'facebook':
-        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(platformUrl)}`, '_blank');
+        socialUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(finalUrl)}`;
+        break;
+      case 'twitter':
+        socialUrl = `https://twitter.com/intent/tweet?text=${message}&url=${encodeURIComponent(finalUrl)}`;
         break;
       case 'linkedin':
-        window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(platformUrl)}`, '_blank');
+        socialUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(finalUrl)}`;
         break;
-      case 'email':
-        const emailSubject = `${quizTitle} Assessment`;
-        const emailBody = `Hi there,\n\nI'd like you to take this important medical assessment:\n\n${platformUrl}\n\nIt only takes 5-10 minutes and provides valuable health insights.\n\nBest regards`;
-        window.location.href = `mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+      case 'whatsapp':
+        socialUrl = `https://wa.me/?text=${message}%20${encodeURIComponent(finalUrl)}`;
         break;
-      case 'qr':
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(platformUrl)}`;
-        window.open(qrUrl, '_blank');
+      case 'telegram':
+        socialUrl = `https://t.me/share/url?url=${encodeURIComponent(finalUrl)}&text=${message}`;
         break;
+      default:
+        return;
     }
+
+    window.open(socialUrl, '_blank', 'width=600,height=400');
   };
 
-  const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>${quizTitle} Assessment</title>
-            <style>
-              body { font-family: Arial, sans-serif; padding: 40px; line-height: 1.6; }
-              .header { text-align: center; margin-bottom: 40px; }
-              .qr-section { text-align: center; margin: 30px 0; }
-              .url-section { background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0; }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <h1>${quizTitle} Assessment</h1>
-              <p>Scan the QR code or visit the link below to take this assessment</p>
-            </div>
-            <div class="url-section">
-              <h3>Assessment Link:</h3>
-              <p style="word-break: break-all; font-size: 14px;">${fullPageUrl}</p>
-            </div>
-            <div class="qr-section">
-              <h3>QR Code:</h3>
-              <img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(fullPageUrl)}" alt="QR Code" />
-            </div>
-            <div style="margin-top: 40px; text-align: center; color: #666;">
-              <p>This assessment takes 5-10 minutes to complete and provides valuable health insights.</p>
-            </div>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.print();
-    }
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(shareUrl)
+      .then(() => {
+        setCopied(true);
+        toast.success('Link copied to clipboard!');
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(err => {
+        console.error("Could not copy text: ", err);
+        toast.error('Failed to copy link to clipboard.');
+      });
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-green-600 bg-clip-text text-transparent">
-            Share Your Assessment
+          <DialogTitle className="flex items-center gap-2">
+            <Share2 className="w-5 h-5" />
+            Share {quizType} Assessment
           </DialogTitle>
-          <p className="text-gray-600 text-lg">Multiple sharing options for {quizTitle} {isCustom && '(Custom Quiz)'}</p>
+          <DialogDescription>
+            Share this assessment with your patients or on social media
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-8">
-          {/* Full Page Sharing */}
-          <div className="bg-gradient-to-r from-orange-50 to-green-50 rounded-3xl p-6 border-2 border-orange-100">
-            <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <Globe className="w-6 h-6 text-orange-500" />
-              Full Page
-            </h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-semibold text-gray-700 mb-2 block">Assessment URL</label>
-                <div className="flex gap-2">
-                  <Input
-                    value={fullPageUrl}
-                    readOnly
-                    className="font-mono text-xs bg-white border-2 border-gray-200 rounded-xl"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleCopy(fullPageUrl, 'url')}
-                    className="rounded-xl border-orange-200 hover:bg-orange-50"
-                  >
-                    {copied === 'url' ? '✓' : <Copy className="w-4 h-4" />}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open(fullPageUrl, '_blank')}
-                    className="rounded-xl border-green-200 hover:bg-green-50"
-                  >
-                    Open
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold text-gray-700 mb-2 block">Short URL</label>
-                <div className="flex gap-2">
-                  <Input
-                    value={shortUrl}
-                    readOnly
-                    className="font-mono text-xs bg-white border-2 border-gray-200 rounded-xl"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleCopy(shortUrl, 'short')}
-                    className="rounded-xl border-orange-200 hover:bg-orange-50"
-                  >
-                    {copied === 'short' ? '✓' : <Copy className="w-4 h-4" />}
-                  </Button>
-                </div>
-              </div>
-
-              {/* Social Share Buttons with automatic source tracking */}
-              <div className="flex gap-3 flex-wrap">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => handleSocialShare('facebook')}
-                  className="rounded-xl border-blue-200 hover:bg-blue-50"
-                >
-                  <Facebook className="w-4 h-4 mr-2" />
-                  Facebook
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => handleSocialShare('linkedin')}
-                  className="rounded-xl border-blue-200 hover:bg-blue-50"
-                >
-                  <Linkedin className="w-4 h-4 mr-2" />
-                  LinkedIn
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => handleSocialShare('email')}
-                  className="rounded-xl border-gray-200 hover:bg-gray-50"
-                >
-                  <Mail className="w-4 h-4 mr-2" />
-                  Email
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => handleSocialShare('qr')}
-                  className="rounded-xl border-purple-200 hover:bg-purple-50"
-                >
-                  <QrCode className="w-4 h-4 mr-2" />
-                  QR Code
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={handlePrint}
-                  className="rounded-xl border-gray-200 hover:bg-gray-50"
-                >
-                  <Printer className="w-4 h-4 mr-2" />
-                  PDF
-                </Button>
-              </div>
+        <div className="space-y-6">
+          {/* Direct Link */}
+          <div className="space-y-2">
+            <Label>Direct Link</Label>
+            <div className="flex gap-2">
+              <Input
+                value={shareUrl}
+                readOnly
+                className="flex-1"
+                placeholder="Generating link..."
+              />
+              <Button
+                onClick={copyToClipboard}
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-4 h-4 mr-2" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copy
+                  </>
+                )}
+              </Button>
             </div>
           </div>
+
+          {/* Social Media Sharing */}
+          <div className="space-y-3">
+            <Label>Share on Social Media</Label>
+            <div className="grid grid-cols-3 gap-3">
+              <Button
+                onClick={() => handleSocialShare('facebook')}
+                variant="outline"
+                className="flex items-center gap-2 text-blue-600 hover:bg-blue-50"
+              >
+                <Facebook className="w-4 h-4" />
+                Facebook
+              </Button>
+              <Button
+                onClick={() => handleSocialShare('twitter')}
+                variant="outline"
+                className="flex items-center gap-2 text-sky-500 hover:bg-sky-50"
+              >
+                <Twitter className="w-4 h-4" />
+                Twitter
+              </Button>
+              <Button
+                onClick={() => handleSocialShare('linkedin')}
+                variant="outline"
+                className="flex items-center gap-2 text-blue-700 hover:bg-blue-50"
+              >
+                <Linkedin className="w-4 h-4" />
+                LinkedIn
+              </Button>
+              <Button
+                onClick={() => handleSocialShare('whatsapp')}
+                variant="outline"
+                className="flex items-center gap-2 text-green-600 hover:bg-green-50"
+              >
+                <MessageCircle className="w-4 h-4" />
+                WhatsApp
+              </Button>
+              <Button
+                onClick={() => handleSocialShare('telegram')}
+                variant="outline"
+                className="flex items-center gap-2 text-blue-500 hover:bg-blue-50"
+              >
+                <Send className="w-4 h-4" />
+                Telegram
+              </Button>
+            </div>
+          </div>
+
+          {/* QR Code */}
+          {qrCodeUrl && (
+            <div className="space-y-2">
+              <Label>QR Code</Label>
+              <div className="flex justify-center p-4 border border-gray-200 rounded-lg bg-gray-50">
+                <QRCodeSVG
+                  value={shareUrl}
+                  size={200}
+                  level="M"
+                  includeMargin={true}
+                />
+              </div>
+              <p className="text-xs text-gray-500 text-center">
+                Patients can scan this QR code to access the assessment
+              </p>
+            </div>
+          )}
 
           {/* Embed Code */}
-          <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-3xl p-6 border-2 border-blue-100">
-            <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <Code className="w-6 h-6 text-blue-500" />
-              Embed Code in Pre-existing Website
-            </h3>
-            
-            <div className="space-y-4">
-              <label className="text-sm font-semibold text-gray-700">Embed Code</label>
-              <div className="relative">
-                <pre className="bg-white p-4 rounded-xl text-xs overflow-x-auto font-mono border-2 border-gray-200">
-                  {embedCode}
-                </pre>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="absolute top-2 right-2 rounded-lg"
-                  onClick={() => handleCopy(embedCode, 'embed')}
-                >
-                  {copied === 'embed' ? '✓' : <Copy className="w-4 h-4" />}
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Chat Widget */}
-          <div className="bg-gradient-to-r from-green-50 to-teal-50 rounded-3xl p-6 border-2 border-green-100">
-            <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <MessageSquare className="w-6 h-6 text-green-500" />
-              Chat Widget
-            </h3>
-            
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600">Add a floating chat button to your website that opens the assessment</p>
-              <div className="relative">
-                <pre className="bg-white p-4 rounded-xl text-xs overflow-x-auto font-mono border-2 border-gray-200">
-                  {chatWidgetCode}
-                </pre>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="absolute top-2 right-2 rounded-lg"
-                  onClick={() => handleCopy(chatWidgetCode, 'widget')}
-                >
-                  {copied === 'widget' ? '✓' : <Copy className="w-4 h-4" />}
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Chat Button */}
-          <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-3xl p-6 border-2 border-purple-100">
-            <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <MessageSquare className="w-6 h-6 text-purple-500" />
-              Chat Button
-            </h3>
-            
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600">Simple button code to add anywhere on your website</p>
-              <div className="relative">
-                <pre className="bg-white p-4 rounded-xl text-xs overflow-x-auto font-mono border-2 border-gray-200">
-{`<a href="${fullPageUrl}" target="_blank" style="display: inline-block; background: linear-gradient(45deg, #f97316, #22c55e); color: white; padding: 12px 24px; border-radius: 25px; text-decoration: none; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-  💬 Take Assessment
-</a>`}
-                </pre>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="absolute top-2 right-2 rounded-lg"
-                  onClick={() => handleCopy(`<a href="${fullPageUrl}" target="_blank" style="display: inline-block; background: linear-gradient(45deg, #f97316, #22c55e); color: white; padding: 12px 24px; border-radius: 25px; text-decoration: none; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">💬 Take Assessment</a>`, 'button')}
-                >
-                  {copied === 'button' ? '✓' : <Copy className="w-4 h-4" />}
-                </Button>
-              </div>
-            </div>
+          <div className="space-y-2">
+            <Label>Embed Code</Label>
+            <Textarea
+              value={`<iframe src="${shareUrl}" width="100%" height="600" frameborder="0"></iframe>`}
+              readOnly
+              rows={3}
+              className="text-xs font-mono"
+            />
+            <p className="text-xs text-gray-500">
+              Copy this code to embed the assessment on your website
+            </p>
           </div>
         </div>
       </DialogContent>
