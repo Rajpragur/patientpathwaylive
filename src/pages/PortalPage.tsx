@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AnimatedSidebar } from '@/components/dashboard/AnimatedSidebar';
 import { QuizManagementPage } from '@/components/dashboard/QuizManagementPage';
 import { AnalyticsPage } from '@/components/dashboard/AnalyticsPage';
@@ -12,6 +12,7 @@ import { ProfilePage } from '@/components/dashboard/ProfilePage';
 import { SettingsPage } from '@/components/dashboard/SettingsPage';
 import { SupportPage } from '@/components/dashboard/SupportPage';
 import { SocialIntegrationsPage } from '@/components/dashboard/SocialIntegrationsPage';
+import { AIChatAgent } from '@/components/dashboard/AIChatAgent';
 import { toast } from 'sonner';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { PageLoader } from '@/components/ui/PageLoader';
@@ -20,9 +21,18 @@ import { AnimatePresence, motion } from 'framer-motion';
 export default function PortalPage() {
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [tabLoading, setTabLoading] = useState(false);
   const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
+
+  // Check for tab parameter in URL
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab) {
+      setCurrentPage(tab);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     // Only check auth once loading is complete and we haven't checked before
@@ -150,6 +160,9 @@ export default function PortalPage() {
             </motion.div>
           </AnimatePresence>
         </div>
+        
+        {/* AI Chat Agent */}
+        <AIChatAgent />
       </main>
     </div>
   );

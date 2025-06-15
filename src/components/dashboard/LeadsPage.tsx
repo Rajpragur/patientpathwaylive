@@ -5,12 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, TrendingUp, Clock, Filter, Search, Download } from 'lucide-react';
+import { Users, TrendingUp, Clock, Filter, Search, Download, ArrowUpDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Lead } from '@/types/quiz';
 import { EnhancedLeadsTable } from './EnhancedLeadsTable';
 import { formatDistanceToNow } from 'date-fns';
+import { toast } from 'sonner';
 
 export function LeadsPage() {
   const { user } = useAuth();
@@ -19,6 +20,8 @@ export function LeadsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [quizTypeFilter, setQuizTypeFilter] = useState('all');
+  const [sortBy, setSortBy] = useState<'name' | 'contact' | 'score' | 'date'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     fetchLeads();
@@ -61,6 +64,39 @@ export function LeadsPage() {
     }
   };
 
+  const exportLeads = async () => {
+    try {
+      const csvContent = [
+        ['Name', 'Email', 'Phone', 'Quiz Type', 'Score', 'Status', 'Source', 'Date'].join(','),
+        ...filteredAndSortedLeads.map(lead => [
+          lead.name,
+          lead.email || '',
+          lead.phone || '',
+          lead.quiz_type,
+          lead.score,
+          lead.lead_status,
+          lead.lead_source || '',
+          new Date(lead.submitted_at).toLocaleDateString()
+        ].join(','))
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `leads-export-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Leads exported successfully!');
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export leads');
+    }
+  };
+
   const filteredLeads = leads.filter(lead => {
     const matchesSearch = 
       lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -73,6 +109,36 @@ export function LeadsPage() {
     return matchesSearch && matchesStatus && matchesQuizType;
   });
 
+  const filteredAndSortedLeads = [...filteredLeads].sort((a, b) => {
+    let aValue: string | number;
+    let bValue: string | number;
+
+    switch (sortBy) {
+      case 'name':
+        aValue = a.name.toLowerCase();
+        bValue = b.name.toLowerCase();
+        break;
+      case 'contact':
+        aValue = (a.email || a.phone || '').toLowerCase();
+        bValue = (b.email || b.phone || '').toLowerCase();
+        break;
+      case 'score':
+        aValue = a.score;
+        bValue = b.score;
+        break;
+      case 'date':
+        aValue = new Date(a.submitted_at).getTime();
+        bValue = new Date(b.submitted_at).getTime();
+        break;
+      default:
+        return 0;
+    }
+
+    if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
+    return 0;
+  });
+
   const stats = {
     total: leads.length,
     new: leads.filter(l => l.lead_status === 'NEW').length,
@@ -81,6 +147,15 @@ export function LeadsPage() {
   };
 
   const uniqueQuizTypes = [...new Set(leads.map(l => l.quiz_type))];
+
+  const toggleSort = (field: 'name' | 'contact' | 'score' | 'date') => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
+    }
+  };
 
   if (loading) {
     return (
@@ -91,13 +166,13 @@ export function LeadsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Leads Dashboard</h1>
           <p className="text-gray-600 mt-2">Manage and track your assessment leads</p>
         </div>
-        <Button>
+        <Button onClick={exportLeads} className="bg-green-600 hover:bg-green-700">
           <Download className="w-4 h-4 mr-2" />
           Export Leads
         </Button>
@@ -105,73 +180,65 @@ export function LeadsPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
+        <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Leads</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-blue-700">Total Leads</CardTitle>
+            <Users className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <p className="text-xs text-muted-foreground">
-              All time leads
-            </p>
+            <div className="text-2xl font-bold text-blue-800">{stats.total}</div>
+            <p className="text-xs text-blue-600">All time leads</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">New Leads</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-green-700">New Leads</CardTitle>
+            <TrendingUp className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.new}</div>
-            <p className="text-xs text-muted-foreground">
-              Awaiting contact
-            </p>
+            <div className="text-2xl font-bold text-green-800">{stats.new}</div>
+            <p className="text-xs text-green-600">Awaiting contact</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-gradient-to-r from-yellow-50 to-yellow-100 border-yellow-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Contacted</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-yellow-700">Contacted</CardTitle>
+            <Clock className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.contacted}</div>
-            <p className="text-xs text-muted-foreground">
-              Follow up in progress
-            </p>
+            <div className="text-2xl font-bold text-yellow-800">{stats.contacted}</div>
+            <p className="text-xs text-yellow-600">Follow up in progress</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Scheduled</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-purple-700">Scheduled</CardTitle>
+            <Users className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.scheduled}</div>
-            <p className="text-xs text-muted-foreground">
-              Appointments booked
-            </p>
+            <div className="text-2xl font-bold text-purple-800">{stats.scheduled}</div>
+            <p className="text-xs text-purple-600">Appointments booked</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
-      <Card>
+      {/* Filters and Sorting */}
+      <Card className="shadow-lg border-gray-200">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Filter className="w-5 h-5" />
-            Filter Leads
+            Filter & Sort Leads
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="relative">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+            <div className="relative md:col-span-2">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
-                placeholder="Search leads..."
+                placeholder="Search by name, email, or phone..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -202,11 +269,42 @@ export function LeadsPage() {
               </SelectContent>
             </Select>
 
-            <Button variant="outline" onClick={() => {
-              setSearchTerm('');
-              setStatusFilter('all');
-              setQuizTypeFilter('all');
-            }}>
+            <Select value={sortBy} onValueChange={(value: 'name' | 'contact' | 'score' | 'date') => setSortBy(value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">Name</SelectItem>
+                <SelectItem value="contact">Contact Info</SelectItem>
+                <SelectItem value="score">Score</SelectItem>
+                <SelectItem value="date">Date</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button 
+              variant="outline" 
+              onClick={() => toggleSort(sortBy)}
+              className="flex items-center gap-2"
+            >
+              <ArrowUpDown className="w-4 h-4" />
+              {sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+            </Button>
+          </div>
+          
+          <div className="flex justify-between items-center mt-4">
+            <div className="text-sm text-gray-600">
+              Showing {filteredAndSortedLeads.length} of {leads.length} leads
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setSearchTerm('');
+                setStatusFilter('all');
+                setQuizTypeFilter('all');
+                setSortBy('date');
+                setSortOrder('desc');
+              }}
+            >
               Clear Filters
             </Button>
           </div>
@@ -214,14 +312,14 @@ export function LeadsPage() {
       </Card>
 
       {/* Leads Table */}
-      <Card>
+      <Card className="shadow-lg border-gray-200">
         <CardHeader>
           <CardTitle>
-            Leads ({filteredLeads.length})
+            Leads ({filteredAndSortedLeads.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <EnhancedLeadsTable leads={filteredLeads} onLeadUpdate={fetchLeads} />
+          <EnhancedLeadsTable leads={filteredAndSortedLeads} onLeadUpdate={fetchLeads} />
         </CardContent>
       </Card>
     </div>
