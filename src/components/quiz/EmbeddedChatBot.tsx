@@ -19,13 +19,21 @@ interface EmbeddedChatBotProps {
   onQuizStart?: () => void;
   isOpen?: boolean;
   onToggle?: () => void;
+  shareKey?: string;
+  doctorId?: string;
+  customQuiz?: any;
+  quizData?: any;
 }
 
 export function EmbeddedChatBot({ 
   quizType = 'general', 
   onQuizStart,
   isOpen = false,
-  onToggle 
+  onToggle,
+  shareKey,
+  doctorId,
+  customQuiz,
+  quizData
 }: EmbeddedChatBotProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -258,3 +266,6 @@ export function EmbeddedChatBot({
     </motion.div>
   );
 }
+
+// Default export for backward compatibility
+export default EmbeddedChatBot;

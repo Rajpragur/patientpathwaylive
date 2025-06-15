@@ -1,3 +1,4 @@
+
 import { useParams, useSearchParams } from 'react-router-dom';
 import { EmbeddedChatBot } from '@/components/quiz/EmbeddedChatBot';
 import { useEffect, useState } from 'react';

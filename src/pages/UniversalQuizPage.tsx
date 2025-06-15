@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import EmbeddedChatBot from '@/components/quiz/EmbeddedChatBot';
+import { EmbeddedChatBot } from '@/components/quiz/EmbeddedChatBot';
 import { quizzes } from '@/data/quizzes';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
