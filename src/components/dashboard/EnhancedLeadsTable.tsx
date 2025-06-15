@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Lead } from '@/types/quiz';
 import { useNavigate } from 'react-router-dom';
 import { quizzes } from '@/data/quizzes';
+import { TimeSelector } from './TimeSelector';
 
 interface EnhancedLeadsTableProps {
   leads: Lead[];
@@ -30,6 +32,7 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
   const [showCommunicationDialog, setShowCommunicationDialog] = useState(false);
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedTime, setSelectedTime] = useState<string>('09:00');
   const [isScheduling, setIsScheduling] = useState(false);
 
   const handleSendCommunication = async () => {
@@ -76,9 +79,16 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
 
   const updateLeadStatus = async (leadId: string, status: string) => {
     try {
+      const updateData: any = { lead_status: status };
+      
+      // If changing to NEW status, clear the scheduled_date
+      if (status === 'NEW') {
+        updateData.scheduled_date = null;
+      }
+
       const { error } = await supabase
         .from('quiz_leads')
-        .update({ lead_status: status })
+        .update(updateData)
         .eq('id', leadId);
 
       if (error) throw error;
@@ -97,17 +107,22 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
   };
 
   const handleScheduleLead = async () => {
-    if (!selectedDate || !selectedLead) {
-      toast.error('Please select a date');
+    if (!selectedDate || !selectedTime || !selectedLead) {
+      toast.error('Please select both date and time');
       return;
     }
 
     setIsScheduling(true);
     try {
+      // Combine date and time
+      const scheduledDateTime = new Date(selectedDate);
+      const [hours, minutes] = selectedTime.split(':');
+      scheduledDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
       const { error } = await supabase
         .from('quiz_leads')
         .update({ 
-          scheduled_date: selectedDate.toISOString(),
+          scheduled_date: scheduledDateTime.toISOString(),
           lead_status: 'SCHEDULED'
         })
         .eq('id', selectedLead.id);
@@ -117,6 +132,7 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
       toast.success('Lead scheduled successfully!');
       setShowScheduleDialog(false);
       setSelectedDate(undefined);
+      setSelectedTime('09:00');
       setSelectedLead(null);
       onLeadUpdate?.();
       
@@ -273,6 +289,15 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
                     <DropdownMenuItem
                       onClick={() => {
                         setSelectedLead(lead);
+                        // If lead already has a scheduled date, pre-populate the form
+                        if (lead.scheduled_date) {
+                          const existingDate = new Date(lead.scheduled_date);
+                          setSelectedDate(existingDate);
+                          setSelectedTime(format(existingDate, 'HH:mm'));
+                        } else {
+                          setSelectedDate(undefined);
+                          setSelectedTime('09:00');
+                        }
                         setShowScheduleDialog(true);
                       }}
                     >
@@ -338,27 +363,34 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
 
       {/* Schedule Dialog */}
       <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
               Schedule appointment for {selectedLead?.name}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={(date) => setSelectedDate(date as Date)}
-              className="rounded-md border p-3 pointer-events-auto"
-              disabled={(date) => date < new Date()}
+            <div>
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => setSelectedDate(date as Date)}
+                className="rounded-md border p-3 pointer-events-auto"
+                disabled={(date) => date < new Date()}
+              />
+            </div>
+            <TimeSelector
+              selectedTime={selectedTime}
+              onTimeSelect={setSelectedTime}
             />
             <div className="flex gap-2">
-              <Button onClick={handleScheduleLead} disabled={!selectedDate || isScheduling}>
+              <Button onClick={handleScheduleLead} disabled={!selectedDate || !selectedTime || isScheduling}>
                 {isScheduling ? 'Scheduling...' : 'Schedule Appointment'}
               </Button>
               <Button variant="outline" onClick={() => {
                 setShowScheduleDialog(false);
                 setSelectedDate(undefined);
+                setSelectedTime('09:00');
                 setSelectedLead(null);
               }}>
                 Cancel

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { TimeSelector } from './TimeSelector';
 
 interface ScheduledLead {
   id: string;
@@ -28,6 +29,7 @@ export function SchedulePage() {
   const [scheduledLeads, setScheduledLeads] = useState<ScheduledLead[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedTime, setSelectedTime] = useState<string>('09:00');
   const [selectedLead, setSelectedLead] = useState<ScheduledLead | null>(null);
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -64,14 +66,19 @@ export function SchedulePage() {
   };
 
   const handleScheduleLead = async () => {
-    if (!selectedDate || !selectedLead) return;
+    if (!selectedDate || !selectedTime || !selectedLead) return;
     
     setUpdating(true);
     try {
+      // Combine date and time
+      const scheduledDateTime = new Date(selectedDate);
+      const [hours, minutes] = selectedTime.split(':');
+      scheduledDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
       const { error } = await supabase
         .from('quiz_leads')
         .update({ 
-          scheduled_date: selectedDate.toISOString(),
+          scheduled_date: scheduledDateTime.toISOString(),
           lead_status: 'SCHEDULED'
         })
         .eq('id', selectedLead.id);
@@ -81,6 +88,7 @@ export function SchedulePage() {
       toast.success('Lead scheduled successfully!');
       setShowScheduleDialog(false);
       setSelectedDate(undefined);
+      setSelectedTime('09:00');
       setSelectedLead(null);
       fetchScheduledLeads();
     } catch (error) {
@@ -93,7 +101,14 @@ export function SchedulePage() {
 
   const handleReschedule = (lead: ScheduledLead) => {
     setSelectedLead(lead);
-    setSelectedDate(lead.scheduled_date ? new Date(lead.scheduled_date) : undefined);
+    if (lead.scheduled_date) {
+      const existingDate = new Date(lead.scheduled_date);
+      setSelectedDate(existingDate);
+      setSelectedTime(format(existingDate, 'HH:mm'));
+    } else {
+      setSelectedDate(undefined);
+      setSelectedTime('09:00');
+    }
     setShowScheduleDialog(true);
   };
 
@@ -252,7 +267,7 @@ export function SchedulePage() {
 
       {/* Schedule Dialog */}
       <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
               {selectedLead ? `Schedule appointment for ${selectedLead.name}` : 'Schedule Appointment'}
@@ -263,13 +278,17 @@ export function SchedulePage() {
               mode="single"
               selected={selectedDate}
               onSelect={(date) => setSelectedDate(date as Date)}
-              className="rounded-md border p-3"
+              className="rounded-md border p-3 pointer-events-auto"
               disabled={(date) => date < new Date()}
+            />
+            <TimeSelector
+              selectedTime={selectedTime}
+              onTimeSelect={setSelectedTime}
             />
             <div className="flex gap-2">
               <Button
                 onClick={handleScheduleLead}
-                disabled={!selectedDate || updating}
+                disabled={!selectedDate || !selectedTime || updating}
                 className="flex-1"
               >
                 {updating ? 'Scheduling...' : 'Schedule Appointment'}
@@ -279,6 +298,7 @@ export function SchedulePage() {
                 onClick={() => {
                   setShowScheduleDialog(false);
                   setSelectedDate(undefined);
+                  setSelectedTime('09:00');
                   setSelectedLead(null);
                 }}
               >
