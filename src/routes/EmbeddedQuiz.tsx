@@ -11,6 +11,7 @@ export function EmbeddedQuiz() {
   const [searchParams] = useSearchParams();
   const [quizData, setQuizData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Get source tracking parameters
   const source = searchParams.get('source') || searchParams.get('utm_source') || 'direct';
@@ -18,24 +19,36 @@ export function EmbeddedQuiz() {
   const campaign = searchParams.get('campaign') || searchParams.get('utm_campaign') || 'quiz_share';
   const doctorId = searchParams.get('doctor') || undefined;
 
+  console.log('EmbeddedQuiz - quizType:', quizType);
+  console.log('EmbeddedQuiz - tracking params:', { source, medium, campaign, doctorId });
+
   useEffect(() => {
     const fetchQuizData = async () => {
       if (!quizType) {
+        setError('No quiz type provided');
         setLoading(false);
         return;
       }
 
       try {
+        console.log('Fetching quiz data for type:', quizType);
+        
         // Check if it's a custom quiz
         if (quizType.startsWith('custom_')) {
           const customQuizId = quizType.replace('custom_', '');
+          console.log('Fetching custom quiz with ID:', customQuizId);
+          
           const { data, error } = await supabase
             .from('custom_quizzes')
             .select('*')
             .eq('id', customQuizId)
             .single();
           
-          if (!error && data) {
+          if (error) {
+            console.error('Error fetching custom quiz:', error);
+            setError('Custom quiz not found');
+          } else if (data) {
+            console.log('Custom quiz data:', data);
             setQuizData({
               id: data.id,
               title: data.title,
@@ -52,11 +65,15 @@ export function EmbeddedQuiz() {
           }
         } else {
           // For standard quizzes, use the data from quizzes object
+          console.log('Searching for standard quiz:', quizType);
+          console.log('Available quizzes:', Object.keys(quizzes));
+          
           const standardQuiz = Object.values(quizzes).find(
             quiz => quiz.id.toLowerCase() === quizType.toLowerCase()
           );
           
           if (standardQuiz) {
+            console.log('Found standard quiz:', standardQuiz);
             setQuizData({
               id: standardQuiz.id,
               title: standardQuiz.title,
@@ -69,10 +86,14 @@ export function EmbeddedQuiz() {
               campaign,
               doctorId
             });
+          } else {
+            console.error('Standard quiz not found for type:', quizType);
+            setError('Quiz not found');
           }
         }
       } catch (error) {
         console.error('Error fetching quiz data:', error);
+        setError('Failed to load quiz');
       } finally {
         setLoading(false);
       }
@@ -92,13 +113,14 @@ export function EmbeddedQuiz() {
     );
   }
 
-  if (!quizData) {
+  if (error || !quizData) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-orange-50 to-teal-50">
         <div className="text-center max-w-md mx-auto p-6">
           <div className="bg-white rounded-lg shadow-lg p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Assessment Not Found</h2>
-            <p className="text-gray-600 mb-6">The requested assessment could not be found.</p>
+            <p className="text-gray-600 mb-6">{error || 'The requested assessment could not be found.'}</p>
+            <p className="text-sm text-gray-500">Quiz Type: {quizType}</p>
           </div>
         </div>
       </div>

@@ -23,14 +23,18 @@ export default function UniversalQuizPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [quizData, setQuizData] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  console.log('UniversalQuizPage - quizType:', quizType);
+  console.log('UniversalQuizPage - tracking params:', { source, medium, campaign, doctorId });
 
   useEffect(() => {
     const checkQuiz = async () => {
       console.log('QuizType from URL:', quizType);
       console.log('Available standard quizzes:', Object.keys(quizzes));
-      console.log('Source tracking:', { source, medium, campaign, doctorId });
       
       if (!quizType) {
+        setError('No quiz type provided');
         setNotFound(true);
         setLoading(false);
         return;
@@ -40,6 +44,7 @@ export default function UniversalQuizPage() {
         // Check if it's a custom quiz
         if (quizType.startsWith('custom_')) {
           const customQuizId = quizType.replace('custom_', '');
+          console.log('Fetching custom quiz with ID:', customQuizId);
           
           const { data, error } = await supabase
             .from('custom_quizzes')
@@ -49,8 +54,10 @@ export default function UniversalQuizPage() {
           
           if (error || !data) {
             console.error('Custom quiz not found:', error);
+            setError('Custom quiz not found');
             setNotFound(true);
           } else {
+            console.log('Custom quiz found:', data);
             setCustomQuiz(data);
             setQuizData({
               id: data.id,
@@ -68,12 +75,14 @@ export default function UniversalQuizPage() {
           }
         } else {
           // Check if it's a standard quiz (case-insensitive)
+          console.log('Searching for standard quiz:', quizType);
           const standardQuiz = Object.values(quizzes).find(
             quiz => quiz.id.toLowerCase() === quizType.toLowerCase()
           );
           
           if (!standardQuiz) {
             console.error('Standard quiz not found for type:', quizType);
+            setError(`Standard quiz '${quizType}' not found`);
             setNotFound(true);
           } else {
             console.log('Found standard quiz:', standardQuiz);
@@ -89,6 +98,7 @@ export default function UniversalQuizPage() {
         }
       } catch (error) {
         console.error('Error loading quiz:', error);
+        setError('Failed to load quiz');
         setNotFound(true);
       } finally {
         setLoading(false);
@@ -115,7 +125,8 @@ export default function UniversalQuizPage() {
         <div className="text-center max-w-md mx-auto p-6">
           <div className="bg-white rounded-lg shadow-lg p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Assessment Not Found</h2>
-            <p className="text-gray-600 mb-6">The requested assessment "{quizType}" could not be found.</p>
+            <p className="text-gray-600 mb-6">{error || `The requested assessment "${quizType}" could not be found.`}</p>
+            <p className="text-sm text-gray-500 mb-4">Quiz Type: {quizType}</p>
             <div className="flex gap-4 justify-center">
               <Button onClick={() => navigate('/')} className="bg-orange-500 hover:bg-orange-600">
                 <Home className="w-4 h-4 mr-2" />

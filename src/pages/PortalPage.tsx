@@ -4,7 +4,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AnimatedSidebar } from '@/components/dashboard/AnimatedSidebar';
 import { QuizManagementPage } from '@/components/dashboard/QuizManagementPage';
-import { AnalyticsPage } from '@/components/dashboard/AnalyticsPage';
 import { TrendsPage } from '@/components/dashboard/TrendsPage';
 import { LeadsPage } from '@/components/dashboard/LeadsPage';
 import { SchedulePage } from '@/components/dashboard/SchedulePage';
@@ -16,7 +15,6 @@ import { toast } from 'sonner';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function PortalPage() {
   const { user, loading, signOut } = useAuth();
@@ -86,20 +84,7 @@ export default function PortalPage() {
       case 'dashboard':
         return <LeadsPage />;
       case 'analytics':
-        return (
-          <Tabs defaultValue="analytics" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="analytics">Analytics</TabsTrigger>
-              <TabsTrigger value="trends">Trends</TabsTrigger>
-            </TabsList>
-            <TabsContent value="analytics" className="mt-6">
-              <AnalyticsPage />
-            </TabsContent>
-            <TabsContent value="trends" className="mt-6">
-              <TrendsPage />
-            </TabsContent>
-          </Tabs>
-        );
+        return <TrendsPage />;
       case 'quizzes':
         return <QuizManagementPage />;
       case 'schedule':
