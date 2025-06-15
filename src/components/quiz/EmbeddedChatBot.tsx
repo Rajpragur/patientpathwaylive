@@ -16,13 +16,21 @@ interface Message {
 
 interface EmbeddedChatBotProps {
   quizType?: string;
+  shareKey?: string;
+  doctorId?: string;
+  quizData?: any;
+  customQuiz?: any;
   onQuizStart?: () => void;
   isOpen?: boolean;
   onToggle?: () => void;
 }
 
-export function EmbeddedChatBot({ 
-  quizType = 'general', 
+export default function EmbeddedChatBot({ 
+  quizType = 'general',
+  shareKey,
+  doctorId,
+  quizData,
+  customQuiz,
   onQuizStart,
   isOpen = false,
   onToggle 
@@ -171,14 +179,16 @@ export function EmbeddedChatBot({
               >
                 {isMinimized ? <Maximize2 className="w-3 h-3" /> : <Minimize2 className="w-3 h-3" />}
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onToggle}
-                className="h-6 w-6 p-0 text-white hover:bg-blue-500"
-              >
-                ✕
-              </Button>
+              {onToggle && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onToggle}
+                  className="h-6 w-6 p-0 text-white hover:bg-blue-500"
+                >
+                  ✕
+                </Button>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -258,3 +268,6 @@ export function EmbeddedChatBot({
     </motion.div>
   );
 }
+
+// Named export for backwards compatibility
+export { EmbeddedChatBot };
