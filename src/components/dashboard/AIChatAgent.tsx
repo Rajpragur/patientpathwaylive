@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Send, Bot, User, Minimize2, Maximize2, Lightbulb } from 'lucide-react';
+import { MessageSquare, Send, Bot, User, Minimize2, Maximize2, Lightbulb, HeadphonesIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Message {
@@ -135,7 +135,7 @@ Provide actionable, professional advice tailored to medical practices. Be concis
       >
         <Button
           onClick={() => setIsOpen(true)}
-          className="rounded-full w-16 h-16 bg-teal-600 hover:bg-teal-700 shadow-lg transition-all duration-300"
+          className="rounded-full w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-xl hover:shadow-2xl transition-all duration-300 border-2 border-white"
         >
           <div className="flex flex-col items-center">
             <Bot className="w-6 h-6 text-white mb-0.5" />
@@ -154,8 +154,8 @@ Provide actionable, professional advice tailored to medical practices. Be concis
       exit={{ scale: 0, opacity: 0 }}
       className="fixed bottom-6 right-6 z-50"
     >
-      <Card className={`w-[480px] shadow-xl border-0 ${isMinimized ? 'h-16' : 'h-[600px]'} transition-all duration-300 overflow-hidden`}>
-        <CardHeader className="p-4 bg-teal-600 text-white">
+      <Card className={`w-96 shadow-2xl border-0 ${isMinimized ? 'h-16' : 'h-[500px]'} transition-all duration-300 overflow-hidden`}>
+        <CardHeader className="p-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 text-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
@@ -164,9 +164,9 @@ Provide actionable, professional advice tailored to medical practices. Be concis
               </div>
               <div>
                 <CardTitle className="text-sm font-semibold">AI Strategy Assistant</CardTitle>
-                <p className="text-xs text-teal-100">Strategy • Support • SOPs</p>
+                <p className="text-xs text-purple-100">SOPs • Strategy • Support</p>
               </div>
-              <Badge variant="secondary" className="text-xs bg-white/20 text-white">
+              <Badge variant="secondary" className="text-xs bg-white/20 text-white border-white/30">
                 <Lightbulb className="w-3 h-3 mr-1" />
                 Online
               </Badge>
@@ -199,9 +199,9 @@ Provide actionable, professional advice tailored to medical practices. Be concis
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="flex flex-col h-[536px]"
+              className="flex flex-col h-[436px]"
             >
-              <CardContent className="p-0 flex flex-col h-full bg-white">
+              <CardContent className="p-0 flex flex-col h-full bg-gradient-to-b from-gray-50 to-white">
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
                   {messages.map((message) => (
                     <div
@@ -211,13 +211,13 @@ Provide actionable, professional advice tailored to medical practices. Be concis
                       <div
                         className={`max-w-[85%] rounded-xl p-3 text-sm shadow-sm ${
                           message.sender === 'user'
-                            ? 'bg-teal-600 text-white'
-                            : 'bg-gray-50 text-gray-800 border border-gray-200'
+                            ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white'
+                            : 'bg-white text-gray-800 border border-gray-200'
                         }`}
                       >
                         <div className="flex items-start gap-2">
                           {message.sender === 'bot' && (
-                            <div className="flex-shrink-0 w-6 h-6 bg-teal-500 rounded-full flex items-center justify-center">
+                            <div className="flex-shrink-0 w-6 h-6 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center">
                               <Bot className="w-3 h-3 text-white" />
                             </div>
                           )}
@@ -228,7 +228,7 @@ Provide actionable, professional advice tailored to medical practices. Be concis
                           )}
                           <div className="flex-1">
                             <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
-                            <div className={`text-xs mt-1 opacity-70 ${message.sender === 'user' ? 'text-teal-100' : 'text-gray-500'}`}>
+                            <div className={`text-xs mt-1 opacity-70 ${message.sender === 'user' ? 'text-purple-100' : 'text-gray-500'}`}>
                               {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </div>
                           </div>
@@ -238,15 +238,15 @@ Provide actionable, professional advice tailored to medical practices. Be concis
                   ))}
                   {isLoading && (
                     <div className="flex justify-start">
-                      <div className="bg-gray-50 rounded-xl p-3 text-sm shadow-sm border border-gray-200">
+                      <div className="bg-white rounded-xl p-3 text-sm shadow-sm border border-gray-200">
                         <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 bg-teal-500 rounded-full flex items-center justify-center">
+                          <div className="w-6 h-6 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center">
                             <Bot className="w-3 h-3 text-white" />
                           </div>
                           <div className="flex space-x-1">
-                            <div className="w-2 h-2 bg-teal-400 rounded-full animate-bounce"></div>
-                            <div className="w-2 h-2 bg-teal-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                            <div className="w-2 h-2 bg-teal-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                            <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
+                            <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                            <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                           </div>
                         </div>
                       </div>
@@ -262,20 +262,21 @@ Provide actionable, professional advice tailored to medical practices. Be concis
                       onChange={(e) => setNewMessage(e.target.value)}
                       onKeyPress={handleKeyPress}
                       placeholder="Ask about strategy, SOPs, or get support..."
-                      className="flex-1 min-h-[44px] max-h-24 resize-none text-sm border-gray-300 focus:border-teal-500 focus:ring-teal-500"
+                      className="flex-1 min-h-[44px] max-h-24 resize-none text-sm border-gray-300 focus:border-purple-500 focus:ring-purple-500"
                       disabled={isLoading}
                     />
                     <Button
                       onClick={handleSendMessage}
                       disabled={!newMessage.trim() || isLoading}
                       size="sm"
-                      className="bg-teal-600 hover:bg-teal-700 h-11 px-4"
+                      className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 h-11 px-4"
                     >
                       <Send className="w-4 h-4" />
                     </Button>
                   </div>
                   <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                    <span>AI Strategy Assistant</span>
+                    <HeadphonesIcon className="w-3 h-3" />
+                    <span>Powered by AI • Strategy & Support</span>
                   </div>
                 </div>
               </CardContent>

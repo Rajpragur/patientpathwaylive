@@ -25,7 +25,7 @@ export function ClockTimeSelector({ selectedTime, onTimeSelect }: ClockTimeSelec
   };
 
   const getValueFromAngle = (angle: number, max: number) => {
-    const normalizedAngle = (angle + 90 + 360) % 360;
+    const normalizedAngle = (angle + 90) % 360;
     return Math.round((normalizedAngle / 360) * max) % max;
   };
 
@@ -67,36 +67,35 @@ export function ClockTimeSelector({ selectedTime, onTimeSelect }: ClockTimeSelec
   const minuteAngle = getAngle(minutes, 60);
 
   return (
-    <div className="flex flex-col gap-6 items-center justify-center w-full">
+    <div className="flex flex-row gap-6 items-center justify-center w-full">
       {/* Manual Time Input */}
-      <div className="flex flex-col items-center space-y-3 w-full">
+      <div className="flex flex-col items-center space-y-3">
         <Label className="text-sm font-medium text-gray-700">Manual Time Entry</Label>
-        <div className="space-y-2 w-full max-w-xs">
+        <div className="space-y-2">
           <Input
             type="time"
             value={manualTime}
             onChange={(e) => handleManualTimeChange(e.target.value)}
-            className="w-full text-center text-lg font-mono border-2 border-teal-200 focus:border-teal-500 rounded-lg"
+            className="w-32 text-center text-lg font-mono border-2 border-blue-200 focus:border-blue-500 rounded-lg"
           />
           <p className="text-xs text-gray-500 text-center">24-hour format</p>
         </div>
       </div>
 
       {/* OR Divider */}
-      <div className="flex items-center justify-center w-full">
-        <div className="flex-1 h-px bg-gray-300"></div>
-        <span className="px-3 text-sm text-gray-500 font-medium">OR</span>
-        <div className="flex-1 h-px bg-gray-300"></div>
+      <div className="flex items-center justify-center">
+        <div className="w-px h-24 bg-gray-300"></div>
+        <span className="absolute bg-white px-2 text-sm text-gray-500 font-medium">OR</span>
       </div>
 
       {/* Clock Interface */}
       <div className="flex flex-col items-center space-y-4">
         <Label className="text-sm font-medium text-gray-700">Interactive Clock</Label>
-        <Card className="shadow-lg border-2 border-teal-100">
+        <Card className="shadow-lg border-2 border-blue-100">
           <CardContent className="p-6">
             <div
               ref={clockRef}
-              className="relative w-48 h-48 rounded-full border-4 border-teal-300 bg-gradient-to-br from-teal-50 to-blue-100 cursor-pointer shadow-inner"
+              className="relative w-48 h-48 rounded-full border-4 border-blue-300 bg-gradient-to-br from-blue-50 to-indigo-100 cursor-pointer shadow-inner"
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
@@ -146,11 +145,11 @@ export function ClockTimeSelector({ selectedTime, onTimeSelect }: ClockTimeSelec
               ))}
 
               {/* Center dot */}
-              <div className="absolute w-3 h-3 bg-teal-600 rounded-full" style={{ left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }} />
+              <div className="absolute w-3 h-3 bg-blue-600 rounded-full" style={{ left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }} />
 
               {/* Hour hand */}
               <div
-                className="absolute w-1 bg-teal-600 rounded-full cursor-grab active:cursor-grabbing shadow-md"
+                className="absolute w-1 bg-blue-600 rounded-full cursor-grab active:cursor-grabbing shadow-md"
                 style={{
                   height: '60px',
                   left: '50%',
@@ -161,7 +160,7 @@ export function ClockTimeSelector({ selectedTime, onTimeSelect }: ClockTimeSelec
                 }}
                 onMouseDown={() => handleMouseDown('hour')}
               >
-                <div className="absolute -top-2 -left-1 w-3 h-3 bg-teal-600 rounded-full"></div>
+                <div className="absolute -top-2 -left-1 w-3 h-3 bg-blue-600 rounded-full"></div>
               </div>
 
               {/* Minute hand */}

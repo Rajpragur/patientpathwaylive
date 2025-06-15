@@ -1,502 +1,584 @@
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { useState } from 'react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Search, 
-  Filter, 
-  Mail, 
-  Phone, 
-  Calendar,
-  User,
-  Clock,
-  Download,
-  Send,
-  MessageSquare,
-  ChevronDown,
-  FileText,
-  Database,
-  FileImage
-} from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { Input } from '@/components/ui/input';
+import { Calendar } from '@/components/ui/calendar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { MoreHorizontal, Mail, MessageSquare, Phone, Calendar as CalendarIcon, User, Eye, CalendarDays, Trash2, Download } from 'lucide-react';
+import { formatDistanceToNow, format } from 'date-fns';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
-
-interface Lead {
-  id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  quiz_type: string;
-  score: number;
-  submitted_at: string;
-  lead_status: string;
-  custom_quiz_id?: string;
-  custom_quiz_title?: string;
-}
+import { supabase } from '@/integrations/supabase/client';
+import { Lead } from '@/types/quiz';
+import { useNavigate } from 'react-router-dom';
+import { TimeSelector } from './TimeSelector';
 
 interface EnhancedLeadsTableProps {
-  onScheduleLead?: (lead: Lead) => void;
+  leads: Lead[];
+  onLeadUpdate?: () => void;
 }
 
-export function EnhancedLeadsTable({ onScheduleLead }: EnhancedLeadsTableProps) {
-  const { user } = useAuth();
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('submitted_at');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTableProps) {
+  const navigate = useNavigate();
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [showCommunicationDialog, setShowCommunicationDialog] = useState(false);
-  const [message, setMessage] = useState('');
   const [communicationType, setCommunicationType] = useState<'email' | 'sms'>('email');
+  const [message, setMessage] = useState('');
+  const [subject, setSubject] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [showCommunicationDialog, setShowCommunicationDialog] = useState(false);
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedTime, setSelectedTime] = useState<string>('09:00');
+  const [isScheduling, setIsScheduling] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'csv' | 'json' | 'pdf'>('csv');
 
-  useEffect(() => {
-    if (user) {
-      fetchLeads();
+  const handleSendCommunication = async () => {
+    if (!selectedLead || !message) {
+      toast.error('Please fill in all required fields');
+      return;
     }
-  }, [user]);
 
-  useEffect(() => {
-    let filtered = leads.filter(lead => {
-      const matchesSearch = lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           lead.phone?.includes(searchTerm);
-      const matchesStatus = statusFilter === 'all' || lead.lead_status === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-
-    // Sort leads
-    filtered.sort((a, b) => {
-      let aValue, bValue;
-      
-      switch (sortBy) {
-        case 'name':
-          aValue = a.name.toLowerCase();
-          bValue = b.name.toLowerCase();
-          break;
-        case 'score':
-          aValue = a.score;
-          bValue = b.score;
-          break;
-        case 'quiz_type':
-          aValue = a.custom_quiz_title || a.quiz_type;
-          bValue = b.custom_quiz_title || b.quiz_type;
-          break;
-        default:
-          aValue = new Date(a.submitted_at).getTime();
-          bValue = new Date(b.submitted_at).getTime();
-      }
-
-      if (sortOrder === 'asc') {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
-    });
-
-    setFilteredLeads(filtered);
-  }, [leads, searchTerm, statusFilter, sortBy, sortOrder]);
-
-  const fetchLeads = async () => {
+    setIsSending(true);
     try {
-      const { data: doctorProfile } = await supabase
-        .from('doctor_profiles')
-        .select('id')
-        .eq('user_id', user?.id)
-        .single();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch('/functions/v1/send-communication', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({
+          leadId: selectedLead.id,
+          type: communicationType,
+          message: communicationType === 'email' ? `Subject: ${subject}\n\n${message}` : message
+        })
+      });
 
-      if (doctorProfile) {
-        const { data: leadsData } = await supabase
-          .from('quiz_leads')
-          .select(`
-            *,
-            custom_quizzes(title)
-          `)
-          .eq('doctor_id', doctorProfile.id)
-          .order('submitted_at', { ascending: false });
-
-        if (leadsData) {
-          const processedLeads = leadsData.map(lead => ({
-            ...lead,
-            custom_quiz_title: lead.custom_quizzes?.title
-          }));
-          setLeads(processedLeads);
-        }
+      const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(result.error);
       }
-    } catch (error) {
-      console.error('Error fetching leads:', error);
-      toast.error('Failed to fetch leads');
+
+      toast.success(`${communicationType === 'email' ? 'Email' : 'SMS'} sent successfully!`);
+      setShowCommunicationDialog(false);
+      setMessage('');
+      setSubject('');
+      onLeadUpdate?.();
+    } catch (error: any) {
+      console.error('Error sending communication:', error);
+      toast.error(`Failed to send ${communicationType}: ${error.message}`);
     } finally {
-      setLoading(false);
+      setIsSending(false);
     }
   };
 
-  const handleExport = async (format: 'csv' | 'json' | 'pdf') => {
+  const updateLeadStatus = async (leadId: string, status: string) => {
     try {
-      const exportData = filteredLeads.map(lead => ({
-        Name: lead.name,
-        Email: lead.email || '',
-        Phone: lead.phone || '',
-        'Quiz Type': lead.custom_quiz_title || lead.quiz_type,
-        Score: lead.score,
-        Status: lead.lead_status,
-        'Submitted At': format(new Date(lead.submitted_at), 'yyyy-MM-dd HH:mm:ss')
-      }));
+      const updateData: any = { lead_status: status };
+      
+      // If changing to NEW status, clear the scheduled_date
+      if (status === 'NEW') {
+        updateData.scheduled_date = null;
+      }
 
-      if (format === 'csv') {
-        const csvHeaders = Object.keys(exportData[0]).join(',');
-        const csvRows = exportData.map(row => Object.values(row).join(','));
-        const csvContent = [csvHeaders, ...csvRows].join('\n');
+      const { error } = await supabase
+        .from('quiz_leads')
+        .update(updateData)
+        .eq('id', leadId);
+
+      if (error) throw error;
+      
+      toast.success('Lead status updated');
+      onLeadUpdate?.();
+      
+      // If status is changed to SCHEDULED, navigate to schedule page
+      if (status === 'SCHEDULED') {
+        navigate('/portal?tab=schedule');
+      }
+    } catch (error: any) {
+      console.error('Error updating lead status:', error);
+      toast.error('Failed to update lead status');
+    }
+  };
+
+  const handleScheduleLead = async () => {
+    if (!selectedDate || !selectedTime || !selectedLead) {
+      toast.error('Please select both date and time');
+      return;
+    }
+
+    setIsScheduling(true);
+    try {
+      // Combine date and time
+      const scheduledDateTime = new Date(selectedDate);
+      const [hours, minutes] = selectedTime.split(':');
+      scheduledDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+      const { error } = await supabase
+        .from('quiz_leads')
+        .update({ 
+          scheduled_date: scheduledDateTime.toISOString(),
+          lead_status: 'SCHEDULED'
+        })
+        .eq('id', selectedLead.id);
+
+      if (error) throw error;
+      
+      toast.success('Lead scheduled successfully!');
+      setShowScheduleDialog(false);
+      setSelectedDate(undefined);
+      setSelectedTime('09:00');
+      setSelectedLead(null);
+      onLeadUpdate?.();
+      
+      // Navigate to schedule page to see the scheduled lead
+      navigate('/portal?tab=schedule');
+    } catch (error: any) {
+      console.error('Error scheduling lead:', error);
+      toast.error('Failed to schedule lead');
+    } finally {
+      setIsScheduling(false);
+    }
+  };
+
+  const handleDeleteLead = async (leadId: string) => {
+    if (!window.confirm('Are you sure you want to delete this lead? This action cannot be undone.')) return;
+    try {
+      const { error } = await supabase
+        .from('quiz_leads')
+        .delete()
+        .eq('id', leadId);
+      if (error) throw error;
+      toast.success('Lead deleted successfully');
+      onLeadUpdate?.();
+    } catch (err) {
+      toast.error('Failed to delete lead');
+      console.error(err);
+    }
+  };
+
+  const handleExportLeads = () => {
+    try {
+      const currentDate = new Date().toISOString().split('T')[0];
+      
+      if (exportFormat === 'csv') {
+        const csvContent = [
+          ['Name', 'Email', 'Phone', 'Quiz Type', 'Score', 'Status', 'Source', 'Date'].join(','),
+          ...leads.map(lead => [
+            `"${lead.name}"`,
+            `"${lead.email || ''}"`,
+            `"${lead.phone || ''}"`,
+            `"${getQuizDisplayName(lead)}"`,
+            lead.score,
+            `"${lead.lead_status}"`,
+            `"${lead.lead_source || ''}"`,
+            `"${new Date(lead.submitted_at).toLocaleDateString()}"`
+          ].join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `leads-export-${currentDate}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      } else if (exportFormat === 'json') {
+        const jsonData = leads.map(lead => ({
+          name: lead.name,
+          email: lead.email || '',
+          phone: lead.phone || '',
+          quiz_type: getQuizDisplayName(lead),
+          score: lead.score,
+          status: lead.lead_status,
+          source: lead.lead_source || '',
+          date: new Date(lead.submitted_at).toISOString(),
+          scheduled_date: lead.scheduled_date || null
+        }));
         
-        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
         const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `leads_export_${new Date().toISOString().split('T')[0]}.csv`;
-        link.click();
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `leads-export-${currentDate}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
-      } else if (format === 'json') {
-        const jsonContent = JSON.stringify(exportData, null, 2);
-        const blob = new Blob([jsonContent], { type: 'application/json' });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `leads_export_${new Date().toISOString().split('T')[0]}.json`;
-        link.click();
-        window.URL.revokeObjectURL(url);
-      } else if (format === 'pdf') {
-        // For PDF, we'll create a simple HTML table and print it
+      } else if (exportFormat === 'pdf') {
+        // For PDF, we'll create an HTML table and open it in a new window for printing
         const htmlContent = `
+          <!DOCTYPE html>
           <html>
-            <head>
-              <title>Leads Export</title>
-              <style>
-                table { border-collapse: collapse; width: 100%; }
-                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                th { background-color: #f2f2f2; }
-              </style>
-            </head>
-            <body>
-              <h2>Leads Export - ${new Date().toLocaleDateString()}</h2>
-              <table>
-                <thead>
+          <head>
+            <title>Leads Export - ${currentDate}</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+              th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+              th { background-color: #f2f2f2; font-weight: bold; }
+              .header { text-align: center; margin-bottom: 20px; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>Leads Export</h1>
+              <p>Generated on: ${new Date().toLocaleDateString()}</p>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Quiz Type</th>
+                  <th>Score</th>
+                  <th>Status</th>
+                  <th>Source</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${leads.map(lead => `
                   <tr>
-                    ${Object.keys(exportData[0]).map(key => `<th>${key}</th>`).join('')}
+                    <td>${lead.name}</td>
+                    <td>${lead.email || ''}</td>
+                    <td>${lead.phone || ''}</td>
+                    <td>${getQuizDisplayName(lead)}</td>
+                    <td>${lead.score}</td>
+                    <td>${lead.lead_status}</td>
+                    <td>${lead.lead_source || ''}</td>
+                    <td>${new Date(lead.submitted_at).toLocaleDateString()}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  ${exportData.map(row => `
-                    <tr>
-                      ${Object.values(row).map(value => `<td>${value}</td>`).join('')}
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </body>
+                `).join('')}
+              </tbody>
+            </table>
+            <script>window.print();</script>
+          </body>
           </html>
         `;
         
-        const printWindow = window.open('', '_blank');
-        printWindow?.document.write(htmlContent);
-        printWindow?.document.close();
-        printWindow?.print();
+        const newWindow = window.open('', '_blank');
+        if (newWindow) {
+          newWindow.document.write(htmlContent);
+          newWindow.document.close();
+        }
       }
-
-      toast.success(`Leads exported as ${format.toUpperCase()}`);
+      
+      toast.success(`Leads exported as ${exportFormat.toUpperCase()} successfully!`);
+      setShowExportDialog(false);
     } catch (error) {
       console.error('Export error:', error);
       toast.error('Failed to export leads');
     }
   };
 
-  const handleSendCommunication = async () => {
-    if (!selectedLead || !message.trim()) return;
-
-    try {
-      const { error } = await supabase.functions.invoke('send-communication', {
-        body: {
-          leadId: selectedLead.id,
-          type: communicationType,
-          message: message.trim(),
-          email: selectedLead.email,
-          phone: selectedLead.phone
-        }
-      });
-
-      if (error) throw error;
-
-      toast.success(`${communicationType === 'email' ? 'Email' : 'SMS'} sent successfully`);
-      setShowCommunicationDialog(false);
-      setMessage('');
-      setSelectedLead(null);
-    } catch (error) {
-      console.error('Communication error:', error);
-      toast.error(`Failed to send ${communicationType}`);
-    }
-  };
-
   const getQuizDisplayName = (lead: Lead) => {
-    return lead.custom_quiz_title || lead.quiz_type;
-  };
-
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case 'NEW': return 'bg-blue-100 text-blue-800';
-      case 'CONTACTED': return 'bg-yellow-100 text-yellow-800';
-      case 'SCHEDULED': return 'bg-green-100 text-green-800';
-      case 'CLOSED': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+    // If it's a custom quiz, try to get the title from quiz_title field
+    if (lead.custom_quiz_id && lead.quiz_title) {
+      return lead.quiz_title;
     }
+    // If quiz_title exists, use it
+    if (lead.quiz_title) {
+      return lead.quiz_title;
+    }
+    // Fallback to quiz_type
+    return lead.quiz_type || 'Unknown Quiz';
   };
 
-  if (loading) {
-    return <div className="p-6">Loading leads...</div>;
-  }
+  const getSeverityColor = (score: number, maxScore: number = 110) => {
+    const percentage = (score / maxScore) * 100;
+    if (percentage <= 25) return 'bg-green-100 text-green-800';
+    if (percentage <= 50) return 'bg-yellow-100 text-yellow-800';
+    if (percentage <= 75) return 'bg-orange-100 text-orange-800';
+    return 'bg-red-100 text-red-800';
+  };
+
+  const getSeverityLabel = (score: number, maxScore: number = 110) => {
+    const percentage = (score / maxScore) * 100;
+    if (percentage <= 25) return 'Mild';
+    if (percentage <= 50) return 'Moderate';
+    if (percentage <= 75) return 'Severe';
+    return 'Critical';
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header with Export Options */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Lead Management</h2>
-          <p className="text-gray-600">Manage and track your patient leads</p>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <Select onValueChange={(value) => handleExport(value as 'csv' | 'json' | 'pdf')}>
-            <SelectTrigger className="w-[140px]">
-              <Download className="w-4 h-4 mr-2" />
-              <SelectValue placeholder="Export" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="csv">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4" />
-                  CSV
-                </div>
-              </SelectItem>
-              <SelectItem value="json">
-                <div className="flex items-center gap-2">
-                  <Database className="w-4 h-4" />
-                  JSON
-                </div>
-              </SelectItem>
-              <SelectItem value="pdf">
-                <div className="flex items-center gap-2">
-                  <FileImage className="w-4 h-4" />
-                  PDF
-                </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+    <>
+      <div className="mb-4 flex justify-end">
+        <Button 
+          onClick={() => setShowExportDialog(true)} 
+          className="bg-green-600 hover:bg-green-700"
+        >
+          <Download className="w-4 h-4 mr-2" />
+          Export Leads
+        </Button>
       </div>
 
-      {/* Filters and Search */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  placeholder="Search by name, email, or phone..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Patient</TableHead>
+            <TableHead>Contact Information</TableHead>
+            <TableHead>Quiz Type</TableHead>
+            <TableHead>Score</TableHead>
+            <TableHead>Source</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Date</TableHead>
+            <TableHead>Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {leads.map((lead) => (
+            <TableRow key={lead.id}>
+              <TableCell>
+                <div>
+                  <div className="font-medium">{lead.name}</div>
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="text-sm text-gray-1000">
+                  {lead.email && <div>{lead.email}</div>}
+                  {lead.phone && <div>{lead.phone}</div>}
+                </div>
+              </TableCell>
+              <TableCell>
+                <Badge variant="outline">
+                  {getQuizDisplayName(lead)}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <Badge className={getSeverityColor(lead.score)}>
+                  {lead.score} - {getSeverityLabel(lead.score)}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <div className="text-sm">
+                  <div>{lead.lead_source}</div>
+                  {lead.incident_source && lead.incident_source !== 'default' && (
+                    <div className="text-gray-500">via {lead.incident_source}</div>
+                  )}
+                </div>
+              </TableCell>
+              <TableCell>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      {lead.lead_status || 'NEW'}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => updateLeadStatus(lead.id, 'NEW')}>
+                      New
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => updateLeadStatus(lead.id, 'CONTACTED')}>
+                      Contacted
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => updateLeadStatus(lead.id, 'SCHEDULED')}>
+                      Scheduled
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableCell>
+              <TableCell>
+                <div>
+                  {formatDistanceToNow(new Date(lead.submitted_at), { addSuffix: true })}
+                  {lead.scheduled_date && lead.lead_status === 'SCHEDULED' && (
+                    <div className="text-xs text-gray-500">
+                      Scheduled: {format(new Date(lead.scheduled_date), 'MMM dd, HH:mm')}
+                    </div>
+                  )}
+                </div>
+              </TableCell>
+              <TableCell>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <MoreHorizontal className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        const emailSubject = `Regarding your ${getQuizDisplayName(lead)} Assessment`;
+                        const emailBody = `Hello, ${lead.name}!\n\nI hope this message finds you well. I wanted to follow up regarding your recent ${getQuizDisplayName(lead)} assessment.\n\n`;
+                        window.open(`mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`, '_blank', '');
+                      }}
+                    >
+                      <Mail className="w-4 h-4 mr-2" />
+                      Send Email
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        const messageBody = `Hello, ${lead.name}!\n\nI hope this message finds you well. I wanted to follow up regarding your recent ${getQuizDisplayName(lead)} assessment.\n\n`;
+                        window.open(`sms:?body=${encodeURIComponent(messageBody)}`, '_blank', '');
+                      }}
+                      disabled={!lead.phone}
+                    >
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      Send SMS
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setSelectedLead(lead);
+                        // If lead already has a scheduled date, pre-populate the form
+                        if (lead.scheduled_date) {
+                          const existingDate = new Date(lead.scheduled_date);
+                          setSelectedDate(existingDate);
+                          setSelectedTime(format(existingDate, 'HH:mm'));
+                        } else {
+                          setSelectedDate(undefined);
+                          setSelectedTime('09:00');
+                        }
+                        setShowScheduleDialog(true);
+                      }}
+                    >
+                      <CalendarDays className="w-4 h-4 mr-2" />
+                      Schedule Date
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        window.open(`tel:${lead.phone}`, '_blank');
+                      }}
+                    >
+                      <Phone className="w-4 h-4 mr-2" />
+                      Call
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleDeleteLead(lead.id)}
+                      className="text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete Lead
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
+      {/* Export Dialog */}
+      <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Export Leads</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Select Export Format:</label>
+              <Select value={exportFormat} onValueChange={(value: 'csv' | 'json' | 'pdf') => setExportFormat(value)}>
+                <SelectTrigger className="mt-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="csv">CSV (Excel Compatible)</SelectItem>
+                  <SelectItem value="json">JSON (Data Format)</SelectItem>
+                  <SelectItem value="pdf">PDF (Print Ready)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[150px]">
-                <Filter className="w-4 h-4 mr-2" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="NEW">New</SelectItem>
-                <SelectItem value="CONTACTED">Contacted</SelectItem>
-                <SelectItem value="SCHEDULED">Scheduled</SelectItem>
-                <SelectItem value="CLOSED">Closed</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="submitted_at">Date</SelectItem>
-                <SelectItem value="name">Name</SelectItem>
-                <SelectItem value="score">Score</SelectItem>
-                <SelectItem value="quiz_type">Quiz Type</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-            >
-              {sortOrder === 'asc' ? '↑' : '↓'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Leads Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Leads ({filteredLeads.length})</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="text-left p-4 font-medium text-gray-700">Patient</th>
-                  <th className="text-left p-4 font-medium text-gray-700">Assessment</th>
-                  <th className="text-left p-4 font-medium text-gray-700">Score</th>
-                  <th className="text-left p-4 font-medium text-gray-700">Status</th>
-                  <th className="text-left p-4 font-medium text-gray-700">Date</th>
-                  <th className="text-left p-4 font-medium text-gray-700">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredLeads.map((lead) => (
-                  <tr key={lead.id} className="border-b hover:bg-gray-50">
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <User className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{lead.name}</p>
-                          <div className="text-sm text-gray-500 space-y-1">
-                            {lead.email && (
-                              <div className="flex items-center gap-1">
-                                <Mail className="w-3 h-3" />
-                                {lead.email}
-                              </div>
-                            )}
-                            {lead.phone && (
-                              <div className="flex items-center gap-1">
-                                <Phone className="w-3 h-3" />
-                                {lead.phone}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <span className="text-sm font-medium text-gray-900">
-                        {getQuizDisplayName(lead)}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                        {lead.score}
-                      </Badge>
-                    </td>
-                    <td className="p-4">
-                      <Badge className={getStatusBadgeColor(lead.lead_status)}>
-                        {lead.lead_status}
-                      </Badge>
-                    </td>
-                    <td className="p-4 text-sm text-gray-600">
-                      {format(new Date(lead.submitted_at), 'MMM dd, yyyy')}
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedLead(lead);
-                            setShowCommunicationDialog(true);
-                          }}
-                        >
-                          <MessageSquare className="w-3 h-3 mr-1" />
-                          Contact
-                        </Button>
-                        {onScheduleLead && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => onScheduleLead(lead)}
-                          >
-                            <Calendar className="w-3 h-3 mr-1" />
-                            Schedule
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          
-          {filteredLeads.length === 0 && (
-            <div className="text-center py-12">
-              <User className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">No leads found</p>
+            <div className="flex gap-2">
+              <Button onClick={handleExportLeads} className="flex-1">
+                Export as {exportFormat.toUpperCase()}
+              </Button>
+              <Button variant="outline" onClick={() => setShowExportDialog(false)}>
+                Cancel
+              </Button>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Communication Dialog */}
       <Dialog open={showCommunicationDialog} onOpenChange={setShowCommunicationDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Contact {selectedLead?.name}</DialogTitle>
+            <DialogTitle>
+              Send {communicationType === 'email' ? 'Email' : 'SMS'} to {selectedLead?.name}
+            </DialogTitle>
           </DialogHeader>
-          <Tabs value={communicationType} onValueChange={(value) => setCommunicationType(value as 'email' | 'sms')}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="email">Email</TabsTrigger>
-              <TabsTrigger value="sms">SMS</TabsTrigger>
-            </TabsList>
-            <TabsContent value="email" className="space-y-4">
-              <Textarea
-                placeholder="Enter your email message..."
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                rows={6}
+          <div className="space-y-4">
+            {communicationType === 'email' && (
+              <Input
+                placeholder="Email Subject"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
               />
-            </TabsContent>
-            <TabsContent value="sms" className="space-y-4">
-              <Textarea
-                placeholder="Enter your SMS message..."
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                rows={4}
+            )}
+            <Textarea
+              placeholder={`Enter your ${communicationType === 'email' ? 'email' : 'SMS'} message...`}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              rows={6}
+            />
+            <div className="flex gap-2">
+              <Button onClick={handleSendCommunication} disabled={isSending}>
+                {isSending ? 'Sending...' : `Send ${communicationType === 'email' ? 'Email' : 'SMS'}`}
+              </Button>
+              <Button variant="outline" onClick={() => setShowCommunicationDialog(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule Dialog with Horizontal Layout */}
+      <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>
+              Schedule appointment for {selectedLead?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex gap-8 items-start">
+            {/* Calendar Section */}
+            <div className="flex-1">
+              <h3 className="font-medium mb-3">Select Date</h3>
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => setSelectedDate(date as Date)}
+                className="rounded-md border p-3 pointer-events-auto w-full"
+                disabled={(date) => date < new Date()}
               />
-            </TabsContent>
-          </Tabs>
-          <div className="flex gap-2">
-            <Button onClick={handleSendCommunication} disabled={!message.trim()}>
-              <Send className="w-4 h-4 mr-2" />
-              Send {communicationType === 'email' ? 'Email' : 'SMS'}
+            </div>
+            
+            {/* Time Selector Section */}
+            <div className="flex-1">
+              <h3 className="font-medium mb-3">Select Time</h3>
+              <TimeSelector
+                selectedTime={selectedTime}
+                onTimeSelect={setSelectedTime}
+              />
+            </div>
+          </div>
+          
+          <div className="flex gap-2 mt-6">
+            <Button onClick={handleScheduleLead} disabled={!selectedDate || !selectedTime || isScheduling}>
+              {isScheduling ? 'Scheduling...' : 'Schedule Appointment'}
             </Button>
-            <Button variant="outline" onClick={() => setShowCommunicationDialog(false)}>
+            <Button variant="outline" onClick={() => {
+              setShowScheduleDialog(false);
+              setSelectedDate(undefined);
+              setSelectedTime('09:00');
+              setSelectedLead(null);
+            }}>
               Cancel
             </Button>
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
