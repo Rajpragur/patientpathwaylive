@@ -14,6 +14,7 @@ import UniversalQuizPage from './pages/UniversalQuizPage';
 import EmailVerificationPage from './pages/EmailVerificationPage';
 import NotFound from './pages/NotFound';
 import { EmbeddedQuiz } from './routes/EmbeddedQuiz';
+import { ShareQuizPage } from './components/dashboard/ShareQuizPage';
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,8 @@ const App = () => {
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<AuthPage />} />
                 <Route path="/portal" element={<PortalPage />} />
+                <Route path="/portal/share/:quizType" element={<ShareQuizPage />} />
+                <Route path="/portal/share/custom/:customQuizId" element={<ShareQuizPage />} />
                 <Route path="/custom-quiz/:customQuizId" element={<CustomQuizPage />} />
                 <Route path="/quiz/:quizType" element={<UniversalQuizPage />} />
                 <Route path="/embedded/:quizType" element={<EmbeddedQuiz />} />
