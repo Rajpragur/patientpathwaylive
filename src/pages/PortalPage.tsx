@@ -85,6 +85,8 @@ export default function PortalPage() {
         return <LeadsPage />;
       case 'analytics':
         return <TrendsPage />;
+      case 'trends':
+        return <TrendsPage />;
       case 'quizzes':
         return <QuizManagementPage />;
       case 'schedule':
@@ -126,7 +128,7 @@ export default function PortalPage() {
                 <div className="border-b border-gray-100 bg-white px-6 py-4">
                   <h1 className="text-xl font-bold" style={{ color: teal }}>
                     {currentPage === 'dashboard' && 'Dashboard'}
-                    {currentPage === 'analytics' && 'Analytics & Trends'}
+                    {(currentPage === 'analytics' || currentPage === 'trends') && 'Analytics & Trends'}
                     {currentPage === 'quizzes' && 'Assessments'}
                     {currentPage === 'schedule' && 'Schedule'}
                     {currentPage === 'profile' && 'Profile'}
@@ -135,7 +137,7 @@ export default function PortalPage() {
                   </h1>
                   <p className="text-sm text-gray-500 mt-1">
                     {currentPage === 'dashboard' && 'Overview of your leads and recent activity'}
-                    {currentPage === 'analytics' && 'Performance metrics, insights, and data trends'}
+                    {(currentPage === 'analytics' || currentPage === 'trends') && 'Performance metrics, insights, and data trends'}
                     {currentPage === 'quizzes' && 'Manage your assessments and quizzes'}
                     {currentPage === 'schedule' && 'View and manage your appointments'}
                     {currentPage === 'profile' && 'Manage your account information'}

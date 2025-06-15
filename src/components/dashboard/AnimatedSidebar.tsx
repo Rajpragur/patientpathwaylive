@@ -1,9 +1,9 @@
+
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Home,
   BarChart,
-  TrendingUp,
   ListChecks,
   Settings,
   HelpCircle,
@@ -36,12 +36,6 @@ const mainMenuItems = [
     label: 'Analytics',
     icon: <BarChart size={22} />,
     description: 'Performance metrics'
-  },
-  {
-    id: 'trends',
-    label: 'Trends',
-    icon: <TrendingUp size={22} />,
-    description: 'Data insights'
   },
   {
     id: 'quizzes',
