@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,58 +32,6 @@ import { quizzes } from '@/data/quizzes';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
-// Quiz descriptions and messages
-const quizMessages = {
-  snot22: {
-    title: "SNOT-22 Assessment",
-    description: "A comprehensive evaluation tool for chronic rhinosinusitis symptoms",
-    shareMessage: "Take this comprehensive assessment to evaluate your sinus symptoms and quality of life. The SNOT-22 is the gold standard for measuring chronic rhinosinusitis impact.",
-    linkedinMessage: "Share this validated assessment tool with your patients to better understand their sinus symptoms and quality of life. The SNOT-22 is widely used by ENT specialists worldwide."
-  },
-  snot12: {
-    title: "SNOT-12 Assessment",
-    description: "A streamlined version of the SNOT-22 for quick symptom evaluation",
-    shareMessage: "Take this quick assessment to evaluate your sinus symptoms. The SNOT-12 provides a rapid yet accurate evaluation of nasal and sinus symptoms.",
-    linkedinMessage: "Share this efficient assessment tool with your patients. The SNOT-12 offers a quick yet accurate evaluation of nasal and sinus symptoms, perfect for routine check-ups."
-  },
-  nose: {
-    title: "NOSE Scale Assessment",
-    description: "Evaluate nasal breathing difficulties and their impact",
-    shareMessage: "Take this assessment to evaluate your nasal breathing difficulties. The NOSE scale helps quantify the severity of nasal obstruction and its impact on daily activities.",
-    linkedinMessage: "Share this validated tool with your patients to assess nasal breathing difficulties. The NOSE scale is essential for evaluating treatment effectiveness and surgical outcomes."
-  },
-  hhia: {
-    title: "Hearing Handicap Inventory for Adults",
-    description: "Evaluate the psychosocial impact of hearing loss",
-    shareMessage: "Take this assessment to understand how hearing loss affects your daily life. The HHIA helps evaluate the emotional and social impact of hearing difficulties.",
-    linkedinMessage: "Share this comprehensive assessment with your patients to understand the psychosocial impact of hearing loss. The HHIA is essential for developing targeted treatment plans."
-  },
-  epworth: {
-    title: "Epworth Sleepiness Scale",
-    description: "Measure daytime sleepiness and identify potential sleep disorders",
-    shareMessage: "Take this assessment to evaluate your daytime sleepiness. The Epworth Sleepiness Scale helps identify potential sleep disorders and their impact on daily life.",
-    linkedinMessage: "Share this widely-used assessment with your patients to evaluate daytime sleepiness. The Epworth Scale is crucial for diagnosing sleep disorders and monitoring treatment progress."
-  },
-  dhi: {
-    title: "Dizziness Handicap Inventory",
-    description: "Evaluate the impact of dizziness and balance problems",
-    shareMessage: "Take this assessment to understand how dizziness affects your daily life. The DHI helps evaluate the physical, emotional, and functional impact of balance problems.",
-    linkedinMessage: "Share this validated assessment with your patients to evaluate dizziness and balance problems. The DHI is essential for developing comprehensive treatment plans."
-  },
-  stopbang: {
-    title: "STOP-Bang Assessment",
-    description: "Screen for obstructive sleep apnea risk factors",
-    shareMessage: "Take this assessment to evaluate your risk for sleep apnea. The STOP-Bang questionnaire helps identify key risk factors for obstructive sleep apnea.",
-    linkedinMessage: "Share this screening tool with your patients to assess sleep apnea risk. The STOP-Bang questionnaire is essential for early detection of sleep-related breathing disorders."
-  },
-  tnss: {
-    title: "Total Nasal Symptom Score",
-    description: "Evaluate the severity of nasal symptoms",
-    shareMessage: "Take this assessment to evaluate your nasal symptoms. The TNSS helps track the severity of congestion, rhinorrhea, sneezing, and nasal itching.",
-    linkedinMessage: "Share this focused assessment with your patients to evaluate nasal symptoms. The TNSS is perfect for tracking symptom changes and treatment effectiveness."
-  }
-};
-
 export function ShareQuizPage() {
   const { quizType, customQuizId } = useParams<{ quizType?: string; customQuizId?: string }>();
   const [searchParams] = useSearchParams();
@@ -93,15 +42,12 @@ export function ShareQuizPage() {
   const [activeTab, setActiveTab] = useState('full-page');
   const [copied, setCopied] = useState(false);
   const [doctorProfile, setDoctorProfile] = useState<any>(null);
+  const [webSource, setWebSource] = useState('website');
   const baseUrl = window.location.origin;
-  const source = searchParams.get('source') || 'direct';
-  const campaign = searchParams.get('campaign') || 'default';
-  const medium = searchParams.get('medium') || 'none';
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // First, get the doctor profile to ensure we have the doctor_id
         if (user) {
           const { data: profile, error: profileError } = await supabase
             .from('doctor_profiles')
@@ -116,7 +62,6 @@ export function ShareQuizPage() {
           }
         }
 
-        // Then fetch custom quiz if needed
         if (customQuizId) {
           const { data, error } = await supabase
             .from('custom_quizzes')
@@ -138,27 +83,43 @@ export function ShareQuizPage() {
     fetchData();
   }, [customQuizId, user]);
 
-  // Generate the appropriate URL with tracking parameters and doctor ID
-  const getQuizUrl = () => {
+  const getQuizUrl = (source?: string) => {
     const baseQuizUrl = customQuizId 
-      ? `${baseUrl}/quiz/custom/${customQuizId}`
+      ? `${baseUrl}/custom-quiz/${customQuizId}`
       : `${baseUrl}/quiz/${quizType?.toLowerCase()}`;
     
-    const trackingParams = new URLSearchParams({
-      source,
-      campaign,
-      medium,
-      utm_source: source,
-      utm_campaign: campaign,
-      utm_medium: medium
-    });
-
+    const trackingParams = new URLSearchParams();
+    
     // Add doctor ID if available
     if (doctorProfile?.id) {
       trackingParams.set('doctor', doctorProfile.id);
     }
 
+    // Add source tracking
+    const sourceParam = source || webSource;
+    trackingParams.set('source', sourceParam);
+    trackingParams.set('utm_source', sourceParam);
+    trackingParams.set('utm_medium', getSourceMedium(sourceParam));
+    trackingParams.set('utm_campaign', 'quiz_share');
+
     return `${baseQuizUrl}?${trackingParams.toString()}`;
+  };
+
+  const getSourceMedium = (source: string) => {
+    switch (source) {
+      case 'facebook':
+      case 'linkedin':
+      case 'twitter':
+        return 'social';
+      case 'email':
+        return 'email';
+      case 'text':
+        return 'sms';
+      case 'website':
+        return 'web';
+      default:
+        return 'referral';
+    }
   };
 
   const quizUrl = getQuizUrl();
@@ -212,7 +173,7 @@ export function ShareQuizPage() {
 
   const handleShare = (platform: string) => {
     const quizInfo = getQuizInfo();
-    const shareUrl = encodeURIComponent(quizUrl);
+    const shareUrl = encodeURIComponent(getQuizUrl(platform));
     const shareTitle = encodeURIComponent(quizInfo.title);
     const shareText = encodeURIComponent(quizInfo.shareMessage);
     const linkedinText = encodeURIComponent(quizInfo.linkedinMessage);
@@ -232,12 +193,12 @@ export function ShareQuizPage() {
         break;
       case 'email':
         const emailSubject = `Take the ${quizInfo.title}`;
-        const emailBody = `${quizInfo.shareMessage}\n\nTake the assessment here: ${quizUrl}`;
+        const emailBody = `${quizInfo.shareMessage}\n\nTake the assessment here: ${getQuizUrl('email')}`;
         shareLink = `mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
         windowFeatures = '';
         break;
       case 'text':
-        const messageBody = `${quizInfo.shareMessage}\n\nTake the assessment here: ${quizUrl}`;
+        const messageBody = `${quizInfo.shareMessage}\n\nTake the assessment here: ${getQuizUrl('text')}`;
         shareLink = `sms:?body=${encodeURIComponent(messageBody)}`;
         windowFeatures = '';
         break;
@@ -251,26 +212,8 @@ export function ShareQuizPage() {
   };
 
   const generateQRCode = () => {
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(quizUrl)}`;
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(getQuizUrl('qr_code'))}`;
     window.open(qrCodeUrl, '_blank', 'width=400,height=400');
-  };
-
-  const downloadPDF = () => {
-    const { jsPDF } = window as any;
-    const doc = new jsPDF();
-    const quizInfo = getQuizInfo();
-    
-    doc.setFontSize(20);
-    doc.text(quizInfo.title, 20, 20);
-    
-    doc.setFontSize(12);
-    doc.text(quizInfo.description, 20, 40);
-    doc.text(`URL: ${quizUrl}`, 20, 60);
-    
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(quizUrl)}`;
-    doc.addImage(qrCodeUrl, 'PNG', 20, 80, 50, 50);
-    
-    doc.save(`${quizInfo.title}-assessment.pdf`);
   };
 
   if (loading) {
@@ -284,7 +227,6 @@ export function ShareQuizPage() {
     );
   }
 
-  // Check if quiz exists
   const quizExists = customQuizId ? customQuiz : Object.values(quizzes).find(
     quiz => quiz.id.toLowerCase() === quizType?.toLowerCase()
   );
@@ -310,7 +252,6 @@ export function ShareQuizPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
@@ -340,7 +281,6 @@ export function ShareQuizPage() {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-8">
         <Tabs defaultValue="full-page" className="space-y-6">
           <TabsList className="grid w-full grid-cols-2">
@@ -357,95 +297,115 @@ export function ShareQuizPage() {
           <TabsContent value="full-page" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Full Page Link</CardTitle>
+                <CardTitle>Share Assessment with Source Tracking</CardTitle>
                 <CardDescription>
-                  Share this link to allow patients to take the assessment on a dedicated page
+                  Share this link to track where your leads come from
                   {doctorProfile && (
                     <span className="block text-sm text-green-600 mt-1">
-                      ✓ Doctor ID ({doctorProfile.id}) is included in the URL
+                      ✓ Doctor ID ({doctorProfile.id}) is included in all URLs
                     </span>
                   )}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="flex gap-2">
-                  <Input
-                    value={quizUrl} 
-                    readOnly
-                    className="flex-1 font-mono text-sm"
-                  />
-                  <Button
-                    onClick={() => handleCopy(quizUrl, 'Link copied to clipboard!')}
-                    className="min-w-[100px]"
-                  >
-                    {copied ? (
-                      <>
-                        <CheckCircle2 className="w-4 h-4 mr-2" />
-                        Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4 mr-2" />
-                        Copy
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => window.open(quizUrl, '_blank')}
-                  >
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    Preview
-                  </Button>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Web Source (for direct links)
+                    </label>
+                    <select 
+                      value={webSource} 
+                      onChange={(e) => setWebSource(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-md"
+                    >
+                      <option value="website">Website</option>
+                      <option value="blog">Blog</option>
+                      <option value="newsletter">Newsletter</option>
+                      <option value="print">Print Materials</option>
+                      <option value="direct">Direct Link</option>
+                    </select>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Input
+                      value={quizUrl} 
+                      readOnly
+                      className="flex-1 font-mono text-sm"
+                    />
+                    <Button
+                      onClick={() => handleCopy(quizUrl, 'Link copied to clipboard!')}
+                      className="min-w-[100px]"
+                    >
+                      {copied ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4 mr-2" />
+                          Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 mr-2" />
+                          Copy
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => window.open(quizUrl, '_blank')}
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Preview
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">Share Options</CardTitle>
+                      <CardTitle className="text-lg">Social Media Sharing</CardTitle>
+                      <CardDescription>Each platform gets tracked separately</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
+                        <Button
+                          variant="outline"
                           onClick={() => handleShare('facebook')}
                           className="hover:bg-blue-50 hover:text-blue-600"
-              >
+                        >
                           <Facebook className="w-4 h-4 mr-2" />
-                Facebook
-              </Button>
-              <Button 
-                variant="outline" 
+                          Facebook
+                        </Button>
+                        <Button 
+                          variant="outline" 
                           onClick={() => handleShare('linkedin')}
                           className="hover:bg-blue-50 hover:text-blue-600"
-              >
+                        >
                           <Linkedin className="w-4 h-4 mr-2" />
                           LinkedIn
-              </Button>
-              <Button 
-                variant="outline" 
+                        </Button>
+                        <Button 
+                          variant="outline" 
                           onClick={() => handleShare('twitter')}
                           className="hover:bg-blue-50 hover:text-blue-600"
-              >
+                        >
                           <Twitter className="w-4 h-4 mr-2" />
                           Twitter
-              </Button>
-              <Button 
-                variant="outline" 
+                        </Button>
+                        <Button 
+                          variant="outline" 
                           onClick={() => handleShare('email')}
                           className="hover:bg-blue-50 hover:text-blue-600"
-              >
+                        >
                           <Mail className="w-4 h-4 mr-2" />
-                Email
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+                          Email
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
 
                   <Card>
-          <CardHeader>
+                    <CardHeader>
                       <CardTitle className="text-lg">Additional Options</CardTitle>
-          </CardHeader>
+                    </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-2 gap-2">
                         <Button 
@@ -454,7 +414,7 @@ export function ShareQuizPage() {
                           className="hover:bg-blue-50 hover:text-blue-600"
                         >
                           <Smartphone className="w-4 h-4 mr-2" />
-                          Text
+                          Text/SMS
                         </Button>
                         <Button 
                           variant="outline" 
@@ -466,24 +426,24 @@ export function ShareQuizPage() {
                         </Button>
                         <Button 
                           variant="outline" 
-                          onClick={downloadPDF}
-                          className="hover:bg-blue-50 hover:text-blue-600"
-                        >
-                          <FileText className="w-4 h-4 mr-2" />
-                          PDF
-                        </Button>
-            <Button 
-                          variant="outline" 
                           onClick={() => window.print()}
                           className="hover:bg-blue-50 hover:text-blue-600"
-            >
+                        >
                           <Printer className="w-4 h-4 mr-2" />
-                          Print
-            </Button>
+                          Print Page
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => handleCopy(getQuizUrl('manual_share'), 'Manual share link copied!')}
+                          className="hover:bg-blue-50 hover:text-blue-600"
+                        >
+                          <Link2 className="w-4 h-4 mr-2" />
+                          Copy Link
+                        </Button>
                       </div>
-          </CardContent>
-        </Card>
-      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -493,7 +453,7 @@ export function ShareQuizPage() {
               <CardHeader>
                 <CardTitle>Embed Code</CardTitle>
                 <CardDescription>
-                  Add this assessment directly to your website using the embed code below
+                  Add this assessment directly to your website
                   {doctorProfile && (
                     <span className="block text-sm text-green-600 mt-1">
                       ✓ Doctor ID ({doctorProfile.id}) is included in the embed URL
@@ -538,7 +498,7 @@ export function ShareQuizPage() {
                           className="w-full h-full rounded-lg"
                           title={`${quizInfo.title} Preview`}
                         />
-                    </div>
+                      </div>
                     </CardContent>
                   </Card>
 
@@ -550,20 +510,20 @@ export function ShareQuizPage() {
                       <div className="space-y-2">
                         <h4 className="font-medium">1. Copy the embed code</h4>
                         <p className="text-sm text-gray-600">Click the copy button above to copy the embed code to your clipboard.</p>
-                  </div>
+                      </div>
                       <div className="space-y-2">
                         <h4 className="font-medium">2. Paste into your website</h4>
                         <p className="text-sm text-gray-600">Paste the code into your website's HTML where you want the assessment to appear.</p>
-                </div>
+                      </div>
                       <div className="space-y-2">
-                        <h4 className="font-medium">3. Customize (Optional)</h4>
-                        <p className="text-sm text-gray-600">Adjust the width and height attributes to fit your website's layout.</p>
+                        <h4 className="font-medium">3. Source tracking included</h4>
+                        <p className="text-sm text-gray-600">All leads will be tracked with "website" as the source automatically.</p>
                       </div>
                     </CardContent>
                   </Card>
-          </div>
-        </CardContent>
-      </Card>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, TrendingUp, Clock, Filter, Search, Download, ArrowUpDown } from 'lucide-react';
+import { Users, TrendingUp, Clock, Filter, Search, ArrowUpDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Lead } from '@/types/quiz';
@@ -32,7 +32,6 @@ export function LeadsPage() {
 
     setLoading(true);
     try {
-      // Get doctor profile first
       const { data: doctorProfile, error: profileError } = await supabase
         .from('doctor_profiles')
         .select('id')
@@ -41,7 +40,6 @@ export function LeadsPage() {
 
       if (profileError) throw profileError;
 
-      // Fetch leads for this doctor
       const { data: leadsData, error: leadsError } = await supabase
         .from('quiz_leads')
         .select('*')
@@ -50,7 +48,6 @@ export function LeadsPage() {
 
       if (leadsError) throw leadsError;
 
-      // Transform the data to match our Lead interface
       const transformedLeads = leadsData?.map(lead => ({
         ...lead,
         lead_status: lead.lead_status || 'NEW'
@@ -59,41 +56,9 @@ export function LeadsPage() {
       setLeads(transformedLeads);
     } catch (error) {
       console.error('Error fetching leads:', error);
+      toast.error('Failed to fetch leads');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const exportLeads = async () => {
-    try {
-      const csvContent = [
-        ['Name', 'Email', 'Phone', 'Quiz Type', 'Score', 'Status', 'Source', 'Date'].join(','),
-        ...filteredAndSortedLeads.map(lead => [
-          lead.name,
-          lead.email || '',
-          lead.phone || '',
-          lead.quiz_type,
-          lead.score,
-          lead.lead_status,
-          lead.lead_source || '',
-          new Date(lead.submitted_at).toLocaleDateString()
-        ].join(','))
-      ].join('\n');
-
-      const blob = new Blob([csvContent], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `leads-export-${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      
-      toast.success('Leads exported successfully!');
-    } catch (error) {
-      console.error('Export error:', error);
-      toast.error('Failed to export leads');
     }
   };
 
@@ -170,12 +135,8 @@ export function LeadsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Leads Dashboard</h1>
-          <p className="text-gray-600 mt-2">Manage and track your assessment leads</p>
+          <p className="text-gray-600 mt-2">Manage and track your assessment leads with source attribution</p>
         </div>
-        <Button onClick={exportLeads} className="bg-green-600 hover:bg-green-700">
-          <Download className="w-4 h-4 mr-2" />
-          Export Leads
-        </Button>
       </div>
 
       {/* Stats Cards */}

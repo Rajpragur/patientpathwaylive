@@ -26,8 +26,10 @@ export default function UniversalQuizPage() {
 
   useEffect(() => {
     const checkQuiz = async () => {
-      console.log('quizType from URL:', quizType);
-      console.log('Available quizzes:', Object.keys(quizzes));
+      console.log('QuizType from URL:', quizType);
+      console.log('Available standard quizzes:', Object.keys(quizzes));
+      console.log('Source tracking:', { source, medium, campaign, doctorId });
+      
       if (!quizType) {
         setNotFound(true);
         setLoading(false);
@@ -60,7 +62,8 @@ export default function UniversalQuizPage() {
               isCustom: true,
               source,
               campaign,
-              medium
+              medium,
+              doctorId
             });
           }
         } else {
@@ -70,15 +73,17 @@ export default function UniversalQuizPage() {
           );
           
           if (!standardQuiz) {
-            console.error('Standard quiz not found:', quizType);
+            console.error('Standard quiz not found for type:', quizType);
             setNotFound(true);
           } else {
+            console.log('Found standard quiz:', standardQuiz);
             setQuizData({
               ...standardQuiz,
               isCustom: false,
               source,
               campaign,
-              medium
+              medium,
+              doctorId
             });
           }
         }
@@ -91,7 +96,7 @@ export default function UniversalQuizPage() {
     };
 
     checkQuiz();
-  }, [quizType, source, campaign, medium]);
+  }, [quizType, source, campaign, medium, doctorId]);
 
   if (loading) {
     return (
@@ -104,13 +109,13 @@ export default function UniversalQuizPage() {
     );
   }
 
-  if (notFound) {
+  if (notFound || !quizData) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-orange-50 to-teal-50">
         <div className="text-center max-w-md mx-auto p-6">
           <div className="bg-white rounded-lg shadow-lg p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Assessment Not Found</h2>
-            <p className="text-gray-600 mb-6">The requested assessment could not be found.</p>
+            <p className="text-gray-600 mb-6">The requested assessment "{quizType}" could not be found.</p>
             <div className="flex gap-4 justify-center">
               <Button onClick={() => navigate('/')} className="bg-orange-500 hover:bg-orange-600">
                 <Home className="w-4 h-4 mr-2" />
