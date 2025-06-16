@@ -1,4 +1,3 @@
-
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { NotificationDropdown } from './NotificationDropdown';
@@ -16,7 +15,7 @@ export function DashboardHeader() {
           .from('doctor_profiles')
           .select('*')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
         
         if (data) {
           setDoctorProfile(data);

@@ -52,7 +52,7 @@ export function ProfilePage() {
         .select('*')
         .eq('user_id', user.id)
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
         throw error;
@@ -178,15 +178,10 @@ export function ProfilePage() {
     
     setSaving(true);
     try {
-      if (!doctorProfile) {
-        console.error('doctorProfile is null');
-        toast.error('Failed to update profile. Please try again.');
-        return;
-      }
       const profileData = {
         user_id: user.id,
         ...formData,
-        doctor_id: doctorProfile.doctor_id,
+        doctor_id: doctorProfile?.doctor_id || generateDoctorId(),
         avatar_url: formData.avatar_url,
         updated_at: new Date().toISOString()
       };
@@ -242,15 +237,6 @@ export function ProfilePage() {
   };
 
   if (loading) {
-    return (
-      <div className="p-8 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0E7C9D]"></div>
-        <span className="ml-2">Loading profile...</span>
-      </div>
-    );
-  }
-
-  if (!doctorProfile) {
     return (
       <div className="p-8 flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0E7C9D]"></div>
