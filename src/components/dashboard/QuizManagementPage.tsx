@@ -34,7 +34,8 @@ export function QuizManagementPage() {
         .from('doctor_profiles')
         .select('id')
         .eq('user_id', user?.id)
-        .single();
+        .limit(1)
+        .maybeSingle();
       if (doctorProfile) {
         setDoctorId(doctorProfile.id);
         // Fetch custom quizzes for this doctor

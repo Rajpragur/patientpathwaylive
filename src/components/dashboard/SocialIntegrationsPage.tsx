@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -74,7 +73,8 @@ export function SocialIntegrationsPage() {
         .from('doctor_profiles')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .limit(1)
+        .maybeSingle();
 
       if (profile) {
         setTwilioConfig({

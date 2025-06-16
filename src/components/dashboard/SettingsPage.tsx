@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -45,7 +44,8 @@ export function SettingsPage() {
         .from('doctor_profiles')
         .select('*')
         .eq('user_id', user?.id)
-        .single();
+        .limit(1)
+        .maybeSingle();
 
       if (error) throw error;
       setProfile(data);

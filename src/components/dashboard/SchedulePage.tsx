@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -46,7 +45,8 @@ export function SchedulePage() {
         .from('doctor_profiles')
         .select('id')
         .eq('user_id', user?.id)
-        .single();
+        .limit(1)
+        .maybeSingle();
 
       if (doctorProfile) {
         const { data: leads } = await supabase

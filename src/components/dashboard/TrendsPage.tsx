@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -43,7 +42,8 @@ export function TrendsPage() {
         .from('doctor_profiles')
         .select('id')
         .eq('user_id', user?.id)
-        .single();
+        .limit(1)
+        .maybeSingle();
 
       if (doctorProfile) {
         await Promise.all([

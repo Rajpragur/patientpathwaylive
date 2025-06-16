@@ -126,7 +126,8 @@ export function CustomQuizCreator({ baseQuizId, onQuizCreated }: CustomQuizCreat
         .from('doctor_profiles')
         .select('id')
         .eq('user_id', user?.id)
-        .single();
+        .limit(1)
+        .maybeSingle();
 
       if (doctorProfile) {
         setDoctorId(doctorProfile.id);
@@ -143,7 +144,8 @@ export function CustomQuizCreator({ baseQuizId, onQuizCreated }: CustomQuizCreat
         .select('*')
         .eq('id', id)
         .eq('doctor_id', doctorId)
-        .single();
+        .limit(1)
+        .maybeSingle();
 
       if (error) throw error;
 
