@@ -47,28 +47,29 @@ export function ProfilePage() {
     if (!user) return;
     
     try {
-      const { data, error } = await supabase
+      // Get all doctor profiles for this user
+      const { data: profiles, error } = await supabase
         .from('doctor_profiles')
         .select('*')
-        .eq('user_id', user.id)
-        .limit(1)
-        .maybeSingle();
+        .eq('user_id', user.id);
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         throw error;
       }
 
-      if (data) {
-        setDoctorProfile(data);
+      // Use the first profile if multiple exist
+      if (profiles && profiles.length > 0) {
+        const profile = profiles[0];
+        setDoctorProfile(profile);
         setFormData({
-          first_name: data.first_name || '',
-          last_name: data.last_name || '',
-          email: data.email || user.email || '',
-          phone: data.phone || '',
-          specialty: data.specialty || '',
-          clinic_name: data.clinic_name || '',
-          avatar_url: data.avatar_url || '',
-          doctor_id: data.doctor_id || ''
+          first_name: profile.first_name || '',
+          last_name: profile.last_name || '',
+          email: profile.email || user.email || '',
+          phone: profile.phone || '',
+          specialty: profile.specialty || '',
+          clinic_name: profile.clinic_name || '',
+          avatar_url: profile.avatar_url || '',
+          doctor_id: profile.doctor_id || ''
         });
       } else {
         // No profile exists, set default values
@@ -178,33 +179,44 @@ export function ProfilePage() {
     
     setSaving(true);
     try {
+      // Check if a doctor profile already exists
+      const { data: existingProfiles, error: fetchError } = await supabase
+        .from('doctor_profiles')
+        .select('id')
+        .eq('user_id', user.id);
+      
+      if (fetchError) {
+        throw fetchError;
+      }
+      
       const profileData = {
         user_id: user.id,
         ...formData,
-        doctor_id: doctorProfile?.doctor_id || generateDoctorId(),
-        avatar_url: formData.avatar_url,
         updated_at: new Date().toISOString()
       };
 
-      if (doctorProfile) {
+      if (existingProfiles && existingProfiles.length > 0) {
+        // Update existing profile
         const { error } = await supabase
           .from('doctor_profiles')
           .update(profileData)
-          .eq('id', doctorProfile.id);
+          .eq('id', existingProfiles[0].id);
 
         if (error) throw error;
       } else {
+        // Create new profile
         const { data, error } = await supabase
           .from('doctor_profiles')
           .insert([{
             ...profileData,
             doctor_id: generateDoctorId()
           }])
-          .select()
-          .single();
+          .select();
 
         if (error) throw error;
-        setDoctorProfile(data);
+        if (data && data.length > 0) {
+          setDoctorProfile(data[0]);
+        }
       }
 
       setSuccessMessage('Profile updated successfully! All changes have been saved.');

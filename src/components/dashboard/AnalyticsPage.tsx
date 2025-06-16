@@ -32,14 +32,16 @@ export function AnalyticsPage() {
 
   const fetchAnalytics = async () => {
     try {
-      const { data: doctorProfile } = await supabase
+      // Get all doctor profiles for this user
+      const { data: doctorProfiles } = await supabase
         .from('doctor_profiles')
         .select('id')
-        .eq('user_id', user?.id)
-        .limit(1)
-        .maybeSingle();
+        .eq('user_id', user?.id);
 
-      if (doctorProfile) {
+      if (doctorProfiles && doctorProfiles.length > 0) {
+        // Use the first doctor profile
+        const doctorProfile = doctorProfiles[0];
+        
         const { data: leads } = await supabase
           .from('quiz_leads')
           .select('lead_status, quiz_type, created_at')

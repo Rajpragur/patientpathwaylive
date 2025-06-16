@@ -23,9 +23,7 @@ export function LeadsPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
-    if (user) {
-      fetchLeads();
-    }
+    fetchLeads();
   }, [user]);
 
   const fetchLeads = async () => {
@@ -33,7 +31,7 @@ export function LeadsPage() {
 
     setLoading(true);
     try {
-      // Fetch doctor profile with explicit error handling
+      // Fetch doctor profile with explicit headers and error handling
       const { data: doctorProfiles, error: profileError } = await supabase
         .from('doctor_profiles')
         .select('id, first_name, last_name')
@@ -52,9 +50,8 @@ export function LeadsPage() {
         return;
       }
 
-      // Use the first doctor profile
+      // Use the first doctor profile (or you could handle multiple profiles if needed)
       const doctorProfile = doctorProfiles[0];
-      console.log('Using doctor profile:', doctorProfile);
 
       // Fetch leads with explicit error handling
       const { data: leadsData, error: leadsError } = await supabase
@@ -72,8 +69,6 @@ export function LeadsPage() {
         setLoading(false);
         return;
       }
-
-      console.log('Fetched leads:', leadsData);
 
       // Transform and set leads data
       const transformedLeads = (leadsData || []).map(lead => ({
@@ -309,14 +304,7 @@ export function LeadsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {leads.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500 mb-4">No leads found</p>
-              <p className="text-sm text-gray-400">Share your assessments to start collecting leads</p>
-            </div>
-          ) : (
-            <EnhancedLeadsTable leads={filteredAndSortedLeads} onLeadUpdate={fetchLeads} />
-          )}
+          <EnhancedLeadsTable leads={filteredAndSortedLeads} onLeadUpdate={fetchLeads} />
         </CardContent>
       </Card>
     </div>

@@ -11,14 +11,20 @@ export function DashboardHeader() {
   useEffect(() => {
     const fetchDoctorProfile = async () => {
       if (user) {
-        const { data } = await supabase
+        // Get all doctor profiles for this user
+        const { data: profiles, error } = await supabase
           .from('doctor_profiles')
           .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle();
+          .eq('user_id', user.id);
         
-        if (data) {
-          setDoctorProfile(data);
+        if (error) {
+          console.error('Error fetching doctor profiles:', error);
+          return;
+        }
+        
+        // Use the first profile if multiple exist
+        if (profiles && profiles.length > 0) {
+          setDoctorProfile(profiles[0]);
         }
       }
     };
