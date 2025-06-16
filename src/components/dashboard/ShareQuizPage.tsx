@@ -24,13 +24,15 @@ import {
   Linkedin,
   Twitter,
   Link2,
-  Loader2
+  Loader2,
+  Users
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { quizzes } from '@/data/quizzes';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { QRCodeSVG } from 'qrcode.react';
 
 export function ShareQuizPage() {
   const { quizType, customQuizId } = useParams<{ quizType?: string; customQuizId?: string }>();
@@ -41,9 +43,16 @@ export function ShareQuizPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('full-page');
   const [copied, setCopied] = useState(false);
+  const [showQrCode, setShowQrCode] = useState(false);
   const [doctorProfile, setDoctorProfile] = useState<any>(null);
   const [webSource, setWebSource] = useState('website');
   const [error, setError] = useState<string | null>(null);
+  const [contactLists, setContactLists] = useState<any[]>([
+    { id: '1', name: 'All Patients', count: 245 },
+    { id: '2', name: 'New Patients', count: 78 },
+    { id: '3', name: 'Follow-up Patients', count: 124 }
+  ]);
+  const [selectedList, setSelectedList] = useState('');
   const baseUrl = window.location.origin;
 
   useEffect(() => {
@@ -163,80 +172,67 @@ export function ShareQuizPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const getQuizInfo = () => {
-    if (customQuiz) {
-      return {
-        title: customQuiz.title,
-        description: customQuiz.description,
-        shareMessage: customQuiz.share_message || `Take this ${customQuiz.title} assessment to evaluate your symptoms.`,
-        linkedinMessage: customQuiz.linkedin_message || `Share this ${customQuiz.title} assessment with your patients to evaluate their symptoms.`
-      };
-    }
+  const handleSocialShare = (platform: string) => {
+    if (!shareUrl) return;
 
-    const standardQuiz = Object.values(quizzes).find(
-      quiz => quiz.id.toLowerCase() === quizType?.toLowerCase()
-    );
+    // Add source parameter to the URL for tracking
+    const urlWithSource = new URL(shareUrl);
+    urlWithSource.searchParams.set('source', platform);
+    const finalUrl = urlWithSource.toString();
 
-    if (standardQuiz) {
-      return {
-        title: standardQuiz.title,
-        description: standardQuiz.description,
-        shareMessage: `Take this ${standardQuiz.title} assessment to evaluate your symptoms.`,
-        linkedinMessage: `Share this ${standardQuiz.title} assessment with your patients to evaluate their symptoms.`
-      };
-    }
-
-    return {
-      title: quizType || 'Assessment',
-      description: "Medical assessment tool",
-      shareMessage: `Take this ${quizType || 'assessment'} to evaluate your symptoms.`,
-      linkedinMessage: `Share this ${quizType || 'assessment'} with your patients to evaluate their symptoms.`
-    };
-  };
-
-  const handleShare = (platform: string) => {
-    const quizInfo = getQuizInfo();
-    const shareUrl = encodeURIComponent(getQuizUrl(platform));
-    const shareTitle = encodeURIComponent(quizInfo.title);
-    const shareText = encodeURIComponent(quizInfo.shareMessage);
-    const linkedinText = encodeURIComponent(quizInfo.linkedinMessage);
-    
-    let shareLink = '';
-    let windowFeatures = 'width=600,height=400,resizable=yes,scrollbars=yes,status=yes';
+    let socialUrl = '';
+    const message = encodeURIComponent(`Take this ${quizType} assessment to evaluate your health.`);
 
     switch (platform) {
       case 'facebook':
-        shareLink = `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}&quote=${shareText}`;
-        break;
-      case 'linkedin':
-        shareLink = `https://www.linkedin.com/sharing/share-offsite/?url=${shareUrl}&title=${shareTitle}&summary=${linkedinText}`;
+        socialUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(finalUrl)}`;
         break;
       case 'twitter':
-        shareLink = `https://twitter.com/intent/tweet?text=${shareText}&url=${shareUrl}`;
+        socialUrl = `https://twitter.com/intent/tweet?text=${message}&url=${encodeURIComponent(finalUrl)}`;
         break;
-      case 'email':
-        const emailSubject = `Take the ${quizInfo.title}`;
-        const emailBody = `${quizInfo.shareMessage}\n\nTake the assessment here: ${getQuizUrl('email')}`;
-        shareLink = `mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
-        windowFeatures = '';
+      case 'linkedin':
+        socialUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(finalUrl)}`;
         break;
-      case 'text':
-        const messageBody = `${quizInfo.shareMessage}\n\nTake the assessment here: ${getQuizUrl('text')}`;
-        shareLink = `sms:?body=${encodeURIComponent(messageBody)}`;
-        windowFeatures = '';
+      case 'whatsapp':
+        socialUrl = `https://wa.me/?text=${message}%20${encodeURIComponent(finalUrl)}`;
         break;
+      case 'telegram':
+        socialUrl = `https://t.me/share/url?url=${encodeURIComponent(finalUrl)}&text=${message}`;
+        break;
+      default:
+        return;
     }
-    
-    if (windowFeatures) {
-      window.open(shareLink, '_blank', windowFeatures);
-    } else {
-      window.location.href = shareLink;
-    }
+
+    window.open(socialUrl, '_blank', 'width=600,height=400');
   };
 
-  const generateQRCode = () => {
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(getQuizUrl('qr_code'))}`;
-    window.open(qrCodeUrl, '_blank', 'width=400,height=400');
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(shareUrl)
+      .then(() => {
+        setCopied(true);
+        toast.success('Link copied to clipboard!');
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(err => {
+        console.error("Could not copy text: ", err);
+        toast.error('Failed to copy link to clipboard.');
+      });
+  };
+
+  const generateQrCode = () => {
+    setShowQrCode(true);
+  };
+
+  const shareUrl = getQuizUrl();
+
+  const handleShareWithContactList = () => {
+    if (!selectedList) {
+      toast.error('Please select a contact list');
+      return;
+    }
+
+    // Simulate sharing with contact list
+    toast.success(`Assessment shared with "${contactLists.find(list => list.id === selectedList)?.name}" contact list`);
   };
 
   if (loading) {
@@ -288,7 +284,17 @@ export function ShareQuizPage() {
     );
   }
 
-  const quizInfo = getQuizInfo();
+  const quizInfo = customQuiz ? {
+    title: customQuiz.title,
+    description: customQuiz.description,
+    shareMessage: customQuiz.share_message || `Take this ${customQuiz.title} assessment to evaluate your symptoms.`,
+    linkedinMessage: customQuiz.linkedin_message || `Share this ${customQuiz.title} assessment with your patients to evaluate their symptoms.`
+  } : {
+    title: quizType || 'Assessment',
+    description: quizExists.description || "Medical assessment tool",
+    shareMessage: `Take this ${quizType || 'assessment'} to evaluate your symptoms.`,
+    linkedinMessage: `Share this ${quizType || 'assessment'} with your patients to evaluate their symptoms.`
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -323,7 +329,7 @@ export function ShareQuizPage() {
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         <Tabs defaultValue="full-page" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="full-page" className="flex items-center gap-2">
               <Maximize className="w-4 h-4" />
               Full Page
@@ -331,6 +337,10 @@ export function ShareQuizPage() {
             <TabsTrigger value="embed" className="flex items-center gap-2">
               <Globe className="w-4 h-4" />
               Embed
+            </TabsTrigger>
+            <TabsTrigger value="contact-lists" className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Contact Lists
             </TabsTrigger>
           </TabsList>
 
@@ -408,7 +418,7 @@ export function ShareQuizPage() {
                       <div className="grid grid-cols-2 gap-2">
                         <Button
                           variant="outline"
-                          onClick={() => handleShare('facebook')}
+                          onClick={() => handleSocialShare('facebook')}
                           className="hover:bg-blue-50 hover:text-blue-600"
                         >
                           <Facebook className="w-4 h-4 mr-2" />
@@ -416,7 +426,7 @@ export function ShareQuizPage() {
                         </Button>
                         <Button 
                           variant="outline" 
-                          onClick={() => handleShare('linkedin')}
+                          onClick={() => handleSocialShare('linkedin')}
                           className="hover:bg-blue-50 hover:text-blue-600"
                         >
                           <Linkedin className="w-4 h-4 mr-2" />
@@ -424,7 +434,7 @@ export function ShareQuizPage() {
                         </Button>
                         <Button 
                           variant="outline" 
-                          onClick={() => handleShare('twitter')}
+                          onClick={() => handleSocialShare('twitter')}
                           className="hover:bg-blue-50 hover:text-blue-600"
                         >
                           <Twitter className="w-4 h-4 mr-2" />
@@ -432,7 +442,7 @@ export function ShareQuizPage() {
                         </Button>
                         <Button 
                           variant="outline" 
-                          onClick={() => handleShare('email')}
+                          onClick={() => handleSocialShare('email')}
                           className="hover:bg-blue-50 hover:text-blue-600"
                         >
                           <Mail className="w-4 h-4 mr-2" />
@@ -444,13 +454,37 @@ export function ShareQuizPage() {
 
                   <Card>
                     <CardHeader>
+                      <CardTitle className="text-lg">QR Code</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex flex-col items-center">
+                      {showQrCode ? (
+                        <div className="bg-white p-4 rounded-lg border border-gray-200">
+                          <QRCodeSVG value={quizUrl} size={200} />
+                        </div>
+                      ) : (
+                        <Button 
+                          variant="outline" 
+                          onClick={generateQrCode}
+                          className="w-full"
+                        >
+                          <QrCode className="w-4 h-4 mr-2" />
+                          Generate QR Code
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader>
                       <CardTitle className="text-lg">Additional Options</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-2 gap-2">
                         <Button 
                           variant="outline" 
-                          onClick={() => handleShare('text')}
+                          onClick={() => handleSocialShare('text')}
                           className="hover:bg-blue-50 hover:text-blue-600"
                         >
                           <Smartphone className="w-4 h-4 mr-2" />
@@ -458,11 +492,11 @@ export function ShareQuizPage() {
                         </Button>
                         <Button 
                           variant="outline" 
-                          onClick={generateQRCode}
+                          onClick={() => window.open(quizUrl, '_blank')}
                           className="hover:bg-blue-50 hover:text-blue-600"
                         >
-                          <QrCode className="w-4 h-4 mr-2" />
-                          QR Code
+                          <Monitor className="w-4 h-4 mr-2" />
+                          Open
                         </Button>
                         <Button 
                           variant="outline" 
@@ -479,6 +513,23 @@ export function ShareQuizPage() {
                         >
                           <Link2 className="w-4 h-4 mr-2" />
                           Copy Link
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Customize CTA</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <Input 
+                          placeholder="For more info about non-invasive in office procedure..."
+                          defaultValue="For more info about non-invasive in office procedure to give you relief, Schedule a 5min screening phone call."
+                        />
+                        <Button className="w-full">
+                          Update Call-to-Action
                         </Button>
                       </div>
                     </CardContent>
@@ -561,6 +612,89 @@ export function ShareQuizPage() {
                       </div>
                     </CardContent>
                   </Card>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="contact-lists" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Share with Contact Lists</CardTitle>
+                <CardDescription>
+                  Send this assessment to your existing patient lists
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select Contact List
+                    </label>
+                    <select 
+                      value={selectedList} 
+                      onChange={(e) => setSelectedList(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-md"
+                    >
+                      <option value="">-- Select a list --</option>
+                      {contactLists.map(list => (
+                        <option key={list.id} value={list.id}>
+                          {list.name} ({list.count} contacts)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Communication Method
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button variant="outline" className="justify-start">
+                        <Mail className="w-4 h-4 mr-2" />
+                        Email
+                      </Button>
+                      <Button variant="outline" className="justify-start">
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                        SMS
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Message Template
+                    </label>
+                    <textarea 
+                      className="w-full p-2 border border-gray-300 rounded-md min-h-[100px]"
+                      defaultValue={`Hello,\n\nI'd like to invite you to take our ${quizInfo.title}. This assessment will help us better understand your symptoms.\n\n${quizUrl}\n\nThank you,\nDr. ${doctorProfile?.first_name || ''} ${doctorProfile?.last_name || ''}`}
+                    ></textarea>
+                  </div>
+                  
+                  <Button 
+                    onClick={handleShareWithContactList}
+                    className="w-full"
+                    disabled={!selectedList}
+                  >
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Share with Selected List
+                  </Button>
+                </div>
+                
+                <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+                  <h3 className="font-medium text-blue-800 mb-2">Contact List Management</h3>
+                  <p className="text-sm text-blue-700 mb-3">
+                    You can manage your contact lists in the Integrations section. Import contacts from your existing patient database or create new lists.
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="text-blue-700 border-blue-200 hover:bg-blue-100"
+                    onClick={() => navigate('/portal?tab=integrations')}
+                  >
+                    <Users className="w-3.5 h-3.5 mr-1.5" />
+                    Manage Contact Lists
+                  </Button>
                 </div>
               </CardContent>
             </Card>

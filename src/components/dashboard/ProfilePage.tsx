@@ -58,18 +58,19 @@ export function ProfilePage() {
         .from('doctor_profiles')
         .select('*')
         .eq('user_id', user.id);
-
+      
       if (error) {
         console.error('Error fetching doctor profiles:', error);
         setError('Could not fetch doctor profile');
         setLoading(false);
         return;
       }
-
+      
       // Use the first profile if multiple exist
       if (profiles && profiles.length > 0) {
         const profile = profiles[0];
         console.log('Found doctor profile:', profile.id);
+        console.log('Avatar URL:', profile.avatar_url);
         setDoctorProfile(profile);
         setFormData({
           first_name: profile.first_name || '',
@@ -380,7 +381,17 @@ export function ProfilePage() {
           <CardContent className="p-8 text-center">
             <div className="relative inline-block mb-6">
               <Avatar className="w-32 h-32 ring-4 ring-[#0E7C9D]/20">
-                <AvatarImage src={formData.avatar_url} />
+                {formData.avatar_url ? (
+                  <AvatarImage 
+                    src={formData.avatar_url} 
+                    alt={`Dr. ${formData.first_name} ${formData.last_name}`}
+                    onError={(e) => {
+                      console.error('Avatar image failed to load:', e);
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                    }}
+                  />
+                ) : null}
                 <AvatarFallback className="bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] text-white text-3xl">
                   {getInitials()}
                 </AvatarFallback>

@@ -8,6 +8,7 @@ export function DashboardHeader() {
   const { user } = useAuth();
   const [doctorProfile, setDoctorProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -28,12 +29,14 @@ export function DashboardHeader() {
       
       if (error) {
         console.error('Error fetching doctor profiles:', error);
+        setError('Could not fetch doctor profile');
         return;
       }
       
       // Use the first profile if multiple exist
       if (profiles && profiles.length > 0) {
         console.log('Found doctor profile:', profiles[0].id);
+        console.log('Avatar URL:', profiles[0].avatar_url);
         setDoctorProfile(profiles[0]);
       } else {
         console.log('No doctor profile found, creating one...');
@@ -52,6 +55,7 @@ export function DashboardHeader() {
 
         if (createError) {
           console.error('Error creating doctor profile:', createError);
+          setError('Failed to create doctor profile');
           return;
         }
 
@@ -62,6 +66,7 @@ export function DashboardHeader() {
       }
     } catch (error) {
       console.error('Error in fetchDoctorProfile:', error);
+      setError('An unexpected error occurred');
     } finally {
       setLoading(false);
     }
@@ -94,10 +99,17 @@ export function DashboardHeader() {
         {/* Left: User Profile */}
         <div className="flex items-center gap-4">
           <Avatar className="h-12 w-12 ring-2 ring-[#0E7C9D]/20">
-            <AvatarImage 
-              src={doctorProfile?.avatar_url} 
-              alt={`Dr. ${getDoctorName()}`}
-            />
+            {doctorProfile?.avatar_url ? (
+              <AvatarImage 
+                src={doctorProfile.avatar_url} 
+                alt={`Dr. ${getDoctorName()}`}
+                onError={(e) => {
+                  console.error('Avatar image failed to load:', e);
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                }}
+              />
+            ) : null}
             <AvatarFallback className="bg-[#0E7C9D] text-white text-sm font-semibold">
               {getInitials()}
             </AvatarFallback>

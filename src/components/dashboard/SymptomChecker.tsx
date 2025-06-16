@@ -7,6 +7,8 @@ import { Send, Bot, User, Loader2, ArrowRight, Brain, CheckCircle } from 'lucide
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -15,6 +17,7 @@ interface Message {
 }
 
 export function SymptomChecker() {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -26,12 +29,50 @@ export function SymptomChecker() {
   const [loading, setLoading] = useState(false);
   const [recommendedQuiz, setRecommendedQuiz] = useState<string | null>(null);
   const [quizDescription, setQuizDescription] = useState<string>('');
+  const [doctorId, setDoctorId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    if (user) {
+      fetchDoctorProfile();
+    }
+  }, [user]);
+
+  const fetchDoctorProfile = async () => {
+    try {
+      const { data: profiles } = await supabase
+        .from('doctor_profiles')
+        .select('id')
+        .eq('user_id', user?.id);
+      
+      if (profiles && profiles.length > 0) {
+        setDoctorId(profiles[0].id);
+      } else {
+        // Create a doctor profile if none exists
+        const { data: newProfile } = await supabase
+          .from('doctor_profiles')
+          .insert([{ 
+            user_id: user?.id,
+            first_name: 'Doctor',
+            last_name: 'User',
+            email: user?.email,
+            doctor_id: Math.floor(100000 + Math.random() * 900000).toString()
+          }])
+          .select();
+
+        if (newProfile && newProfile.length > 0) {
+          setDoctorId(newProfile[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching doctor profile:', error);
+    }
+  };
 
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
@@ -122,8 +163,30 @@ export function SymptomChecker() {
 
   const handleTakeQuiz = () => {
     if (recommendedQuiz) {
-      navigate(`/quiz?type=${recommendedQuiz}&mode=single`);
+      // Add doctor ID to the URL if available
+      const params = new URLSearchParams();
+      params.set('type', recommendedQuiz);
+      params.set('mode', 'single');
+      if (doctorId) {
+        params.set('doctor', doctorId);
+      }
+      navigate(`/quiz?${params.toString()}`);
     }
+  };
+
+  const handleCreateShareableQuiz = () => {
+    if (!recommendedQuiz) return;
+    
+    // Create a shareable symptom checker quiz
+    const params = new URLSearchParams();
+    params.set('type', 'symptom-checker');
+    params.set('recommended', recommendedQuiz);
+    if (doctorId) {
+      params.set('doctor', doctorId);
+    }
+    
+    navigate(`/portal/share/${recommendedQuiz}`);
+    toast.success('Redirecting to share page for the recommended assessment');
   };
 
   return (
@@ -215,13 +278,22 @@ export function SymptomChecker() {
                   </Badge>
                 </div>
                 <p className="text-sm text-gray-600 mb-4">{quizDescription}</p>
-                <Button 
-                  onClick={handleTakeQuiz}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                >
-                  <ArrowRight className="w-4 h-4 mr-2" />
-                  Take {recommendedQuiz} Assessment
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button 
+                    onClick={handleTakeQuiz}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <ArrowRight className="w-4 h-4 mr-2" />
+                    Take {recommendedQuiz} Assessment
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={handleCreateShareableQuiz}
+                  >
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Share This Assessment
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </motion.div>
@@ -254,4 +326,27 @@ export function SymptomChecker() {
       </div>
     </div>
   );
+}
+
+function Share2(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <line x1="8.59" x2="15.42" y1="13.51" y2="17.49" />
+      <line x1="15.41" x2="8.59" y1="6.51" y2="10.49" />
+    </svg>
+  )
 }

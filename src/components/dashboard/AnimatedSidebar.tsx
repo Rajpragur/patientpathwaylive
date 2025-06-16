@@ -13,7 +13,6 @@ import {
   ChevronLeft,
   ChevronRight,
   UserCircle,
-  Share2,
   Building,
   Zap,
   Megaphone,
@@ -52,12 +51,6 @@ const mainMenuItems = [
     label: 'Schedule',
     icon: <Calendar size={22} />,
     description: 'Appointments'
-  },
-  {
-    id: 'social',
-    label: 'Social',
-    icon: <Share2 size={22} />,
-    description: 'Social integrations'
   },
   {
     id: 'automation',
