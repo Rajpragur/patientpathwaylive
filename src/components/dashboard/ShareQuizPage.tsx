@@ -42,12 +42,15 @@ export function ShareQuizPage() {
   const [copied, setCopied] = useState(false);
   const [doctorProfile, setDoctorProfile] = useState<any>(null);
   const [webSource, setWebSource] = useState('website');
+  const [error, setError] = useState<string | null>(null);
   const baseUrl = window.location.origin;
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setLoading(true);
         if (user) {
+          // Get all doctor profiles for this user
           const { data: profiles, error: profileError } = await supabase
             .from('doctor_profiles')
             .select('*')
@@ -55,9 +58,29 @@ export function ShareQuizPage() {
           
           if (profileError) {
             console.error('Error fetching doctor profile:', profileError);
+            setError('Could not fetch doctor profile');
           } else if (profiles && profiles.length > 0) {
             // Use the first profile if multiple exist
             setDoctorProfile(profiles[0]);
+          } else {
+            // Create a new profile if none exists
+            const { data: newProfile, error: createError } = await supabase
+              .from('doctor_profiles')
+              .insert([{ 
+                user_id: user.id,
+                first_name: 'Doctor',
+                last_name: 'User',
+                email: user.email,
+                doctor_id: Math.floor(100000 + Math.random() * 900000).toString()
+              }])
+              .select();
+
+            if (createError) {
+              console.error('Error creating doctor profile:', createError);
+              setError('Failed to create doctor profile');
+            } else if (newProfile && newProfile.length > 0) {
+              setDoctorProfile(newProfile[0]);
+            }
           }
         }
 
@@ -73,7 +96,7 @@ export function ShareQuizPage() {
         }
       } catch (error) {
         console.error('Error fetching quiz:', error);
-        toast.error('Failed to load quiz data');
+        setError('Failed to load quiz data');
       } finally {
         setLoading(false);
       }
@@ -221,6 +244,23 @@ export function ShareQuizPage() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f7904f] mx-auto mb-4"></div>
           <p className="text-lg text-gray-600">Loading assessment...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <h2 className="text-xl font-bold text-red-800 mb-4">Error</h2>
+            <p className="text-red-700 mb-6">{error}</p>
+            <Button onClick={() => navigate('/portal')}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Button>
+          </div>
         </div>
       </div>
     );

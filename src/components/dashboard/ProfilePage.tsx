@@ -179,7 +179,6 @@ export function ProfilePage() {
         throw uploadError;
       }
 
-
       // Get the public URL
       const { data: urlData } = supabase.storage
         .from('profiles')
@@ -189,6 +188,17 @@ export function ProfilePage() {
 
       // Update the form data with the new URL
       setFormData(prev => ({ ...prev, avatar_url: urlData.publicUrl }));
+      
+      // Update the doctor profile directly to ensure the avatar URL is saved
+      const { error: updateError } = await supabase
+        .from('doctor_profiles')
+        .update({ avatar_url: urlData.publicUrl })
+        .eq('id', doctorProfile.id);
+        
+      if (updateError) {
+        console.error('Error updating avatar URL:', updateError);
+        throw updateError;
+      }
       
       // Update success message
       setSuccessMessage('Profile picture updated successfully!');

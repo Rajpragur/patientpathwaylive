@@ -21,7 +21,8 @@ import {
   Check,
   X,
   Globe,
-  Zap
+  Zap,
+  Loader2
 } from 'lucide-react';
 
 interface SocialAccount {
@@ -59,15 +60,85 @@ export function SocialIntegrationsPage() {
   });
   const [zapierWebhook, setZapierWebhook] = useState('');
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [doctorId, setDoctorId] = useState<string | null>(null);
 
   useEffect(() => {
-    loadConfigurations();
+    if (user) {
+      fetchDoctorProfile();
+    }
   }, [user]);
 
-  const loadConfigurations = async () => {
+  useEffect(() => {
+    if (doctorId) {
+      loadConfigurations();
+    }
+  }, [doctorId]);
+
+  const fetchDoctorProfile = async () => {
     if (!user) return;
     
     try {
+      // Get all doctor profiles for this user
+      const { data: profiles, error } = await supabase
+        .from('doctor_profiles')
+        .select('id')
+        .eq('user_id', user.id);
+      
+      if (error) {
+        console.error('Error fetching doctor profiles:', error);
+        setError('Could not fetch doctor profile');
+        setInitialLoading(false);
+        return;
+      }
+      
+      // Use the first profile if multiple exist
+      if (profiles && profiles.length > 0) {
+        console.log('Found doctor profile:', profiles[0].id);
+        setDoctorId(profiles[0].id);
+      } else {
+        console.log('No doctor profile found, creating one...');
+        
+        // Create a doctor profile if none exists
+        const { data: newProfile, error: createError } = await supabase
+          .from('doctor_profiles')
+          .insert([{ 
+            user_id: user.id,
+            first_name: 'Doctor',
+            last_name: 'User',
+            email: user.email,
+            doctor_id: Math.floor(100000 + Math.random() * 900000).toString()
+          }])
+          .select();
+
+        if (createError) {
+          console.error('Error creating doctor profile:', createError);
+          setError('Failed to create doctor profile');
+          setInitialLoading(false);
+          return;
+        }
+
+        if (newProfile && newProfile.length > 0) {
+          console.log('Created new doctor profile:', newProfile[0].id);
+          setDoctorId(newProfile[0].id);
+        } else {
+          setError('Failed to create doctor profile');
+          setInitialLoading(false);
+        }
+      }
+    } catch (error) {
+      console.error('Error in fetchDoctorProfile:', error);
+      setError('An unexpected error occurred');
+      setInitialLoading(false);
+    }
+  };
+
+  const loadConfigurations = async () => {
+    if (!user || !doctorId) return;
+    
+    try {
+      setInitialLoading(true);
       // Load doctor profile with integrations
       const { data: profiles } = await supabase
         .from('doctor_profiles')
@@ -83,9 +154,9 @@ export function SocialIntegrationsPage() {
         });
       }
 
-      // Load social accounts - using any type temporarily until types are regenerated
+      // Load social accounts
       try {
-        const { data: accounts } = await (supabase as any)
+        const { data: accounts } = await supabase
           .from('social_accounts')
           .select('*')
           .eq('doctor_id', user.id);
@@ -96,8 +167,45 @@ export function SocialIntegrationsPage() {
       } catch (error) {
         console.log('Social accounts table not ready yet');
       }
+
+      // Load email domains
+      try {
+        const { data: domains } = await supabase
+          .from('email_domains')
+          .select('*')
+          .eq('doctor_id', user.id)
+          .limit(1);
+
+        if (domains && domains.length > 0) {
+          setEmailConfig({
+            domain: domains[0].domain || '',
+            verified: domains[0].verified || false,
+            landing_page_url: domains[0].landing_page_url || ''
+          });
+        }
+      } catch (error) {
+        console.log('Email domains table not ready yet');
+      }
+
+      // Load automation webhooks
+      try {
+        const { data: webhooks } = await supabase
+          .from('automation_webhooks')
+          .select('*')
+          .eq('doctor_id', user.id)
+          .limit(1);
+
+        if (webhooks && webhooks.length > 0) {
+          setZapierWebhook(webhooks[0].webhook_url || '');
+        }
+      } catch (error) {
+        console.log('Automation webhooks table not ready yet');
+      }
     } catch (error) {
       console.error('Error loading configurations:', error);
+      setError('Failed to load configurations');
+    } finally {
+      setInitialLoading(false);
     }
   };
 
@@ -133,7 +241,7 @@ export function SocialIntegrationsPage() {
             twilio_auth_token: twilioConfig.auth_token,
             twilio_phone_number: twilioConfig.phone_number
           })
-          .eq('user_id', user.id);
+          .eq('id', profiles[0].id);
 
         if (error) throw error;
       }
@@ -141,6 +249,98 @@ export function SocialIntegrationsPage() {
       toast.success('Twilio configuration updated successfully');
     } catch (error: any) {
       toast.error('Failed to update Twilio configuration');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateEmailConfig = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      // Check if domain already exists
+      const { data: existingDomains } = await supabase
+        .from('email_domains')
+        .select('*')
+        .eq('doctor_id', user.id)
+        .eq('domain', emailConfig.domain);
+      
+      if (existingDomains && existingDomains.length > 0) {
+        // Update existing domain
+        const { error } = await supabase
+          .from('email_domains')
+          .update({
+            landing_page_url: emailConfig.landing_page_url,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingDomains[0].id);
+          
+        if (error) throw error;
+      } else {
+        // Create new domain
+        const { error } = await supabase
+          .from('email_domains')
+          .insert({
+            doctor_id: user.id,
+            domain: emailConfig.domain,
+            landing_page_url: emailConfig.landing_page_url,
+            verification_token: `verify-${Math.random().toString(36).substring(2, 15)}`,
+            verified: false
+          });
+          
+        if (error) throw error;
+      }
+      
+      toast.success('Email domain configuration updated');
+      loadConfigurations();
+    } catch (error) {
+      console.error('Error updating email config:', error);
+      toast.error('Failed to update email configuration');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateZapierWebhook = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      // Check if webhook already exists
+      const { data: existingWebhooks } = await supabase
+        .from('automation_webhooks')
+        .select('*')
+        .eq('doctor_id', user.id);
+      
+      if (existingWebhooks && existingWebhooks.length > 0) {
+        // Update existing webhook
+        const { error } = await supabase
+          .from('automation_webhooks')
+          .update({
+            webhook_url: zapierWebhook,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingWebhooks[0].id);
+          
+        if (error) throw error;
+      } else {
+        // Create new webhook
+        const { error } = await supabase
+          .from('automation_webhooks')
+          .insert({
+            doctor_id: user.id,
+            webhook_url: zapierWebhook,
+            webhook_type: 'zapier'
+          });
+          
+        if (error) throw error;
+      }
+      
+      toast.success('Zapier webhook updated successfully');
+    } catch (error) {
+      console.error('Error updating webhook:', error);
+      toast.error('Failed to update Zapier webhook');
     } finally {
       setLoading(false);
     }
@@ -157,7 +357,7 @@ export function SocialIntegrationsPage() {
     };
 
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('social_accounts')
         .insert({
           doctor_id: user?.id,
@@ -177,7 +377,7 @@ export function SocialIntegrationsPage() {
 
   const disconnectSocialAccount = async (accountId: string) => {
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('social_accounts')
         .delete()
         .eq('id', accountId);
@@ -225,6 +425,31 @@ export function SocialIntegrationsPage() {
     { name: 'LinkedIn', icon: Linkedin, color: '#0077B5' },
     { name: 'YouTube', icon: Youtube, color: '#FF0000' }
   ];
+
+  if (initialLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500" />
+          <p className="text-gray-600">Loading integrations...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
+          <h3 className="text-lg font-medium text-red-800 mb-2">Error</h3>
+          <p className="text-red-700 mb-4">{error}</p>
+          <Button onClick={() => window.location.reload()}>
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -399,9 +624,9 @@ export function SocialIntegrationsPage() {
                 </Badge>
               </div>
 
-              <Button>
+              <Button onClick={updateEmailConfig} disabled={loading}>
                 <Mail className="w-4 h-4 mr-2" />
-                Verify Domain
+                {emailConfig.domain ? 'Update Domain' : 'Add Domain'}
               </Button>
             </CardContent>
           </Card>
@@ -436,7 +661,7 @@ export function SocialIntegrationsPage() {
                 </ol>
               </div>
 
-              <Button>
+              <Button onClick={updateZapierWebhook} disabled={loading}>
                 <Zap className="w-4 h-4 mr-2" />
                 Save Webhook URL
               </Button>
