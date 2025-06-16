@@ -38,6 +38,8 @@ interface CustomQuiz {
   };
   category: string;
   doctor_id?: string;
+  cta_text?: string;
+  cta_type?: string;
 }
 
 interface CustomQuizCreatorProps {
@@ -65,7 +67,9 @@ export function CustomQuizCreator({ baseQuizId, onQuizCreated }: CustomQuizCreat
       moderate_threshold: 50,
       severe_threshold: 75
     },
-    category: 'custom'
+    category: 'custom',
+    cta_text: 'For more info about non-invasive in office procedure to give you relief, Schedule a 5min screening phone call.',
+    cta_type: 'contact'
   });
 
   const [currentQuestion, setCurrentQuestion] = useState<Partial<CustomQuestion>>({
@@ -122,15 +126,34 @@ export function CustomQuizCreator({ baseQuizId, onQuizCreated }: CustomQuizCreat
 
   const fetchDoctorProfile = async () => {
     try {
-      const { data: doctorProfile } = await supabase
+      const { data: doctorProfiles } = await supabase
         .from('doctor_profiles')
         .select('id')
-        .eq('user_id', user?.id)
-        .limit(1)
-        .maybeSingle();
+        .eq('user_id', user?.id);
 
-      if (doctorProfile) {
-        setDoctorId(doctorProfile.id);
+      if (doctorProfiles && doctorProfiles.length > 0) {
+        setDoctorId(doctorProfiles[0].id);
+      } else {
+        // Create a doctor profile if none exists
+        const { data: newProfile, error: createError } = await supabase
+          .from('doctor_profiles')
+          .insert([{ 
+            user_id: user?.id,
+            first_name: 'Doctor',
+            last_name: 'User',
+            email: user?.email,
+            doctor_id: Math.floor(100000 + Math.random() * 900000).toString()
+          }])
+          .select();
+
+        if (createError) {
+          console.error('Error creating doctor profile:', createError);
+          return;
+        }
+
+        if (newProfile && newProfile.length > 0) {
+          setDoctorId(newProfile[0].id);
+        }
       }
     } catch (error) {
       console.error('Error fetching doctor profile:', error);
@@ -162,7 +185,9 @@ export function CustomQuizCreator({ baseQuizId, onQuizCreated }: CustomQuizCreat
             severe_threshold: 75
           },
           category: quizData.category || 'custom',
-          doctor_id: quizData.doctor_id
+          doctor_id: quizData.doctor_id,
+          cta_text: quizData.cta_text || 'For more info about non-invasive in office procedure to give you relief, Schedule a 5min screening phone call.',
+          cta_type: quizData.cta_type || 'contact'
         });
       }
     } catch (error) {
@@ -242,12 +267,13 @@ export function CustomQuizCreator({ baseQuizId, onQuizCreated }: CustomQuizCreat
               temperature: 0.7,
               max_tokens: 2000,
               top_p: 0.9
-            })
+            }),
           });
 
           if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
+            console.error('OpenRouter API error:', errorText);
+            throw new Error(`OpenRouter API error: ${response.status}`);
           }
 
           const data = await response.json();
@@ -466,7 +492,9 @@ export function CustomQuizCreator({ baseQuizId, onQuizCreated }: CustomQuizCreat
         scoring: quiz.scoring as any,
         category: quiz.category,
         doctor_id: doctorId,
-        max_score: maxScore
+        max_score: maxScore,
+        cta_text: quiz.cta_text,
+        cta_type: quiz.cta_type
       };
 
       if (isEditing && quiz.id) {
@@ -571,6 +599,20 @@ export function CustomQuizCreator({ baseQuizId, onQuizCreated }: CustomQuizCreat
                 className="w-full"
                 rows={2}
               />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">Call-to-Action Text</label>
+              <Textarea
+                placeholder="Text shown after assessment completion..."
+                value={quiz.cta_text}
+                onChange={(e) => setQuiz(prev => ({ ...prev, cta_text: e.target.value }))}
+                className="w-full"
+                rows={2}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                This text will be shown to users after they complete the assessment
+              </p>
             </div>
 
             <div className="space-y-3">

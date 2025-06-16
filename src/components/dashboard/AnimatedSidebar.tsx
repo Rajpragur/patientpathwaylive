@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -15,7 +14,11 @@ import {
   ChevronRight,
   UserCircle,
   Share2,
-  Building
+  Building,
+  Zap,
+  Megaphone,
+  Brain,
+  Globe
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -55,6 +58,30 @@ const mainMenuItems = [
     label: 'Social',
     icon: <Share2 size={22} />,
     description: 'Social integrations'
+  },
+  {
+    id: 'automation',
+    label: 'Automation',
+    icon: <Zap size={22} />,
+    description: 'Automated workflows'
+  },
+  {
+    id: 'marketing',
+    label: 'Marketing',
+    icon: <Megaphone size={22} />,
+    description: 'Marketing recommendations'
+  },
+  {
+    id: 'symptom-checker',
+    label: 'Symptom Checker',
+    icon: <Brain size={22} />,
+    description: 'Conversational assessment'
+  },
+  {
+    id: 'integrations',
+    label: 'Integrations',
+    icon: <Globe size={22} />,
+    description: 'Connect services'
   }
 ];
 

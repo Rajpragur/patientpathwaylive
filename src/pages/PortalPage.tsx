@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -12,6 +11,11 @@ import { ConfigurationPage } from '@/components/dashboard/ConfigurationPage';
 import { SettingsPage } from '@/components/dashboard/SettingsPage';
 import { SupportPage } from '@/components/dashboard/SupportPage';
 import { AIChatAgent } from '@/components/dashboard/AIChatAgent';
+import { SocialIntegrationsPage } from '@/components/dashboard/SocialIntegrationsPage';
+import { AutomationPage } from '@/components/dashboard/AutomationPage';
+import { MarketingRecommendations } from '@/components/dashboard/MarketingRecommendations';
+import { SymptomChecker } from '@/components/dashboard/SymptomChecker';
+import { IntegrationsPage } from '@/components/dashboard/IntegrationsPage';
 import { toast } from 'sonner';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { PageLoader } from '@/components/ui/PageLoader';
@@ -92,6 +96,16 @@ export default function PortalPage() {
         return <QuizManagementPage />;
       case 'schedule':
         return <SchedulePage />;
+      case 'social':
+        return <SocialIntegrationsPage />;
+      case 'automation':
+        return <AutomationPage />;
+      case 'marketing':
+        return <MarketingRecommendations />;
+      case 'symptom-checker':
+        return <SymptomChecker />;
+      case 'integrations':
+        return <IntegrationsPage />;
       case 'profile':
         return <ProfilePage />;
       case 'configuration':
@@ -134,6 +148,11 @@ export default function PortalPage() {
                     {(currentPage === 'analytics' || currentPage === 'trends') && 'Analytics & Trends'}
                     {currentPage === 'quizzes' && 'Assessments'}
                     {currentPage === 'schedule' && 'Schedule'}
+                    {currentPage === 'social' && 'Social Integrations'}
+                    {currentPage === 'automation' && 'Automation'}
+                    {currentPage === 'marketing' && 'Marketing Recommendations'}
+                    {currentPage === 'symptom-checker' && 'Symptom Checker'}
+                    {currentPage === 'integrations' && 'Integrations'}
                     {currentPage === 'profile' && 'Profile'}
                     {currentPage === 'configuration' && 'Configuration'}
                     {currentPage === 'settings' && 'Settings'}
@@ -144,6 +163,11 @@ export default function PortalPage() {
                     {(currentPage === 'analytics' || currentPage === 'trends') && 'Performance metrics, insights, and data trends'}
                     {currentPage === 'quizzes' && 'Manage your assessments and quizzes'}
                     {currentPage === 'schedule' && 'View and manage your appointments'}
+                    {currentPage === 'social' && 'Connect and manage your social media accounts'}
+                    {currentPage === 'automation' && 'Create and manage automated communications'}
+                    {currentPage === 'marketing' && 'Daily content ideas and marketing strategies'}
+                    {currentPage === 'symptom-checker' && 'Conversational assessment tool'}
+                    {currentPage === 'integrations' && 'Connect with other services and platforms'}
                     {currentPage === 'profile' && 'Manage your account information'}
                     {currentPage === 'configuration' && 'Manage your clinic information and settings'}
                     {currentPage === 'settings' && 'Configure your preferences'}

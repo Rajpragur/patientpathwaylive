@@ -22,7 +22,10 @@ import {
   X,
   Globe,
   Zap,
-  Loader2
+  Loader2,
+  Upload,
+  FileUp,
+  FileText
 } from 'lucide-react';
 
 interface SocialAccount {
@@ -45,6 +48,14 @@ interface EmailConfig {
   landing_page_url: string;
 }
 
+interface ContactList {
+  id: string;
+  name: string;
+  count: number;
+  type: 'email' | 'sms';
+  last_updated: string;
+}
+
 export function SocialIntegrationsPage() {
   const { user } = useAuth();
   const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([]);
@@ -63,6 +74,11 @@ export function SocialIntegrationsPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [doctorId, setDoctorId] = useState<string | null>(null);
+  const [contactLists, setContactLists] = useState<ContactList[]>([]);
+  const [uploadingList, setUploadingList] = useState(false);
+  const [newListName, setNewListName] = useState('');
+  const [listType, setListType] = useState<'email' | 'sms'>('email');
+  const [fileSelected, setFileSelected] = useState<File | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -201,6 +217,24 @@ export function SocialIntegrationsPage() {
       } catch (error) {
         console.log('Automation webhooks table not ready yet');
       }
+
+      // Load contact lists (mock data for now)
+      setContactLists([
+        {
+          id: '1',
+          name: 'Newsletter Subscribers',
+          count: 245,
+          type: 'email',
+          last_updated: '2025-06-15'
+        },
+        {
+          id: '2',
+          name: 'SMS Appointment Reminders',
+          count: 128,
+          type: 'sms',
+          last_updated: '2025-06-10'
+        }
+      ]);
     } catch (error) {
       console.error('Error loading configurations:', error);
       setError('Failed to load configurations');
@@ -418,6 +452,47 @@ export function SocialIntegrationsPage() {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setFileSelected(e.target.files[0]);
+    }
+  };
+
+  const handleUploadContactList = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!fileSelected || !newListName) {
+      toast.error('Please select a file and enter a list name');
+      return;
+    }
+    
+    setUploadingList(true);
+    
+    try {
+      // Simulate file processing
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Add to contact lists (mock implementation)
+      const newList: ContactList = {
+        id: Date.now().toString(),
+        name: newListName,
+        count: Math.floor(Math.random() * 100) + 50,
+        type: listType,
+        last_updated: new Date().toISOString().split('T')[0]
+      };
+      
+      setContactLists(prev => [...prev, newList]);
+      setNewListName('');
+      setFileSelected(null);
+      
+      toast.success('Contact list uploaded successfully');
+    } catch (error) {
+      toast.error('Failed to upload contact list');
+    } finally {
+      setUploadingList(false);
+    }
+  };
+
   const socialPlatforms = [
     { name: 'Facebook', icon: Facebook, color: '#1877F2' },
     { name: 'Instagram', icon: Instagram, color: '#E4405F' },
@@ -455,16 +530,17 @@ export function SocialIntegrationsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Social Integrations</h2>
-          <p className="text-gray-600">Connect your social accounts and communication tools</p>
+          <h2 className="text-2xl font-bold text-gray-900">Integrations</h2>
+          <p className="text-gray-600">Connect your accounts and communication tools</p>
         </div>
       </div>
 
       <Tabs defaultValue="social" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="social">Social Media</TabsTrigger>
           <TabsTrigger value="twilio">SMS/Calling</TabsTrigger>
           <TabsTrigger value="email">Email Domain</TabsTrigger>
+          <TabsTrigger value="contacts">Contact Lists</TabsTrigger>
           <TabsTrigger value="automation">Automation</TabsTrigger>
         </TabsList>
 
@@ -628,6 +704,116 @@ export function SocialIntegrationsPage() {
                 <Mail className="w-4 h-4 mr-2" />
                 {emailConfig.domain ? 'Update Domain' : 'Add Domain'}
               </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="contacts" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Contact Lists
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-4">
+                <h3 className="font-medium text-blue-800 mb-2">Import Contact Lists</h3>
+                <p className="text-sm text-blue-700 mb-4">
+                  Import your existing patient email and SMS lists to use for communications.
+                </p>
+                
+                <form onSubmit={handleUploadContactList} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="list_name">List Name</Label>
+                      <Input 
+                        id="list_name" 
+                        placeholder="e.g., Newsletter Subscribers"
+                        value={newListName}
+                        onChange={(e) => setNewListName(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="list_type">List Type</Label>
+                      <select 
+                        id="list_type"
+                        className="w-full h-10 px-3 py-2 rounded-md border border-input bg-background"
+                        value={listType}
+                        onChange={(e) => setListType(e.target.value as 'email' | 'sms')}
+                      >
+                        <option value="email">Email List</option>
+                        <option value="sms">SMS List</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="file_upload">Upload CSV or Excel File</Label>
+                    <div className="mt-2 flex items-center gap-4">
+                      <Input
+                        id="file_upload"
+                        type="file"
+                        accept=".csv,.xlsx,.xls"
+                        onChange={handleFileChange}
+                        className="flex-1"
+                      />
+                      <Button 
+                        type="submit" 
+                        disabled={uploadingList || !fileSelected || !newListName}
+                      >
+                        {uploadingList ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <FileUp className="w-4 h-4 mr-2" />
+                            Upload
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      File should contain columns for name, email/phone, and optional tags
+                    </p>
+                  </div>
+                </form>
+              </div>
+              
+              <div>
+                <h3 className="font-medium text-gray-800 mb-3">Your Contact Lists</h3>
+                {contactLists.length === 0 ? (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+                    <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">No contact lists found</p>
+                    <p className="text-sm text-gray-400">Upload your first list above</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {contactLists.map(list => (
+                      <div key={list.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div>
+                          <div className="font-medium text-gray-800">{list.name}</div>
+                          <div className="text-sm text-gray-500">
+                            {list.count} contacts • Last updated: {list.last_updated}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={list.type === 'email' ? 'default' : 'secondary'}>
+                            {list.type === 'email' ? 'Email' : 'SMS'}
+                          </Badge>
+                          <Button variant="outline" size="sm">
+                            View
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
