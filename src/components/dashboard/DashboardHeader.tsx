@@ -94,7 +94,10 @@ export function DashboardHeader() {
         {/* Left: User Profile */}
         <div className="flex items-center gap-4">
           <Avatar className="h-12 w-12 ring-2 ring-[#0E7C9D]/20">
-            <AvatarImage src={doctorProfile?.avatar_url || "/placeholder-doctor.jpg"} />
+            <AvatarImage 
+              src={doctorProfile?.avatar_url} 
+              alt={`Dr. ${getDoctorName()}`}
+            />
             <AvatarFallback className="bg-[#0E7C9D] text-white text-sm font-semibold">
               {getInitials()}
             </AvatarFallback>

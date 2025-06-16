@@ -130,7 +130,7 @@ export function ProfilePage() {
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !user) return;
+    if (!file || !user || !doctorProfile) return;
 
     // Validate file type and size
     if (!file.type.startsWith('image/')) {
@@ -145,6 +145,8 @@ export function ProfilePage() {
 
     setUploading(true);
     try {
+      console.log('Starting avatar upload process');
+      
       // Create a unique file name
       const fileExt = file.name.split('.').pop();
       const fileName = `avatar-${user.id}-${Date.now()}.${fileExt}`;
@@ -155,7 +157,7 @@ export function ProfilePage() {
         try {
           const urlParts = formData.avatar_url.split('/');
           const oldFileName = urlParts[urlParts.length - 1];
-          if (oldFileName && oldFileName.includes(user.id)) {
+          if (oldFileName && oldFileName.includes('avatar-')) {
             console.log('Attempting to delete old file:', `avatars/${oldFileName}`);
             await supabase.storage
               .from('profiles')
@@ -166,6 +168,8 @@ export function ProfilePage() {
         }
       }
 
+      console.log('Uploading new avatar to path:', filePath);
+      
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('profiles')
@@ -178,6 +182,8 @@ export function ProfilePage() {
         console.error('Upload error:', uploadError);
         throw uploadError;
       }
+
+      console.log('Upload successful:', uploadData);
 
       // Get the public URL
       const { data: urlData } = supabase.storage
@@ -192,7 +198,10 @@ export function ProfilePage() {
       // Update the doctor profile directly to ensure the avatar URL is saved
       const { error: updateError } = await supabase
         .from('doctor_profiles')
-        .update({ avatar_url: urlData.publicUrl })
+        .update({ 
+          avatar_url: urlData.publicUrl,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', doctorProfile.id);
         
       if (updateError) {
@@ -212,6 +221,9 @@ export function ProfilePage() {
           onClick: () => window.open(urlData.publicUrl, '_blank', '')
         }
       });
+
+      // Refresh doctor profile to ensure we have the latest data
+      fetchDoctorProfile();
 
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(null), 3000);
@@ -243,7 +255,14 @@ export function ProfilePage() {
       
       const profileData = {
         user_id: user.id,
-        ...formData,
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        email: formData.email,
+        phone: formData.phone,
+        specialty: formData.specialty,
+        clinic_name: formData.clinic_name,
+        avatar_url: formData.avatar_url,
+        doctor_id: formData.doctor_id || generateDoctorId(),
         updated_at: new Date().toISOString()
       };
 
@@ -259,10 +278,7 @@ export function ProfilePage() {
         // Create new profile
         const { data, error } = await supabase
           .from('doctor_profiles')
-          .insert([{
-            ...profileData,
-            doctor_id: generateDoctorId()
-          }])
+          .insert([profileData])
           .select();
 
         if (error) throw error;
@@ -277,6 +293,7 @@ export function ProfilePage() {
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(null), 3000);
       
+      // Refresh doctor profile to ensure we have the latest data
       await fetchDoctorProfile();
     } catch (error) {
       console.error('Error saving profile:', error);

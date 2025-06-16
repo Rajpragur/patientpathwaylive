@@ -13,6 +13,7 @@ export function ConfigurationPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [profile, setProfile] = useState({
     clinic_name: '',
     location: '',
@@ -129,8 +130,11 @@ export function ConfigurationPage() {
         .eq('id', doctorId);
 
       if (error) throw error;
-
+      
       toast.success('Clinic configuration saved successfully');
+      
+      // Refresh the profile data to ensure we have the latest
+      fetchDoctorProfile();
     } catch (error) {
       console.error('Error saving profile:', error);
       toast.error('Failed to save clinic configuration');
@@ -145,7 +149,7 @@ export function ConfigurationPage() {
 
   const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !user) return;
+    if (!file || !user || !doctorId) return;
 
     // Validate file type and size
     if (!file.type.startsWith('image/')) {
@@ -158,8 +162,10 @@ export function ConfigurationPage() {
       return;
     }
 
-    setSaving(true);
+    setUploading(true);
     try {
+      console.log('Starting logo upload process');
+      
       // Create a unique file name
       const fileExt = file.name.split('.').pop();
       const fileName = `logo-${user.id}-${Date.now()}.${fileExt}`;
@@ -170,7 +176,7 @@ export function ConfigurationPage() {
         try {
           const urlParts = profile.logo_url.split('/');
           const oldFileName = urlParts[urlParts.length - 1];
-          if (oldFileName && oldFileName.includes(user.id)) {
+          if (oldFileName && oldFileName.includes('logo-')) {
             console.log('Attempting to delete old file:', `logos/${oldFileName}`);
             await supabase.storage
               .from('profiles')
@@ -181,6 +187,8 @@ export function ConfigurationPage() {
         }
       }
 
+      console.log('Uploading new logo to path:', filePath);
+      
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('profiles')
@@ -194,6 +202,8 @@ export function ConfigurationPage() {
         throw uploadError;
       }
 
+      console.log('Upload successful:', uploadData);
+
       // Get the public URL
       const { data: urlData } = supabase.storage
         .from('profiles')
@@ -205,16 +215,17 @@ export function ConfigurationPage() {
       setProfile(prev => ({ ...prev, logo_url: urlData.publicUrl }));
       
       // Update the doctor profile directly
-      if (doctorId) {
-        const { error: updateError } = await supabase
-          .from('doctor_profiles')
-          .update({ logo_url: urlData.publicUrl })
-          .eq('id', doctorId);
-          
-        if (updateError) {
-          console.error('Error updating logo URL:', updateError);
-          throw updateError;
-        }
+      const { error: updateError } = await supabase
+        .from('doctor_profiles')
+        .update({ 
+          logo_url: urlData.publicUrl,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', doctorId);
+        
+      if (updateError) {
+        console.error('Error updating logo URL:', updateError);
+        throw updateError;
       }
       
       toast.success('Logo uploaded successfully!');
@@ -224,7 +235,7 @@ export function ConfigurationPage() {
         description: error.message || 'Please try again later'
       });
     } finally {
-      setSaving(false);
+      setUploading(false);
     }
   };
 
@@ -386,10 +397,10 @@ export function ConfigurationPage() {
                   <Button 
                     variant="outline" 
                     onClick={() => document.getElementById('logo_upload')?.click()}
-                    disabled={saving}
+                    disabled={uploading}
                     className="w-full"
                   >
-                    {saving ? (
+                    {uploading ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     ) : (
                       <Upload className="w-4 h-4 mr-2" />
@@ -410,7 +421,8 @@ export function ConfigurationPage() {
                     className="max-h-20 max-w-40 object-contain"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
+                      target.src = '/placeholder.svg';
+                      target.onerror = null;
                     }}
                   />
                 </div>

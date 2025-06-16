@@ -23,7 +23,8 @@ import {
   Facebook,
   Linkedin,
   Twitter,
-  Link2
+  Link2,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -242,7 +243,7 @@ export function ShareQuizPage() {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f7904f] mx-auto mb-4"></div>
+          <Loader2 className="h-12 w-12 animate-spin text-blue-500 mx-auto mb-4" />
           <p className="text-lg text-gray-600">Loading assessment...</p>
         </div>
       </div>
