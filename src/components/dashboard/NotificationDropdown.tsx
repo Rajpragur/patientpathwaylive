@@ -61,14 +61,13 @@ export function NotificationDropdown() {
 
   const fetchDoctorProfile = async () => {
     try {
-      const { data } = await supabase
+      const { data: doctorProfiles } = await supabase
         .from('doctor_profiles')
         .select('id')
-        .eq('user_id', user?.id)
-        .maybeSingle();
+        .eq('user_id', user?.id);
       
-      if (data) {
-        setDoctorId(data.id);
+      if (doctorProfiles && doctorProfiles.length > 0) {
+        setDoctorId(doctorProfiles[0].id);
       }
     } catch (error) {
       console.error('Error fetching doctor profile:', error);

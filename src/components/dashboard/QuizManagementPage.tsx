@@ -30,20 +30,22 @@ export function QuizManagementPage() {
     try {
       setLoadingCustom(true);
       // Fetch doctor profile
-      const { data: doctorProfile } = await supabase
+      const { data: doctorProfiles } = await supabase
         .from('doctor_profiles')
         .select('id')
-        .eq('user_id', user?.id)
-        .limit(1)
-        .maybeSingle();
-      if (doctorProfile) {
+        .eq('user_id', user?.id);
+        
+      if (doctorProfiles && doctorProfiles.length > 0) {
+        const doctorProfile = doctorProfiles[0];
         setDoctorId(doctorProfile.id);
+        
         // Fetch custom quizzes for this doctor
         const { data: quizzesData, error } = await supabase
           .from('custom_quizzes')
           .select('*')
           .eq('doctor_id', doctorProfile.id)
           .order('created_at', { ascending: false });
+          
         if (!error && quizzesData) {
           setCustomQuizzes(quizzesData);
         }

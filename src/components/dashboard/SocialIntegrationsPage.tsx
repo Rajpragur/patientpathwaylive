@@ -69,14 +69,13 @@ export function SocialIntegrationsPage() {
     
     try {
       // Load doctor profile with integrations
-      const { data: profile } = await supabase
+      const { data: profiles } = await supabase
         .from('doctor_profiles')
         .select('*')
-        .eq('user_id', user.id)
-        .limit(1)
-        .maybeSingle();
+        .eq('user_id', user.id);
 
-      if (profile) {
+      if (profiles && profiles.length > 0) {
+        const profile = profiles[0];
         setTwilioConfig({
           account_sid: profile.twilio_account_sid || '',
           auth_token: profile.twilio_auth_token || '',
@@ -107,16 +106,37 @@ export function SocialIntegrationsPage() {
     
     setLoading(true);
     try {
-      const { error } = await supabase
+      // First check if profile exists
+      const { data: profiles } = await supabase
         .from('doctor_profiles')
-        .update({
-          twilio_account_sid: twilioConfig.account_sid,
-          twilio_auth_token: twilioConfig.auth_token,
-          twilio_phone_number: twilioConfig.phone_number
-        })
+        .select('id')
         .eq('user_id', user.id);
+      
+      if (!profiles || profiles.length === 0) {
+        // Create a new profile if none exists
+        const { error: insertError } = await supabase
+          .from('doctor_profiles')
+          .insert({
+            user_id: user.id,
+            twilio_account_sid: twilioConfig.account_sid,
+            twilio_auth_token: twilioConfig.auth_token,
+            twilio_phone_number: twilioConfig.phone_number
+          });
+          
+        if (insertError) throw insertError;
+      } else {
+        // Update existing profile
+        const { error } = await supabase
+          .from('doctor_profiles')
+          .update({
+            twilio_account_sid: twilioConfig.account_sid,
+            twilio_auth_token: twilioConfig.auth_token,
+            twilio_phone_number: twilioConfig.phone_number
+          })
+          .eq('user_id', user.id);
 
-      if (error) throw error;
+        if (error) throw error;
+      }
       
       toast.success('Twilio configuration updated successfully');
     } catch (error: any) {
