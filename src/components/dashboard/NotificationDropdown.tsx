@@ -25,6 +25,7 @@ export function NotificationDropdown() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [doctorId, setDoctorId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (user) {
@@ -61,6 +62,7 @@ export function NotificationDropdown() {
 
   const fetchDoctorProfile = async () => {
     try {
+      setLoading(true);
       // Get all doctor profiles for this user
       const { data: profiles, error } = await supabase
         .from('doctor_profiles')
@@ -74,10 +76,37 @@ export function NotificationDropdown() {
       
       // Use the first profile if multiple exist
       if (profiles && profiles.length > 0) {
+        console.log('Found doctor profile:', profiles[0].id);
         setDoctorId(profiles[0].id);
+      } else {
+        console.log('No doctor profile found, creating one...');
+        
+        // Create a doctor profile if none exists
+        const { data: newProfile, error: createError } = await supabase
+          .from('doctor_profiles')
+          .insert([{ 
+            user_id: user?.id,
+            first_name: 'Doctor',
+            last_name: 'User',
+            email: user?.email,
+            doctor_id: Math.floor(100000 + Math.random() * 900000).toString()
+          }])
+          .select();
+
+        if (createError) {
+          console.error('Error creating doctor profile:', createError);
+          return;
+        }
+
+        if (newProfile && newProfile.length > 0) {
+          console.log('Created new doctor profile:', newProfile[0].id);
+          setDoctorId(newProfile[0].id);
+        }
       }
     } catch (error) {
-      console.error('Error fetching doctor profile:', error);
+      console.error('Error in fetchDoctorProfile:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -177,6 +206,14 @@ export function NotificationDropdown() {
         return '📢';
     }
   };
+
+  if (loading) {
+    return (
+      <Button variant="outline" size="sm" className="relative rounded-2xl">
+        <Bell className="w-4 h-4" />
+      </Button>
+    );
+  }
 
   return (
     <DropdownMenu>

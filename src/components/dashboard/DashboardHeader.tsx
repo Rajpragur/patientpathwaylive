@@ -7,30 +7,65 @@ import { supabase } from '@/integrations/supabase/client';
 export function DashboardHeader() {
   const { user } = useAuth();
   const [doctorProfile, setDoctorProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchDoctorProfile = async () => {
-      if (user) {
-        // Get all doctor profiles for this user
-        const { data: profiles, error } = await supabase
-          .from('doctor_profiles')
-          .select('*')
-          .eq('user_id', user.id);
+    if (user) {
+      fetchDoctorProfile();
+    }
+  }, [user]);
+
+  const fetchDoctorProfile = async () => {
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+      // Get all doctor profiles for this user
+      const { data: profiles, error } = await supabase
+        .from('doctor_profiles')
+        .select('*')
+        .eq('user_id', user.id);
+      
+      if (error) {
+        console.error('Error fetching doctor profiles:', error);
+        return;
+      }
+      
+      // Use the first profile if multiple exist
+      if (profiles && profiles.length > 0) {
+        console.log('Found doctor profile:', profiles[0].id);
+        setDoctorProfile(profiles[0]);
+      } else {
+        console.log('No doctor profile found, creating one...');
         
-        if (error) {
-          console.error('Error fetching doctor profiles:', error);
+        // Create a doctor profile if none exists
+        const { data: newProfile, error: createError } = await supabase
+          .from('doctor_profiles')
+          .insert([{ 
+            user_id: user.id,
+            first_name: 'Doctor',
+            last_name: 'User',
+            email: user.email,
+            doctor_id: Math.floor(100000 + Math.random() * 900000).toString()
+          }])
+          .select();
+
+        if (createError) {
+          console.error('Error creating doctor profile:', createError);
           return;
         }
-        
-        // Use the first profile if multiple exist
-        if (profiles && profiles.length > 0) {
-          setDoctorProfile(profiles[0]);
+
+        if (newProfile && newProfile.length > 0) {
+          console.log('Created new doctor profile:', newProfile[0].id);
+          setDoctorProfile(newProfile[0]);
         }
       }
-    };
-    
-    fetchDoctorProfile();
-  }, [user]);
+    } catch (error) {
+      console.error('Error in fetchDoctorProfile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getInitials = () => {
     if (doctorProfile?.first_name && doctorProfile?.last_name) {

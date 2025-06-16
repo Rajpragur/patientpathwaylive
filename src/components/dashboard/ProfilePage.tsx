@@ -38,15 +38,21 @@ export function ProfilePage() {
     doctor_id: ''
   });
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchDoctorProfile();
+    if (user) {
+      fetchDoctorProfile();
+    }
   }, [user]);
 
   const fetchDoctorProfile = async () => {
     if (!user) return;
     
     try {
+      setLoading(true);
+      console.log('Fetching doctor profile for user:', user.id);
+      
       // Get all doctor profiles for this user
       const { data: profiles, error } = await supabase
         .from('doctor_profiles')
@@ -54,12 +60,16 @@ export function ProfilePage() {
         .eq('user_id', user.id);
 
       if (error) {
-        throw error;
+        console.error('Error fetching doctor profiles:', error);
+        setError('Could not fetch doctor profile');
+        setLoading(false);
+        return;
       }
 
       // Use the first profile if multiple exist
       if (profiles && profiles.length > 0) {
         const profile = profiles[0];
+        console.log('Found doctor profile:', profile.id);
         setDoctorProfile(profile);
         setFormData({
           first_name: profile.first_name || '',
@@ -72,15 +82,47 @@ export function ProfilePage() {
           doctor_id: profile.doctor_id || ''
         });
       } else {
-        // No profile exists, set default values
-        setFormData(prev => ({
-          ...prev,
-          email: user.email || ''
-        }));
+        console.log('No doctor profile found, creating one...');
+        
+        // Create a doctor profile if none exists
+        const { data: newProfile, error: createError } = await supabase
+          .from('doctor_profiles')
+          .insert([{ 
+            user_id: user.id,
+            first_name: 'Doctor',
+            last_name: 'User',
+            email: user.email,
+            doctor_id: Math.floor(100000 + Math.random() * 900000).toString()
+          }])
+          .select();
+
+        if (createError) {
+          console.error('Error creating doctor profile:', createError);
+          setError('Failed to create doctor profile');
+          setLoading(false);
+          return;
+        }
+
+        if (newProfile && newProfile.length > 0) {
+          console.log('Created new doctor profile:', newProfile[0].id);
+          setDoctorProfile(newProfile[0]);
+          setFormData({
+            first_name: newProfile[0].first_name || '',
+            last_name: newProfile[0].last_name || '',
+            email: newProfile[0].email || user.email || '',
+            phone: newProfile[0].phone || '',
+            specialty: newProfile[0].specialty || '',
+            clinic_name: newProfile[0].clinic_name || '',
+            avatar_url: newProfile[0].avatar_url || '',
+            doctor_id: newProfile[0].doctor_id || ''
+          });
+        } else {
+          setError('Failed to create doctor profile');
+        }
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
-      toast.error('Failed to load profile');
+      setError('Failed to load profile');
     } finally {
       setLoading(false);
     }
@@ -157,7 +199,7 @@ export function ProfilePage() {
         duration: 3000,
         action: {
           label: 'View',
-          onClick: () => window.open(urlData.publicUrl, '_blank')
+          onClick: () => window.open(urlData.publicUrl, '_blank', '')
         }
       });
 
@@ -253,6 +295,23 @@ export function ProfilePage() {
       <div className="p-8 flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0E7C9D]"></div>
         <span className="ml-2">Loading profile...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 flex items-center justify-center">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
+          <h3 className="text-lg font-medium text-red-800 mb-2">Error Loading Profile</h3>
+          <p className="text-red-700">{error}</p>
+          <Button 
+            onClick={() => window.location.reload()} 
+            className="mt-4"
+          >
+            Retry
+          </Button>
+        </div>
       </div>
     );
   }

@@ -21,17 +21,28 @@ export function LeadsPage() {
   const [quizTypeFilter, setQuizTypeFilter] = useState('all');
   const [sortBy, setSortBy] = useState<'name' | 'contact' | 'score' | 'date'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [doctorId, setDoctorId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchLeads();
+    if (user) {
+      fetchDoctorProfile();
+    }
   }, [user]);
 
-  const fetchLeads = async () => {
-    if (!user) return;
+  useEffect(() => {
+    if (doctorId) {
+      fetchLeads();
+    }
+  }, [doctorId]);
 
-    setLoading(true);
+  const fetchDoctorProfile = async () => {
+    if (!user) return;
+    
     try {
-      // Fetch doctor profile with explicit headers and error handling
+      console.log('Fetching doctor profile for user:', user.id);
+      
+      // First try to get all doctor profiles for this user
       const { data: doctorProfiles, error: profileError } = await supabase
         .from('doctor_profiles')
         .select('id, first_name, last_name')
@@ -39,20 +50,62 @@ export function LeadsPage() {
 
       if (profileError) {
         console.error('Profile fetch error:', profileError);
+        setError('Could not fetch doctor profile');
         toast.error('Could not fetch doctor profile');
         setLoading(false);
         return;
       }
 
       if (!doctorProfiles || doctorProfiles.length === 0) {
-        toast.error('No doctor profile found. Please set up your profile first.');
-        setLoading(false);
-        return;
+        console.log('No doctor profiles found, creating one...');
+        
+        // Create a doctor profile if none exists
+        const { data: newProfile, error: createError } = await supabase
+          .from('doctor_profiles')
+          .insert([{ 
+            user_id: user.id,
+            first_name: 'Doctor',
+            last_name: 'User',
+            email: user.email,
+            doctor_id: Math.floor(100000 + Math.random() * 900000).toString()
+          }])
+          .select();
+
+        if (createError) {
+          console.error('Error creating doctor profile:', createError);
+          setError('Failed to create doctor profile');
+          toast.error('Failed to create doctor profile');
+          setLoading(false);
+          return;
+        }
+
+        if (newProfile && newProfile.length > 0) {
+          console.log('Created new doctor profile:', newProfile[0].id);
+          setDoctorId(newProfile[0].id);
+        } else {
+          setError('Failed to create doctor profile');
+          toast.error('Failed to create doctor profile');
+          setLoading(false);
+        }
+      } else {
+        // Use the first doctor profile
+        console.log('Found doctor profiles:', doctorProfiles.length);
+        setDoctorId(doctorProfiles[0].id);
       }
+    } catch (error) {
+      console.error('Unexpected error fetching doctor profile:', error);
+      setError('An unexpected error occurred');
+      toast.error('An unexpected error occurred');
+      setLoading(false);
+    }
+  };
 
-      // Use the first doctor profile (or you could handle multiple profiles if needed)
-      const doctorProfile = doctorProfiles[0];
+  const fetchLeads = async () => {
+    if (!doctorId) return;
 
+    try {
+      console.log('Fetching leads for doctor ID:', doctorId);
+      
       // Fetch leads with explicit error handling
       const { data: leadsData, error: leadsError } = await supabase
         .from('quiz_leads')
@@ -60,11 +113,12 @@ export function LeadsPage() {
           *,
           doctor:doctor_profiles(first_name, last_name)
         `)
-        .eq('doctor_id', doctorProfile.id)
+        .eq('doctor_id', doctorId)
         .order('submitted_at', { ascending: false });
 
       if (leadsError) {
         console.error('Leads fetch error:', leadsError);
+        setError('Could not fetch leads');
         toast.error('Could not fetch leads');
         setLoading(false);
         return;
@@ -77,9 +131,11 @@ export function LeadsPage() {
         submitted_at: new Date(lead.submitted_at).toISOString()
       }));
 
+      console.log('Fetched leads:', transformedLeads.length);
       setLeads(transformedLeads);
     } catch (error) {
       console.error('Unexpected error:', error);
+      setError('An unexpected error occurred');
       toast.error('An unexpected error occurred');
     } finally {
       setLoading(false);
@@ -149,7 +205,29 @@ export function LeadsPage() {
   if (loading) {
     return (
       <div className="p-6">
-        <div className="text-center">Loading leads...</div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-lg text-gray-600">Loading leads...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="text-center">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
+            <h3 className="text-lg font-medium text-red-800 mb-2">Error Loading Leads</h3>
+            <p className="text-red-700">{error}</p>
+            <Button 
+              onClick={() => window.location.reload()} 
+              className="mt-4"
+            >
+              Retry
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -304,7 +382,20 @@ export function LeadsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <EnhancedLeadsTable leads={filteredAndSortedLeads} onLeadUpdate={fetchLeads} />
+          {leads.length === 0 ? (
+            <div className="text-center py-12">
+              <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-xl font-medium text-gray-700 mb-2">No Leads Found</h3>
+              <p className="text-gray-500 max-w-md mx-auto mb-6">
+                You don't have any leads yet. Share your assessments with patients to start collecting leads.
+              </p>
+              <Button onClick={() => navigate('/portal/quizzes')}>
+                Manage Assessments
+              </Button>
+            </div>
+          ) : (
+            <EnhancedLeadsTable leads={filteredAndSortedLeads} onLeadUpdate={fetchLeads} />
+          )}
         </CardContent>
       </Card>
     </div>
