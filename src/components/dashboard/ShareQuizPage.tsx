@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -49,16 +48,16 @@ export function ShareQuizPage() {
     const fetchData = async () => {
       try {
         if (user) {
-          const { data: profile, error: profileError } = await supabase
+          const { data: profiles, error: profileError } = await supabase
             .from('doctor_profiles')
             .select('*')
-            .eq('user_id', user.id)
-            .single();
+            .eq('user_id', user.id);
           
           if (profileError) {
             console.error('Error fetching doctor profile:', profileError);
-          } else {
-            setDoctorProfile(profile);
+          } else if (profiles && profiles.length > 0) {
+            // Use the first profile if multiple exist
+            setDoctorProfile(profiles[0]);
           }
         }
 
