@@ -3,12 +3,16 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { NotificationDropdown } from './NotificationDropdown';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { Megaphone, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { MarketingTicker } from './MarketingTicker';
 
 export function DashboardHeader() {
   const { user } = useAuth();
   const [doctorProfile, setDoctorProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showMarketingTicker, setShowMarketingTicker] = useState(true);
 
   useEffect(() => {
     if (user) {
@@ -95,52 +99,66 @@ export function DashboardHeader() {
 
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        {/* Left: User Profile */}
-        <div className="flex items-center gap-4">
-          <Avatar className="h-12 w-12 ring-2 ring-[#0E7C9D]/20">
-            {doctorProfile?.avatar_url ? (
-              <AvatarImage 
-                src={doctorProfile.avatar_url} 
-                alt={`Dr. ${getDoctorName()}`}
-                onError={(e) => {
-                  console.error('Avatar image failed to load:', e);
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = 'none';
-                }}
-              />
-            ) : null}
-            <AvatarFallback className="bg-[#0E7C9D] text-white text-sm font-semibold">
-              {getInitials()}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              Dr. {getDoctorName()}
-            </h2>
-            <p className="text-sm text-gray-500">
-              {doctorProfile?.specialty || 'Medical Professional'}
-            </p>
+      <div className="flex flex-col space-y-2">
+        {/* Top row with user profile and notifications */}
+        <div className="flex items-center justify-between">
+          {/* Left: User Profile */}
+          <div className="flex items-center gap-4">
+            <Avatar className="h-12 w-12 ring-2 ring-[#0E7C9D]/20">
+              {doctorProfile?.avatar_url ? (
+                <AvatarImage 
+                  src={doctorProfile.avatar_url} 
+                  alt={`Dr. ${getDoctorName()}`}
+                  onError={(e) => {
+                    console.error('Avatar image failed to load:', e);
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                  }}
+                />
+              ) : null}
+              <AvatarFallback className="bg-[#0E7C9D] text-white text-sm font-semibold">
+                {getInitials()}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Dr. {getDoctorName()}
+              </h2>
+              <p className="text-sm text-gray-500">
+                {doctorProfile?.specialty || 'Medical Professional'}
+              </p>
+            </div>
+          </div>
+          
+          {/* Center: Logo */}
+          <div className="flex flex-col items-center flex-1 max-w-md">
+            <img 
+              src="/patient-pathway-logo.jpeg" 
+              alt="Patient Pathway Logo"
+              className="w-20 h-20 object-contain mb-1"
+            />
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-[#FF6B35] to-[#0E7C9D] bg-clip-text text-transparent">
+              Patient Pathway
+            </h1>
+            <p className="text-xs text-gray-600">Medical Assessment Management System</p>
+          </div>
+          
+          {/* Right: Notifications */}
+          <div className="flex items-center gap-4">
+            <NotificationDropdown />
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="rounded-full"
+              onClick={() => setShowMarketingTicker(!showMarketingTicker)}
+            >
+              <Megaphone className="w-4 h-4" />
+            </Button>
           </div>
         </div>
         
-        {/* Center: Logo */}
-        <div className="flex flex-col items-center flex-1 max-w-md">
-          <img 
-            src="/patient-pathway-logo.jpeg" 
-            alt="Patient Pathway Logo"
-            className="w-20 h-20 object-contain mb-1"
-          />
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-[#FF6B35] to-[#0E7C9D] bg-clip-text text-transparent">
-            Patient Pathway
-          </h1>
-          <p className="text-xs text-gray-600">Medical Assessment Management System</p>
-        </div>
-        
-        {/* Right: Notifications */}
-        <div className="flex items-center gap-4">
-          <NotificationDropdown />
-        </div>
+        {/* Marketing Ticker */}
+        {showMarketingTicker && <MarketingTicker />}
       </div>
     </header>
   );

@@ -89,12 +89,10 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
   useEffect(() => {
     if (quizData) {
       setLoading(false);
-      setMessages([
-        {
-          role: 'assistant',
-          content: `Hello! Welcome to the ${quizData.title}. ${quizData.description}\n\nThis assessment will help evaluate your symptoms. Click "Start Assessment" when you're ready to begin.`
-        }
-      ]);
+      
+      // Start the quiz immediately without asking for confirmation
+      setQuizStarted(true);
+      askNextQuestion(0);
       
       // Check if the quiz has custom CTA text
       if (quizData.cta_text) {
@@ -225,16 +223,6 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
       </div>
     );
   }
-
-  const startQuiz = () => {
-    setQuizStarted(true);
-    setMessages(prev => [...prev, { role: 'user', content: 'Start Assessment' }]);
-    setShowTyping(true);
-    setTimeout(() => {
-      setShowTyping(false);
-      askNextQuestion(0);
-    }, 700);
-  };
 
   const askNextQuestion = (questionIndex: number) => {
     if (questionIndex < quizData.questions.length) {
@@ -590,10 +578,8 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
     setPostQuizChat([]);
     setPostQuizInput('');
     setTimeout(() => {
-      setMessages([{
-        role: 'assistant',
-        content: `Hello! Welcome to the ${quizData.title}. ${quizData.description}\n\nThis assessment will help evaluate your symptoms. Click "Start Assessment" when you're ready to begin.`
-      }]);
+      setQuizStarted(true);
+      askNextQuestion(0);
     }, 100);
   };
 
@@ -853,16 +839,6 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
           transition={{ duration: 0.4, ease: 'easeOut' }}
           className="p-4 sticky bottom-0 z-10 bg-white/90 backdrop-blur rounded-b-2xl border-t border-gray-200"
         >
-          {!quizStarted && !quizCompleted && (
-            <Button 
-              onClick={startQuiz} 
-              className="w-full rounded-xl text-lg font-semibold transition-all duration-150 shadow-md hover:shadow-lg text-white" 
-              style={{ backgroundColor: orange, borderColor: orange }}
-            >
-              Start Assessment
-            </Button>
-          )}
-          
           {collectingInfo && (
             <div className="flex gap-2">
               <Input

@@ -53,6 +53,9 @@ export function ShareQuizPage() {
     { id: '3', name: 'Follow-up Patients', count: 124 }
   ]);
   const [selectedList, setSelectedList] = useState('');
+  const [shortUrl, setShortUrl] = useState<string>('');
+  const [isGeneratingShortUrl, setIsGeneratingShortUrl] = useState(false);
+  const [ctaText, setCtaText] = useState('For more info about non-invasive in office procedure to give you relief, Schedule a 5min screening phone call.');
   const baseUrl = window.location.origin;
 
   useEffect(() => {
@@ -102,7 +105,12 @@ export function ShareQuizPage() {
             .single();
           
           if (error) throw error;
-          if (data) setCustomQuiz(data);
+          if (data) {
+            setCustomQuiz(data);
+            if (data.cta_text) {
+              setCtaText(data.cta_text);
+            }
+          }
         }
       } catch (error) {
         console.error('Error fetching quiz:', error);
@@ -154,22 +162,27 @@ export function ShareQuizPage() {
     }
   };
 
-  const quizUrl = getQuizUrl();
-  const embedCode = `<iframe 
-    src="${quizUrl}" 
-    width="100%" 
-    height="600px" 
-    frameborder="0" 
-    style="border: none; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);"
-    title="${customQuiz?.title || quizType} Assessment"
-    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-  ></iframe>`;
-
-  const handleCopy = (text: string, message: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    toast.success(message);
-    setTimeout(() => setCopied(false), 2000);
+  const generateShortUrl = async () => {
+    setIsGeneratingShortUrl(true);
+    try {
+      const longUrl = getQuizUrl();
+      
+      // Call the ulvis.net API to shorten the URL
+      const response = await fetch(`https://ulvis.net/api.php?url=${encodeURIComponent(longUrl)}`);
+      const data = await response.json();
+      
+      if (data && data.success && data.data && data.data.url) {
+        setShortUrl(data.data.url);
+        toast.success('Short URL generated successfully!');
+      } else {
+        throw new Error('Failed to generate short URL');
+      }
+    } catch (error) {
+      console.error('Error generating short URL:', error);
+      toast.error('Failed to generate short URL. Please try again.');
+    } finally {
+      setIsGeneratingShortUrl(false);
+    }
   };
 
   const handleSocialShare = (platform: string) => {
@@ -233,6 +246,36 @@ export function ShareQuizPage() {
 
     // Simulate sharing with contact list
     toast.success(`Assessment shared with "${contactLists.find(list => list.id === selectedList)?.name}" contact list`);
+  };
+
+  const handleCopyShortUrl = () => {
+    if (shortUrl) {
+      navigator.clipboard.writeText(shortUrl);
+      toast.success('Short URL copied to clipboard!');
+    } else {
+      toast.error('No short URL available. Please generate one first.');
+    }
+  };
+
+  const handleUpdateCta = () => {
+    if (!customQuizId) {
+      toast.error('CTA can only be updated for custom quizzes');
+      return;
+    }
+
+    // Update the CTA text in the database
+    supabase
+      .from('custom_quizzes')
+      .update({ cta_text: ctaText })
+      .eq('id', customQuizId)
+      .then(({ error }) => {
+        if (error) {
+          console.error('Error updating CTA:', error);
+          toast.error('Failed to update CTA text');
+        } else {
+          toast.success('CTA text updated successfully');
+        }
+      });
   };
 
   if (loading) {
@@ -378,12 +421,12 @@ export function ShareQuizPage() {
                   
                   <div className="flex gap-2">
                     <Input
-                      value={quizUrl} 
+                      value={shareUrl} 
                       readOnly
                       className="flex-1 font-mono text-sm"
                     />
                     <Button
-                      onClick={() => handleCopy(quizUrl, 'Link copied to clipboard!')}
+                      onClick={() => copyToClipboard()}
                       className="min-w-[100px]"
                     >
                       {copied ? (
@@ -400,11 +443,47 @@ export function ShareQuizPage() {
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={() => window.open(quizUrl, '_blank')}
+                      onClick={() => window.open(shareUrl, '_blank')}
                     >
                       <ExternalLink className="w-4 h-4 mr-2" />
                       Preview
                     </Button>
+                  </div>
+
+                  {/* Short URL Generator */}
+                  <div className="flex gap-2">
+                    <Input
+                      value={shortUrl || "Generate a short URL for easier sharing"}
+                      readOnly
+                      className="flex-1 font-mono text-sm"
+                    />
+                    {shortUrl ? (
+                      <Button
+                        onClick={handleCopyShortUrl}
+                        className="min-w-[100px]"
+                      >
+                        <Copy className="w-4 h-4 mr-2" />
+                        Copy
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={generateShortUrl}
+                        disabled={isGeneratingShortUrl}
+                        className="min-w-[140px]"
+                      >
+                        {isGeneratingShortUrl ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Link2 className="w-4 h-4 mr-2" />
+                            Generate Short URL
+                          </>
+                        )}
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -459,7 +538,7 @@ export function ShareQuizPage() {
                     <CardContent className="flex flex-col items-center">
                       {showQrCode ? (
                         <div className="bg-white p-4 rounded-lg border border-gray-200">
-                          <QRCodeSVG value={quizUrl} size={200} />
+                          <QRCodeSVG value={shareUrl} size={200} />
                         </div>
                       ) : (
                         <Button 
@@ -492,7 +571,7 @@ export function ShareQuizPage() {
                         </Button>
                         <Button 
                           variant="outline" 
-                          onClick={() => window.open(quizUrl, '_blank')}
+                          onClick={() => window.open(shareUrl, '_blank')}
                           className="hover:bg-blue-50 hover:text-blue-600"
                         >
                           <Monitor className="w-4 h-4 mr-2" />
@@ -508,7 +587,7 @@ export function ShareQuizPage() {
                         </Button>
                         <Button 
                           variant="outline" 
-                          onClick={() => handleCopy(getQuizUrl('manual_share'), 'Manual share link copied!')}
+                          onClick={() => handleCopyShortUrl()}
                           className="hover:bg-blue-50 hover:text-blue-600"
                         >
                           <Link2 className="w-4 h-4 mr-2" />
@@ -526,9 +605,14 @@ export function ShareQuizPage() {
                       <div className="space-y-4">
                         <Input 
                           placeholder="For more info about non-invasive in office procedure..."
-                          defaultValue="For more info about non-invasive in office procedure to give you relief, Schedule a 5min screening phone call."
+                          value={ctaText}
+                          onChange={(e) => setCtaText(e.target.value)}
                         />
-                        <Button className="w-full">
+                        <Button 
+                          className="w-full"
+                          onClick={handleUpdateCta}
+                          disabled={!customQuizId}
+                        >
                           Update Call-to-Action
                         </Button>
                       </div>
@@ -667,7 +751,7 @@ export function ShareQuizPage() {
                     </label>
                     <textarea 
                       className="w-full p-2 border border-gray-300 rounded-md min-h-[100px]"
-                      defaultValue={`Hello,\n\nI'd like to invite you to take our ${quizInfo.title}. This assessment will help us better understand your symptoms.\n\n${quizUrl}\n\nThank you,\nDr. ${doctorProfile?.first_name || ''} ${doctorProfile?.last_name || ''}`}
+                      defaultValue={`Hello,\n\nI'd like to invite you to take our ${quizInfo.title}. This assessment will help us better understand your symptoms.\n\n${shareUrl}\n\nThank you,\nDr. ${doctorProfile?.first_name || ''} ${doctorProfile?.last_name || ''}`}
                     ></textarea>
                   </div>
                   
