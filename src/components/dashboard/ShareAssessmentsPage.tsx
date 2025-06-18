@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Copy, QrCode, Mail, Share2, Globe, MessageSquare, Maximize, Eye } from 'lucide-react';
+import { Copy, QrCode, Mail, Share2, Globe, MessageSquare, Maximize, Eye, Link } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
@@ -51,9 +51,45 @@ export function ShareAssessmentsPage({ quizType = 'SNOT22' }: ShareAssessmentsPa
     }
   ];
 
+  const [shortenedUrls, setShortenedUrls] = useState<{[key: string]: string}>({});
+
+  const shortenUrl = async (longUrl: string): Promise<string> => {
+    const ulvisApiUrl = `https://ulvis.net/api.php?url=${longUrl}`;
+    try {
+      const response = await fetch(ulvisApiUrl);
+      const data = await response.json();
+      if (data?.status === 'OK') {
+        return data.url;
+      } else {
+        toast.error(`Failed to shorten URL: ${data?.message}`);
+        return longUrl;
+      }
+    } catch (error: any) {
+      console.error("Error shortening URL:", error);
+      toast.error("Error shortening URL. Using original URL.");
+      return longUrl;
+    }
+  };
+
+  useEffect(() => {
+    const shortenAllUrls = async () => {
+      const newShortenedUrls: {[key: string]: string} = {};
+      for (const option of shareOptions) {
+        newShortenedUrls[option.id] = await shortenUrl(option.url);
+      }
+      setShortenedUrls(newShortenedUrls);
+    };
+
+    void shortenAllUrls();
+  }, [shareOptions]);
+
   const handleCopyUrl = (url: string, title: string) => {
-    navigator.clipboard.writeText(url);
-    toast.success(`${title} URL copied to clipboard!`);
+    if (url) {
+      navigator.clipboard.writeText(url);
+      toast.success(`${title} URL copied to clipboard!`);
+    } else {
+      toast.error("URL is still loading, please wait.");
+    }
   };
 
   const handleEmailShare = (url: string) => {
@@ -106,9 +142,9 @@ function openAssessment() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex gap-2">
-                <Input 
-                  value={option.url} 
-                  readOnly 
+                <Input
+                  value={option.url}
+                  readOnly
                   className="font-mono text-xs"
                 />
                 <Button
@@ -125,9 +161,9 @@ function openAssessment() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Embed Code:</label>
                   <div className="flex gap-2">
-                    <Input 
+                    <Input
                       value={generateEmbedCode(option.url, option.title)}
-                      readOnly 
+                      readOnly
                       className="font-mono text-xs"
                     />
                     <Button
@@ -165,6 +201,59 @@ function openAssessment() {
             </CardContent>
           </Card>
         ))}
+        <Card key="short-url" className="shadow-sm border hover:shadow-md transition-shadow">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg bg-yellow-100 text-yellow-700`}>
+                <Link className="w-5 h-5" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Short URL</CardTitle>
+                <p className="text-sm text-gray-600">Shortened URL for easy sharing</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                value={shortenedUrls['short-url'] || 'Loading...'}
+                readOnly
+                className="font-mono text-xs"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleCopyUrl(shortenedUrls['short-url'], 'Short URL')}
+                className="flex-shrink-0"
+                disabled={!shortenedUrls['short-url']}
+              >
+                <Copy className="w-4 h-4" />
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleEmailShare(shortenedUrls['short-url'])}
+                className="flex-1"
+                disabled={!shortenedUrls['short-url']}
+              >
+                <Mail className="w-4 h-4 mr-2" />
+                Email
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(shortenedUrls['short-url'], '_blank')}
+                className="flex-1"
+                disabled={!shortenedUrls['short-url']}
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                Preview
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Card className="shadow-sm border">
