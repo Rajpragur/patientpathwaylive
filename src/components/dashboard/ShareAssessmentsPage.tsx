@@ -77,7 +77,7 @@ export function ShareAssessmentsPage({ quizType = 'SNOT22' }: ShareAssessmentsPa
       for (const option of shareOptions) {
         newShortenedUrls[option.id] = await shortenUrl(option.url);
       }
-      setShortenedUrls(newShortenedUrls);
+      setShortenedUrls(prev => ({ ...prev, ...newShortenedUrls }));
     };
 
     void shortenAllUrls();
@@ -152,6 +152,22 @@ function openAssessment() {
                   size="sm"
                   onClick={() => handleCopyUrl(option.url, option.title)}
                   className="flex-shrink-0"
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={shortenedUrls[option.id] || 'Loading...'}
+                  readOnly
+                  className="font-mono text-xs"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleCopyUrl(shortenedUrls[option.id], `Short ${option.title}`)}
+                  className="flex-shrink-0"
+                  disabled={!shortenedUrls[option.id]}
                 >
                   <Copy className="w-4 h-4" />
                 </Button>

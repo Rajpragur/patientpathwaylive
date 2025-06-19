@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,15 +59,54 @@ export function IntegrationsPage() {
     toast.success('Zapier webhook connected successfully');
   };
   
-  const handleVerifyDomain = () => {
+  const handleVerifyDomain = async () => {
     if (!domain) {
       toast.error('Please enter a domain');
       return;
     }
-    
-    toast.success('Domain verification started. Please check your email for next steps.');
+
+    try {
+      const { data, error } = await supabase.functions.invoke('verify-domain', {
+        body: { domain }
+      });
+
+      if (error) {
+        console.error('Error verifying domain:', error);
+        toast.error('Failed to verify domain');
+        return;
+      }
+
+      toast.success('Domain verification started. Please check your email for next steps.');
+    } catch (error) {
+      console.error('Error verifying domain:', error);
+      toast.error('Failed to verify domain');
+    }
   };
-  
+
+  const handleVerifyEmailDomain = async () => {
+    if (!emailDomain) {
+      toast.error('Please enter an email domain');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('send-verification-email', {
+        body: { domain: emailDomain }
+      });
+
+      if (error) {
+        console.error('Error sending verification email:', error);
+        toast.error('Failed to send verification email');
+        return;
+      }
+
+      toast.success('Verification email sent. Please check your inbox.');
+    } catch (error) {
+      console.error('Error sending verification email:', error);
+      toast.error('Failed to send verification email');
+    }
+  };
+
   const handleConnectGoogle = () => {
     // Simulate Google OAuth flow
     setTimeout(() => {
@@ -251,7 +291,7 @@ export function IntegrationsPage() {
                         onChange={(e) => setDomain(e.target.value)}
                         className="flex-1"
                       />
-                      <Button onClick={handleVerifyDomain}>
+                      <Button onClick={handleVerifyEmailDomain}>
                         Verify
                       </Button>
                     </div>

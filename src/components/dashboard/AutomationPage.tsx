@@ -179,7 +179,7 @@ export function AutomationPage() {
   const handleEditAutomation = (id: string) => {
     const automation = automations.find(a => a.id === id);
     if (automation) {
-      setNewAutomation(automation);
+      setNewAutomation({...automation});
       setEditingAutomation(id);
       setShowNewAutomation(true);
     }
@@ -775,16 +775,16 @@ export function AutomationPage() {
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <h4 className="font-medium text-blue-800 mb-2">Available Variables:</h4>
                   <div className="grid grid-cols-2 gap-2 text-sm text-blue-700">
-                    <div>{{name}}: Patient Name</div>
-                    <div>{{email}}: Patient Email</div>
-                    <div>{{phone}}: Patient Phone</div>
-                    <div>{{quiz_type}}: Assessment Type</div>
-                    <div>{{score}}: Assessment Score</div>
-                    <div>{{doctor_name}}: Your Name</div>
+                    <div><span>&#123;&#123;name&#125;&#125;</span>: Patient Name</div>
+                    <div><span>&#123;&#123;email&#125;&#125;</span>: Patient Email</div>
+                    <div><span>&#123;&#123;phone&#125;&#125;</span>: Patient Phone</div>
+                    <div><span>&#123;&#123;quiz_type&#125;&#125;</span>: Assessment Type</div>
+                    <div><span>&#123;&#123;score&#125;&#125;</span>: Assessment Score</div>
+                    <div><span>&#123;&#123;doctor_name&#125;&#125;</span>: Your Name</div>
                     {newAutomation.trigger === 'scheduled' && (
                       <>
-                        <div>{{appointment_date}}: Appt. Date</div>
-                        <div>{{appointment_time}}: Appt. Time</div>
+                        <div><span>&#123;&#123;appointment_date&#125;&#125;</span>: Appt. Date</div>
+                        <div><span>&#123;&#123;appointment_time&#125;&#125;</span>: Appt. Time</div>
                       </>
                     )}
                   </div>

@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Building, MapPin, Mail, Phone, Users, Upload } from 'lucide-react';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
 export function ConfigurationPage() {
   const { user } = useAuth();
@@ -23,6 +24,8 @@ export function ConfigurationPage() {
     logo_url: '',
     providers: ''
   });
+  const [contacts, setContacts] = useState<string[]>([]);
+  const [isContactListOpen, setIsContactListOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doctorId, setDoctorId] = useState<string | null>(null);
 
@@ -238,6 +241,25 @@ export function ConfigurationPage() {
       setUploading(false);
     }
   };
+const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'text/csv') {
+      toast.error('Please upload a CSV file');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const text = e.target?.result as string;
+      const lines = text.split('\n');
+      const newContacts = lines.map(line => line.trim()).filter(line => line !== '');
+      setContacts(prev => [...prev, ...newContacts]);
+      toast.success('Contacts imported successfully!');
+    };
+    reader.readAsText(file);
+  };
 
   if (loading) {
     return (
@@ -428,6 +450,57 @@ export function ConfigurationPage() {
                 </div>
               </div>
             )}
+          </CardContent>
+        </Card>
+{/* Contact List Management */}
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-indigo-500" />
+              Contact List Management
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="csv_upload">Import Contacts from CSV</Label>
+              <input
+                id="csv_upload"
+                type="file"
+                accept=".csv"
+                onChange={handleCSVUpload}
+                className="hidden"
+              />
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => document.getElementById('csv_upload')?.click()}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Upload CSV File
+              </Button>
+            </div>
+            <div>
+              <Label>Manually Add Contacts</Label>
+              <div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full">
+                      Manage Contacts
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80">
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-medium">Contact List</h4>
+                      <div className="h-40 overflow-y-auto border rounded-md p-2">
+                        {contacts.map((contact, index) => (
+                          <div key={index} className="text-sm">{contact}</div>
+                        ))}
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

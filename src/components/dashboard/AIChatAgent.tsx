@@ -1,10 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MessageSquare, Send, Minimize2, Maximize2, Lightbulb, HeadphonesIcon, Bot, User, CheckCircle2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { TextShimmerWave } from '@/components/ui/text-shimmer-wave';
+import {
+  ExpandableChat,
+  ExpandableChatHeader,
+  ExpandableChatBody,
+  ExpandableChatFooter,
+} from '@/components/ui/expandable-chat';
+import { ChatInput } from '@/components/ui/chat-input.tsx';
+import { AnimatePresence } from 'framer-motion';
 
 interface Message {
   id: string;
@@ -14,6 +25,7 @@ interface Message {
 }
 
 export function AIChatAgent() {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -51,8 +63,22 @@ export function AIChatAgent() {
     setIsLoading(true);
 
     try {
+      const { data: conversationHistory, error: conversationError } = await supabase
+        .from('ai_conversations')
+        .select('*')
+        .eq('doctor_id', user?.id)
+        .order('created_at', { ascending: true });
+
+      if (conversationError) {
+        console.error('Error fetching conversation history:', conversationError);
+      }
+
+      const messagesForAI = conversationHistory
+        ? conversationHistory.map(item => item.message)
+        : [];
+
       // Handle special commands
-      if (newMessage.toLowerCase().includes('nose test embed code') || 
+      if (newMessage.toLowerCase().includes('nose test embed code') ||
           newMessage.toLowerCase().includes('embed code')) {
         setTimeout(() => {
           const botResponse: Message = {
@@ -66,13 +92,31 @@ export function AIChatAgent() {
         }, 1000);
         return;
       }
-      
-      if (newMessage.toLowerCase().includes('analytics for facebook') || 
+
+      if (newMessage.toLowerCase().includes('analytics for facebook') ||
           newMessage.toLowerCase().includes('facebook analytics')) {
         setTimeout(() => {
           const botResponse: Message = {
             id: (Date.now() + 1).toString(),
             content: `To track Facebook analytics for your assessments, I recommend:\n\n1. Add UTM parameters to your assessment links: \`?utm_source=facebook&utm_medium=social&utm_campaign=nose_assessment\`\n\n2. Set up Facebook Pixel on your website to track conversions\n\n3. Create custom conversion events for assessment completions\n\n4. Use the Analytics tab in your dashboard to monitor traffic from Facebook\n\nWould you like me to help you set up any of these tracking methods?`,
+            sender: 'bot',
+            timestamp: new Date()
+          };
+          setMessages(prev => [...prev, botResponse]);
+          setIsLoading(false);
+        }, 1000);
+        return;
+      }
+
+      // Handle quiz link requests
+      if (newMessage.toLowerCase().includes('i want a') && newMessage.toLowerCase().includes('quiz share link')) {
+        const quizName = newMessage.toLowerCase().split('i want a ')[1].split(' quiz share link')[0].trim();
+        const assessmentLink = `${window.location.origin}/quiz/${quizName}`;
+
+        setTimeout(() => {
+          const botResponse: Message = {
+            id: (Date.now() + 1).toString(),
+            content: `Here's the share link for the ${quizName} assessment: ${assessmentLink}`,
             sender: 'bot',
             timestamp: new Date()
           };
@@ -109,10 +153,7 @@ Provide actionable, professional advice tailored to medical practices. Be concis
 
 If asked about embed codes, social media, or analytics, provide specific, practical advice for medical practices.`
             },
-            ...messages.slice(-5).map(m => ({
-              role: m.sender === 'user' ? 'user' : 'assistant',
-              content: m.content
-            })),
+            ...messagesForAI,
             {
               role: 'user',
               content: newMessage
@@ -128,7 +169,7 @@ If asked about embed codes, social media, or analytics, provide specific, practi
       }
 
       const data = await response.json();
-      const botResponse = data.choices?.[0]?.message?.content || 'I apologize, but I\'m having trouble responding right now. Please try again.';
+      const botResponse = data.choices?.[0]?.message?.content || 'I apologize, but I\'m having trouble responding right now. Please try again later.';
 
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -138,6 +179,21 @@ If asked about embed codes, social media, or analytics, provide specific, practi
       };
 
       setMessages(prev => [...prev, botMessage]);
+
+      // Store the conversation in Supabase
+      await supabase
+        .from('ai_conversations')
+        .insert([
+          {
+            doctor_id: user?.id,
+            message: { role: 'user', content: newMessage }
+          },
+          {
+            doctor_id: user?.id,
+            message: { role: 'assistant', content: botResponse }
+          }
+        ]);
+
     } catch (error) {
       console.error('Error sending message:', error);
       const errorMessage: Message = {
@@ -161,162 +217,155 @@ If asked about embed codes, social media, or analytics, provide specific, practi
 
   if (!isOpen) {
     return (
-      <motion.div
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="fixed bottom-6 right-6 z-50"
+      <Button
+        onClick={() => setIsOpen(true)}
+        className="rounded-full w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-xl hover:shadow-2xl transition-all duration-300 border-2 border-white fixed bottom-6 right-6 z-50"
       >
-        <Button
-          onClick={() => setIsOpen(true)}
-          className="rounded-full w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-xl hover:shadow-2xl transition-all duration-300 border-2 border-white"
-        >
-          <div className="flex flex-col items-center">
-            <Bot className="w-6 h-6 text-white mb-0.5" />
-            <span className="text-xs text-white font-medium">AI</span>
-          </div>
-        </Button>
-        <div className="absolute -top-2 -right-2 w-4 h-4 bg-green-500 rounded-full border-2 border-white animate-pulse"></div>
-      </motion.div>
+        <div className="flex flex-col items-center">
+          <Bot className="w-6 h-6 text-white mb-0.5" />
+          <span className="text-xs text-white font-medium">AI</span>
+        </div>
+      </Button>
     );
   }
 
   return (
-    <motion.div
-      initial={{ scale: 0, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      exit={{ scale: 0, opacity: 0 }}
-      className="fixed bottom-6 right-6 z-50"
-    >
-      <Card className={`w-96 shadow-2xl border-0 ${isMinimized ? 'h-16' : 'h-[500px]'} transition-all duration-300 overflow-hidden`}>
-        <CardHeader className="p-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 text-white">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <Bot className="w-6 h-6" />
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border border-white"></div>
-              </div>
-              <div>
-                <CardTitle className="text-sm font-semibold">Marketing AI Assistant</CardTitle>
-                <p className="text-xs text-purple-100">Strategy • Support • Growth</p>
-              </div>
-              <Badge variant="secondary" className="text-xs bg-white/20 text-white border-white/30">
-                <Lightbulb className="w-3 h-3 mr-1" />
-                Online
-              </Badge>
+    <ExpandableChat position="bottom-right">
+      <ExpandableChatHeader className="bg-gradient-to-r from-blue-400 to-blue-600 text-white">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Bot className="w-6 h-6" />
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border border-white"></div>
             </div>
-            <div className="flex gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsMinimized(!isMinimized)}
-                className="h-7 w-7 p-0 text-white hover:bg-white/20 rounded-full"
-              >
-                {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsOpen(false)}
-                className="h-7 w-7 p-0 text-white hover:bg-white/20 rounded-full"
-              >
-                ✕
-              </Button>
+            <div>
+              <CardTitle className="text-sm font-semibold">
+                Marketing AI Assistant
+              </CardTitle>
+              <p className="text-xs text-blue-100">
+                Strategy • Support • Growth
+              </p>
             </div>
-          </div>
-        </CardHeader>
-        
-        <AnimatePresence>
-          {!isMinimized && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="flex flex-col h-[436px]"
+            <Badge
+              variant="secondary"
+              className="text-xs bg-white/20 text-white border-white/30"
             >
-              <CardContent className="p-0 flex flex-col h-full bg-gradient-to-b from-gray-50 to-white">
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`max-w-[85%] rounded-xl p-3 text-sm shadow-sm ${
-                          message.sender === 'user'
-                            ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white'
-                            : 'bg-white text-gray-800 border border-gray-200'
-                        }`}
-                      >
-                        <div className="flex items-start gap-2">
-                          {message.sender === 'bot' && (
-                            <div className="flex-shrink-0 w-6 h-6 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center">
-                              <Bot className="w-3 h-3 text-white" />
-                            </div>
-                          )}
-                          {message.sender === 'user' && (
-                            <div className="flex-shrink-0 w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
-                              <User className="w-3 h-3 text-white" />
-                            </div>
-                          )}
-                          <div className="flex-1">
-                            <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
-                            <div className={`text-xs mt-1 opacity-70 ${message.sender === 'user' ? 'text-purple-100' : 'text-gray-500'}`}>
-                              {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {isLoading && (
-                    <div className="flex justify-start">
-                      <div className="bg-white rounded-xl p-3 text-sm shadow-sm border border-gray-200">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center">
-                            <Bot className="w-3 h-3 text-white" />
-                          </div>
-                          <div className="flex space-x-1">
-                            <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
-                            <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                            <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                          </div>
-                        </div>
-                      </div>
+              <Lightbulb className="w-3 h-3 mr-1" />
+              Online
+            </Badge>
+          </div>
+          <div className="flex gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsMinimized(!isMinimized)}
+              className="h-7 w-7 p-0 text-white hover:bg-white/20 rounded-full"
+            >
+              {isMinimized ? (
+                <Maximize2 className="w-4 h-4" />
+              ) : (
+                <Minimize2 className="w-4 h-4" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsOpen(false)}
+              className="h-7 w-7 p-0 text-white hover:bg-white/20 rounded-full"
+            >
+              ✕
+            </Button>
+          </div>
+        </div>
+      </ExpandableChatHeader>
+      <ExpandableChatBody>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {messages.map((message) => (
+            <div
+              key={message.id}
+              className={`flex ${
+                message.sender === 'user' ? 'justify-end' : 'justify-start'
+              }`}
+            >
+              <div
+                className={`max-w-[85%] rounded-2xl p-4 text-sm shadow-sm ${
+                  message.sender === 'user'
+                    ? 'bg-gradient-to-r from-purple-400 to-indigo-400 text-white shadow-md'
+                    : 'bg-gray-50 text-gray-800 shadow-md border border-gray-200 rounded-2xl'
+                }`}
+              >
+                <div className="flex items-start gap-2">
+                  {message.sender === 'bot' && (
+                    <div className="flex-shrink-0 w-6 h-6 bg-gradient-to-r from-blue-400 to-blue-500 rounded-full flex items-center justify-center">
+                      <Bot className="w-3 h-3 text-white" />
                     </div>
                   )}
-                  <div ref={messagesEndRef} />
-                </div>
-                
-                <div className="p-4 border-t border-gray-200 bg-white">
-                  <div className="flex gap-2">
-                    <Textarea
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyPress={handleKeyPress}
-                      placeholder="Ask about strategy, marketing, or get support..."
-                      className="flex-1 min-h-[44px] max-h-24 resize-none text-sm border-gray-300 focus:border-purple-500 focus:ring-purple-500"
-                      disabled={isLoading}
-                    />
-                    <Button
-                      onClick={handleSendMessage}
-                      disabled={!newMessage.trim() || isLoading}
-                      size="sm"
-                      className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 h-11 px-4"
+                  {message.sender === 'user' && (
+                    <div className="flex-shrink-0 w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
+                      <User className="w-3 h-3 text-white" />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <div className="whitespace-pre-wrap leading-relaxed">
+                      {message.content}
+                    </div>
+                    <div
+                      className={`text-xs mt-1 opacity-70 ${
+                        message.sender === 'user'
+                          ? 'text-purple-100'
+                          : 'text-gray-500'
+                      }`}
                     >
-                      <Send className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                    <HeadphonesIcon className="w-3 h-3" />
-                    <span>Marketing Strategy & Support</span>
+                      {message.timestamp.toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </div>
                   </div>
                 </div>
-              </CardContent>
-            </motion.div>
+              </div>
+            </div>
+          ))}
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="bg-white rounded-2xl p-4 text-sm shadow-sm border border-gray-200">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 bg-gradient-to-r from-blue-400 to-blue-500 rounded-full flex items-center justify-center">
+                    <Bot className="w-3 h-3 text-white" />
+                  </div>
+                  <TextShimmerWave className="w-24 text-gray-500">
+                    Thinking...
+                  </TextShimmerWave>
+                </div>
+              </div>
+            </div>
           )}
-        </AnimatePresence>
-      </Card>
-    </motion.div>
+          <div ref={messagesEndRef} />
+        </div>
+      </ExpandableChatBody>
+      <ExpandableChatFooter className="bg-gray-50">
+        <div className="flex gap-2">
+          <ChatInput
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="Ask about strategy, marketing, or get support..."
+            disabled={isLoading}
+          />
+          <Button
+            onClick={handleSendMessage}
+            disabled={!newMessage.trim() || isLoading}
+            size="sm"
+            className="bg-gradient-to-r from-purple-400 to-indigo-400 hover:from-purple-500 hover:to-indigo-500 h-11 px-4"
+          >
+            <Send className="w-4 h-4" />
+          </Button>
+        </div>
+        <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+          <HeadphonesIcon className="w-3 h-3" />
+          <span>Marketing Strategy & Support</span>
+        </div>
+      </ExpandableChatFooter>
+    </ExpandableChat>
   );
 }

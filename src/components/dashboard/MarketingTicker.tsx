@@ -18,27 +18,52 @@ export function MarketingTicker() {
   const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
-    // Select a recommendation based on the day of the month
-    const dayOfMonth = new Date().getDate();
-    const index = dayOfMonth % recommendations.length;
-    setCurrentRecommendation(recommendations[index]);
+    const storedDate = localStorage.getItem('lastRecommendationDate');
+    const today = new Date().toLocaleDateString();
+
+    if (storedDate !== today) {
+      generateNewRecommendation();
+      localStorage.setItem('lastRecommendationDate', today);
+    } else {
+      // Select a recommendation based on the day of the month
+      const dayOfMonth = new Date().getDate();
+      const index = dayOfMonth % recommendations.length;
+      setCurrentRecommendation(recommendations[index]);
+    }
   }, [recommendations]);
 
   const generateNewRecommendation = async () => {
     setIsGenerating(true);
     try {
-      // In a real implementation, this would call an AI service
-      // For now, we'll just randomly select a different recommendation
-      const currentIndex = recommendations.indexOf(currentRecommendation);
-      let newIndex;
-      do {
-        newIndex = Math.floor(Math.random() * recommendations.length);
-      } while (newIndex === currentIndex);
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setCurrentRecommendation(recommendations[newIndex]);
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_OPENROUTER_API_KEY}`,
+          'HTTP-Referer': window.location.origin,
+          'X-Title': 'Medical Practice Marketing AI Assistant'
+        },
+        body: JSON.stringify({
+          model: 'google/gemma-2-9b-it:free',
+          messages: [
+            {
+              role: 'system',
+              content: "You are an AI marketing expert for medical practices, especially ENT clinics. Provide a single, actionable marketing recommendation for the day. Keep it concise (under 100 characters) and relevant to ENT or general medical marketing."
+            }
+          ],
+          max_tokens: 100,
+          temperature: 0.7
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get AI recommendation');
+      }
+
+      const data = await response.json();
+      const newRecommendation = data.choices?.[0]?.message?.content || 'Check back tomorrow for a new marketing tip!';
+      setCurrentRecommendation(newRecommendation);
+      setRecommendations(prev => [...prev, newRecommendation]);
     } catch (error) {
       console.error('Error generating recommendation:', error);
     } finally {

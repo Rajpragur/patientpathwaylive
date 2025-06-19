@@ -145,10 +145,13 @@ export function DashboardHeader() {
           
           {/* Right: Notifications */}
           <div className="flex items-center gap-4">
-            <NotificationDropdown />
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <div className="flex items-center gap-4">
+              {showMarketingTicker && <MarketingTicker />}
+              <NotificationDropdown />
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
               className="rounded-full"
               onClick={() => setShowMarketingTicker(!showMarketingTicker)}
             >

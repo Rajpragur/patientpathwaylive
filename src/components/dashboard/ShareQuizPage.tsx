@@ -44,6 +44,7 @@ export function ShareQuizPage() {
   const [activeTab, setActiveTab] = useState('full-page');
   const [copied, setCopied] = useState(false);
   const [showQrCode, setShowQrCode] = useState(false);
+  const [embedCode, setEmbedCode] = useState('');
   const [doctorProfile, setDoctorProfile] = useState<any>(null);
   const [webSource, setWebSource] = useState('website');
   const [error, setError] = useState<string | null>(null);
@@ -276,9 +277,31 @@ export function ShareQuizPage() {
           toast.success('CTA text updated successfully');
         }
       });
-  };
+ };
 
-  if (loading) {
+ const generateEmbedCode = (quizUrl: string) => {
+   const iframeCode = `<iframe src="${quizUrl}" width="100%" height="500px" frameBorder="0"></iframe>`;
+   setEmbedCode(iframeCode);
+ };
+
+ const handleCopy = (text: string, successMessage: string) => {
+   navigator.clipboard.writeText(text)
+     .then(() => {
+       toast.success(successMessage);
+     })
+     .catch(err => {
+       console.error("Could not copy text: ", err);
+       toast.error('Failed to copy to clipboard.');
+     });
+ };
+
+ useEffect(() => {
+   if (shareUrl) {
+     generateEmbedCode(shareUrl);
+   }
+ }, [shareUrl]);
+
+ if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
@@ -668,8 +691,8 @@ export function ShareQuizPage() {
                     </CardHeader>
                     <CardContent>
                       <div className="aspect-video bg-white border rounded-lg flex items-center justify-center">
-                        <iframe 
-                          src={quizUrl}
+                        <iframe
+                          src={shareUrl}
                           className="w-full h-full rounded-lg"
                           title={`${quizInfo.title} Preview`}
                         />
