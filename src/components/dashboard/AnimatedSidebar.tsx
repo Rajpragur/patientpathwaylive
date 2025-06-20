@@ -65,12 +65,6 @@ const mainMenuItems = [
     description: 'Marketing recommendations'
   },
   {
-    id: 'symptom-checker',
-    label: 'Symptom Checker',
-    icon: <Brain size={22} />,
-    description: 'Conversational assessment'
-  },
-  {
     id: 'integrations',
     label: 'Integrations',
     icon: <Globe size={22} />,
