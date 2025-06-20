@@ -151,7 +151,9 @@ export function AIChatAgent() {
 
 Provide actionable, professional advice tailored to medical practices. Be concise but thorough. Always consider compliance with healthcare regulations like HIPAA when relevant.
 
-If asked about embed codes, social media, or analytics, provide specific, practical advice for medical practices.`
+If asked about embed codes, social media, or analytics, provide specific, practical advice for medical practices.
+Also Avoid answering questions unrelated to medical practice marketing or strategy.
+Also Please avoid returning a response with ** ** etc. type of formatting.`,
             },
             ...messagesForAI,
             {
@@ -215,19 +217,7 @@ If asked about embed codes, social media, or analytics, provide specific, practi
     }
   };
 
-  if (!isOpen) {
-    return (
-      <Button
-        onClick={() => setIsOpen(true)}
-        className="rounded-full w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-xl hover:shadow-2xl transition-all duration-300 border-2 border-white fixed bottom-6 right-6 z-50"
-      >
-        <div className="flex flex-col items-center">
-          <Bot className="w-6 h-6 text-white mb-0.5" />
-          <span className="text-xs text-white font-medium">AI</span>
-        </div>
-      </Button>
-    );
-  }
+  
 
   return (
     <ExpandableChat position="bottom-right">
@@ -240,7 +230,7 @@ If asked about embed codes, social media, or analytics, provide specific, practi
             </div>
             <div>
               <CardTitle className="text-sm font-semibold">
-                Marketing AI Assistant
+                Medical AI Assistant
               </CardTitle>
               <p className="text-xs text-blue-100">
                 Strategy • Support • Growth
@@ -251,30 +241,8 @@ If asked about embed codes, social media, or analytics, provide specific, practi
               className="text-xs bg-white/20 text-white border-white/30"
             >
               <Lightbulb className="w-3 h-3 mr-1" />
-              Online
+              Online - Talk to the AI
             </Badge>
-          </div>
-          <div className="flex gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsMinimized(!isMinimized)}
-              className="h-7 w-7 p-0 text-white hover:bg-white/20 rounded-full"
-            >
-              {isMinimized ? (
-                <Maximize2 className="w-4 h-4" />
-              ) : (
-                <Minimize2 className="w-4 h-4" />
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsOpen(false)}
-              className="h-7 w-7 p-0 text-white hover:bg-white/20 rounded-full"
-            >
-              ✕
-            </Button>
           </div>
         </div>
       </ExpandableChatHeader>

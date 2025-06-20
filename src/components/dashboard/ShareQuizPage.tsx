@@ -41,7 +41,7 @@ export function ShareQuizPage() {
   const { user } = useAuth();
   const [customQuiz, setCustomQuiz] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('full-page');
+  const [activeTab, setActiveTab] = useState<string>('full-page');
   const [copied, setCopied] = useState(false);
   const [showQrCode, setShowQrCode] = useState(false);
   const [embedCode, setEmbedCode] = useState('');
@@ -120,10 +120,10 @@ export function ShareQuizPage() {
         setLoading(false);
       }
     };
-
+ 
     fetchData();
-  }, [customQuizId, user]);
-
+  }, [customQuizId]);
+ 
   const getQuizUrl = (source?: string) => {
     const baseQuizUrl = customQuizId 
       ? `${baseUrl}/custom-quiz/${customQuizId}`
@@ -394,7 +394,7 @@ export function ShareQuizPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <Tabs defaultValue="full-page" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="full-page" className="flex items-center gap-2">
               <Maximize className="w-4 h-4" />
