@@ -109,7 +109,7 @@ export function AIChatAgent() {
       }
 
       // Handle quiz link requests
-      if (newMessage.toLowerCase().includes('i want a') && newMessage.toLowerCase().includes('quiz share link')) {
+      if (newMessage.toLowerCase().includes('i want a') && newMessage.toLowerCase().includes('quiz share link') && !newMessage.toLowerCase().includes('symptom checker')) {
         const quizName = newMessage.toLowerCase().split('i want a ')[1].split(' quiz share link')[0].trim();
         const assessmentLink = `${window.location.origin}/quiz/${quizName}`;
 
@@ -117,6 +117,18 @@ export function AIChatAgent() {
           const botResponse: Message = {
             id: (Date.now() + 1).toString(),
             content: `Here's the share link for the ${quizName} assessment: ${assessmentLink}`,
+            sender: 'bot',
+            timestamp: new Date()
+          };
+          setMessages(prev => [...prev, botResponse]);
+          setIsLoading(false);
+        }, 1000);
+        return;
+      } else if (newMessage.toLowerCase().includes('i want a') && newMessage.toLowerCase().includes('symptom checker quiz share link')) {
+        setTimeout(() => {
+          const botResponse: Message = {
+            id: (Date.now() + 1).toString(),
+            content: `Here's the share link for the Symptom Checker assessment: ${window.location.origin}/quiz/symptom-checker`,
             sender: 'bot',
             timestamp: new Date()
           };
@@ -141,7 +153,6 @@ export function AIChatAgent() {
             {
               role: 'system',
               content: `You are an expert AI assistant for medical practices specializing in marketing strategy, SOPs, lead management, and business optimization. Help doctors and medical professionals with:
-
 1. Business strategy and growth planning
 2. Standard Operating Procedures (SOPs) development
 3. Lead management and patient acquisition strategies

@@ -28,7 +28,7 @@ export interface QuizResult {
   summary: string;
 }
 
-export type QuizType = 'SNOT22' | 'NOSE' | 'HHIA' | 'EPWORTH' | 'DHI' | 'STOP' | 'TNSS';
+export type QuizType = 'SYMPTOM_CHECKER'| 'SNOT22' | 'NOSE' | 'HHIA' | 'EPWORTH' | 'DHI' | 'STOP' | 'TNSS';
 
 export interface Lead {
   id: string;

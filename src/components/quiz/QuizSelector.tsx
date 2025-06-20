@@ -16,6 +16,14 @@ interface QuizOption {
 
 const quizOptions: QuizOption[] = [
   {
+    id: 'SYMPTOM_CHECKER',
+    title: 'Symptom Checker',
+    description: 'AI-powered symptom analysis and assessment recommendation',
+    icon: <Brain className="w-6 h-6" />,
+    color: 'from-purple-400 to-purple-500',
+    duration: 'Varies'
+  },
+  {
     id: 'SNOT22',
     title: 'SNOT-22',
     description: 'Sinus and nasal symptoms assessment',
@@ -80,7 +88,7 @@ interface QuizSelectorProps {
 export function QuizSelector({ onSelectQuiz }: QuizSelectorProps) {
   const handleQuizSelect = (quizId: string) => {
     // Type assertion to ensure the string is a valid QuizType
-    const validQuizTypes: QuizType[] = ['SNOT22', 'NOSE', 'HHIA', 'EPWORTH', 'DHI', 'STOP', 'TNSS'];
+    const validQuizTypes: QuizType[] = ['SNOT22', 'NOSE', 'HHIA', 'EPWORTH', 'DHI', 'STOP', 'TNSS', 'SYMPTOM_CHECKER'];
     if (validQuizTypes.includes(quizId as QuizType)) {
       onSelectQuiz(quizId as QuizType);
     }
