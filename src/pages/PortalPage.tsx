@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { AnimatePresence, motion } from 'framer-motion';
+import { ContactsPage } from '@/components/dashboard/ContactsPage';
 
 export default function PortalPage() {
   const { user, loading, signOut } = useAuth();
@@ -114,6 +115,8 @@ export default function PortalPage() {
         return <SettingsPage />;
       case 'support':
         return <SupportPage />;
+      case 'contacts':
+        return <ContactsPage />;
       default:
         return <LeadsPage />;
     }
@@ -157,6 +160,7 @@ export default function PortalPage() {
                     {currentPage === 'configuration' && 'Configuration'}
                     {currentPage === 'settings' && 'Settings'}
                     {currentPage === 'support' && 'Support'}
+                    {currentPage === 'contacts' && 'Contacts'}
                   </h1>
                   <p className="text-sm text-gray-500 mt-1">
                     {currentPage === 'dashboard' && 'Overview of your leads and recent activity'}
@@ -172,6 +176,7 @@ export default function PortalPage() {
                     {currentPage === 'configuration' && 'Manage your clinic information and settings'}
                     {currentPage === 'settings' && 'Configure your preferences'}
                     {currentPage === 'support' && 'Get help and support'}
+                    {currentPage === 'contacts' && 'Manage your contacts'}
                   </p>
                 </div>
                 <div className="p-6">

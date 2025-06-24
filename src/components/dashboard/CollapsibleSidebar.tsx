@@ -1,4 +1,3 @@
-
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -14,7 +13,8 @@ import {
   Share2,
   LogOut,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Users
 } from "lucide-react";
 import { useState } from "react";
 
@@ -57,6 +57,12 @@ export function CollapsibleSidebar({ currentPage, onPageChange, onSignOut }: Col
       label: 'Schedule',
       icon: Calendar,
       description: 'Appointments'
+    },
+    {
+      id: 'contacts',
+      label: 'Contacts',
+      icon: Users,
+      description: 'Manage contacts'
     }
   ];
 

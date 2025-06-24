@@ -1,4 +1,3 @@
-
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -13,7 +12,8 @@ import {
   User,
   Calendar,
   Share2,
-  LogOut
+  LogOut,
+  Users
 } from "lucide-react";
 
 interface SidebarProps {
@@ -78,6 +78,12 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
       label: 'Support',
       icon: HelpCircle,
       description: 'Help & support'
+    },
+    {
+      id: 'contacts',
+      label: 'Contacts',
+      icon: Users,
+      description: 'Manage contacts'
     }
   ];
 

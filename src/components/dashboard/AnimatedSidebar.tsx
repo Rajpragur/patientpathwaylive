@@ -17,7 +17,8 @@ import {
   Zap,
   Megaphone,
   Brain,
-  Globe
+  Globe,
+  Users
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -69,6 +70,12 @@ const mainMenuItems = [
     label: 'Integrations',
     icon: <Globe size={22} />,
     description: 'Connect services'
+  },
+  {
+    id: 'contacts',
+    label: 'Contacts',
+    icon: <Users size={22} />,
+    description: 'Manage contacts'
   }
 ];
 
