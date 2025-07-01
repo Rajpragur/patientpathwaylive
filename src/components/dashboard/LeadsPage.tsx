@@ -1,403 +1,216 @@
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, TrendingUp, Clock, Filter, Search, ArrowUpDown } from 'lucide-react';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { 
+  Search, 
+  Filter, 
+  Download, 
+  Mail, 
+  Phone, 
+  Calendar,
+  Eye,
+  Trash2
+} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Lead } from '@/types/quiz';
-import { EnhancedLeadsTable } from './EnhancedLeadsTable';
-import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 
+interface Lead {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  quiz_type: string;
+  score: number;
+  submitted_at: string;
+  lead_source: string | null;
+  lead_status: string | null;
+}
+
 export function LeadsPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [quizTypeFilter, setQuizTypeFilter] = useState('all');
-  const [sortBy, setSortBy] = useState<'name' | 'contact' | 'score' | 'date'>('date');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [doctorId, setDoctorId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState('all');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      fetchDoctorProfile();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (doctorId) {
-      fetchLeads();
-    }
-  }, [doctorId]);
-
-  const fetchDoctorProfile = async () => {
-    if (!user) return;
-    
-    try {
-      console.log('Fetching doctor profile for user:', user.id);
-      
-      // First try to get all doctor profiles for this user
-      const { data: doctorProfiles, error: profileError } = await supabase
-        .from('doctor_profiles')
-        .select('id, first_name, last_name')
-        .eq('user_id', user.id);
-
-      if (profileError) {
-        console.error('Profile fetch error:', profileError);
-        setError('Could not fetch doctor profile');
-        toast.error('Could not fetch doctor profile');
-        setLoading(false);
-        return;
-      }
-
-      if (!doctorProfiles || doctorProfiles.length === 0) {
-        console.log('No doctor profiles found, creating one...');
-        
-        // Create a doctor profile if none exists
-        const { data: newProfile, error: createError } = await supabase
-          .from('doctor_profiles')
-          .insert([{ 
-            user_id: user.id,
-            first_name: 'Doctor',
-            last_name: 'User',
-            email: user.email,
-            doctor_id: Math.floor(100000 + Math.random() * 900000).toString()
-          }])
-          .select();
-
-        if (createError) {
-          console.error('Error creating doctor profile:', createError);
-          setError('Failed to create doctor profile');
-          toast.error('Failed to create doctor profile');
-          setLoading(false);
-          return;
-        }
-
-        if (newProfile && newProfile.length > 0) {
-          console.log('Created new doctor profile:', newProfile[0].id);
-          setDoctorId(newProfile[0].id);
-        } else {
-          setError('Failed to create doctor profile');
-          toast.error('Failed to create doctor profile');
-          setLoading(false);
-        }
-      } else {
-        // Use the first doctor profile
-        console.log('Found doctor profiles:', doctorProfiles.length);
-        setDoctorId(doctorProfiles[0].id);
-      }
-    } catch (error) {
-      console.error('Unexpected error fetching doctor profile:', error);
-      setError('An unexpected error occurred');
-      toast.error('An unexpected error occurred');
-      setLoading(false);
-    }
-  };
+    fetchLeads();
+  }, [user, filterType]);
 
   const fetchLeads = async () => {
-    if (!doctorId) return;
+    if (!user) return;
 
+    setLoading(true);
     try {
-      console.log('Fetching leads for doctor ID:', doctorId);
-      
-      // Fetch leads with explicit error handling
-      const { data: leadsData, error: leadsError } = await supabase
+      let query = supabase
         .from('quiz_leads')
-        .select(`
-          *,
-          doctor:doctor_profiles(first_name, last_name)
-        `)
-        .eq('doctor_id', doctorId)
+        .select('*')
+        .eq('doctor_id', user.id)
         .order('submitted_at', { ascending: false });
 
-      if (leadsError) {
-        console.error('Leads fetch error:', leadsError);
-        setError('Could not fetch leads');
-        toast.error('Could not fetch leads');
-        setLoading(false);
-        return;
+      if (filterType !== 'all') {
+        query = query.eq('quiz_type', filterType);
       }
 
-      // Transform and set leads data
-      const transformedLeads = (leadsData || []).map(lead => ({
-        ...lead,
-        lead_status: lead.lead_status || 'NEW',
-        submitted_at: new Date(lead.submitted_at).toISOString()
-      }));
+      const { data, error } = await query;
 
-      console.log('Fetched leads:', transformedLeads.length);
-      setLeads(transformedLeads);
+      if (error) throw error;
+      setLeads(data || []);
     } catch (error) {
-      console.error('Unexpected error:', error);
-      setError('An unexpected error occurred');
-      toast.error('An unexpected error occurred');
+      console.error('Error fetching leads:', error);
+      toast.error('Failed to load leads');
     } finally {
       setLoading(false);
     }
   };
 
   const filteredLeads = leads.filter(lead => {
-    const matchesSearch = 
-      lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (lead.phone && lead.phone.includes(searchTerm));
-    
-    const matchesStatus = statusFilter === 'all' || lead.lead_status === statusFilter;
-    const matchesQuizType = quizTypeFilter === 'all' || lead.quiz_type === quizTypeFilter;
-
-    return matchesSearch && matchesStatus && matchesQuizType;
+    const searchStr = `${lead.name} ${lead.email} ${lead.phone}`.toLowerCase();
+    return searchStr.includes(searchTerm.toLowerCase());
   });
 
-  const filteredAndSortedLeads = [...filteredLeads].sort((a, b) => {
-    let aValue: string | number;
-    let bValue: string | number;
-
-    switch (sortBy) {
-      case 'name':
-        aValue = a.name.toLowerCase();
-        bValue = b.name.toLowerCase();
-        break;
-      case 'contact':
-        aValue = (a.email || a.phone || '').toLowerCase();
-        bValue = (b.email || b.phone || '').toLowerCase();
-        break;
-      case 'score':
-        aValue = a.score;
-        bValue = b.score;
-        break;
-      case 'date':
-        aValue = new Date(a.submitted_at).getTime();
-        bValue = new Date(b.submitted_at).getTime();
-        break;
-      default:
-        return 0;
+  const handleDeleteLead = async (leadId: string) => {
+    if (!window.confirm('Are you sure you want to delete this lead?')) {
+      return;
     }
 
-    if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
-    return 0;
-  });
+    try {
+      const { error } = await supabase
+        .from('quiz_leads')
+        .delete()
+        .eq('id', leadId);
 
-  const stats = {
-    total: leads.length,
-    new: leads.filter(l => l.lead_status === 'NEW').length,
-    contacted: leads.filter(l => l.lead_status === 'CONTACTED').length,
-    scheduled: leads.filter(l => l.lead_status === 'SCHEDULED').length
-  };
+      if (error) throw error;
 
-  const uniqueQuizTypes = [...new Set(leads.map(l => l.quiz_type))];
-
-  const toggleSort = (field: 'name' | 'contact' | 'score' | 'date') => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(field);
-      setSortOrder('asc');
+      setLeads(prevLeads => prevLeads.filter(lead => lead.id !== leadId));
+      toast.success('Lead deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting lead:', error);
+      toast.error('Failed to delete lead');
     }
   };
 
-  if (loading) {
-    return (
-      <div className="p-6">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-lg text-gray-600">Loading leads...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-6">
-        <div className="text-center">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
-            <h3 className="text-lg font-medium text-red-800 mb-2">Error Loading Leads</h3>
-            <p className="text-red-700">{error}</p>
-            <Button 
-              onClick={() => window.location.reload()} 
-              className="mt-4"
-            >
-              Retry
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const handleViewDetails = (leadId: string) => {
+    navigate(`/portal/leads/${leadId}`);
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Leads Dashboard</h1>
-          <p className="text-gray-600 mt-2">Manage and track your assessment leads with source attribution</p>
+        <h1 className="text-3xl font-bold">Leads</h1>
+        <div className="flex items-center gap-2">
+          <Input
+            type="search"
+            placeholder="Search leads..."
+            className="w-64"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <Select onValueChange={setFilterType}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by Quiz" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Quizzes</SelectItem>
+              <SelectItem value="NOSE">NOSE Assessment</SelectItem>
+              <SelectItem value="DHI">Dizziness Handicap Inventory</SelectItem>
+              <SelectItem value="Epworth">Epworth Sleepiness Scale</SelectItem>
+              <SelectItem value="HHIA">Hearing Handicap Inventory</SelectItem>
+              <SelectItem value="SNOT22">SNOT-22</SelectItem>
+              <SelectItem value="STOP">STOP-Bang Questionnaire</SelectItem>
+              <SelectItem value="TNSS">TNSS</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline">
+            <Download className="w-4 h-4 mr-2" />
+            Export
+          </Button>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-700">Total Leads</CardTitle>
-            <Users className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-800">{stats.total}</div>
-            <p className="text-xs text-blue-600">All time leads</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-green-700">New Leads</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-800">{stats.new}</div>
-            <p className="text-xs text-green-600">Awaiting contact</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-yellow-50 to-yellow-100 border-yellow-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-yellow-700">Contacted</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-800">{stats.contacted}</div>
-            <p className="text-xs text-yellow-600">Follow up in progress</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-purple-700">Scheduled</CardTitle>
-            <Users className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-800">{stats.scheduled}</div>
-            <p className="text-xs text-purple-600">Appointments booked</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters and Sorting */}
-      <Card className="shadow-lg border-gray-200">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="w-5 h-5" />
-            Filter & Sort Leads
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-            <div className="relative md:col-span-2">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Search by name, email, or phone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="NEW">New</SelectItem>
-                <SelectItem value="CONTACTED">Contacted</SelectItem>
-                <SelectItem value="SCHEDULED">Scheduled</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={quizTypeFilter} onValueChange={setQuizTypeFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Quiz Types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Quiz Types</SelectItem>
-                {uniqueQuizTypes.map(type => (
-                  <SelectItem key={type} value={type}>{type}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={sortBy} onValueChange={(value: 'name' | 'contact' | 'score' | 'date') => setSortBy(value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="name">Name</SelectItem>
-                <SelectItem value="contact">Contact Info</SelectItem>
-                <SelectItem value="score">Score</SelectItem>
-                <SelectItem value="date">Date</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button 
-              variant="outline" 
-              onClick={() => toggleSort(sortBy)}
-              className="flex items-center gap-2"
-            >
-              <ArrowUpDown className="w-4 h-4" />
-              {sortOrder === 'asc' ? 'Ascending' : 'Descending'}
-            </Button>
-          </div>
-          
-          <div className="flex justify-between items-center mt-4">
-            <div className="text-sm text-gray-600">
-              Showing {filteredAndSortedLeads.length} of {leads.length} leads
-            </div>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setSearchTerm('');
-                setStatusFilter('all');
-                setQuizTypeFilter('all');
-                setSortBy('date');
-                setSortOrder('desc');
-              }}
-            >
-              Clear Filters
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Leads Table */}
-      <Card className="shadow-lg border-gray-200">
-        <CardHeader>
-          <CardTitle>
-            Leads ({filteredAndSortedLeads.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {leads.length === 0 ? (
-            <div className="text-center py-12">
-              <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-xl font-medium text-gray-700 mb-2">No Leads Found</h3>
-              <p className="text-gray-500 max-w-md mx-auto mb-6">
-                You don't have any leads yet. Share your assessments with patients to start collecting leads.
-              </p>
-              <Button onClick={() => navigate('/portal/quizzes')}>
-                Manage Assessments
-              </Button>
-            </div>
+      {loading ? (
+        <div className="text-center">Loading leads...</div>
+      ) : (
+        <div className="grid gap-4">
+          {filteredLeads.length === 0 ? (
+            <div className="text-center">No leads found.</div>
           ) : (
-            <EnhancedLeadsTable leads={filteredAndSortedLeads} onLeadUpdate={fetchLeads} />
+            filteredLeads.map(lead => (
+              <Card key={lead.id}>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    {lead.name}
+                    <Badge variant="secondary">{lead.quiz_type}</Badge>
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleViewDetails(lead.id)}
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      View Details
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDeleteLead(lead.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-semibold">Contact Information</p>
+                    <p className="text-gray-600">
+                      <Mail className="w-4 h-4 inline-block mr-1" />
+                      {lead.email || 'N/A'}
+                    </p>
+                    <p className="text-gray-600">
+                      <Phone className="w-4 h-4 inline-block mr-1" />
+                      {lead.phone || 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">Assessment Details</p>
+                    <p className="text-gray-600">
+                      <Calendar className="w-4 h-4 inline-block mr-1" />
+                      Submitted:{' '}
+                      {new Date(lead.submitted_at).toLocaleDateString()}
+                    </p>
+                    <p className="text-gray-600">
+                      Score: {lead.score}
+                    </p>
+                    {lead.lead_source && (
+                      <p className="text-gray-600">
+                        Source: {lead.lead_source}
+                      </p>
+                    )}
+                    {lead.lead_status && (
+                      <p className="text-gray-600">
+                        Status: {lead.lead_status}
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))
           )}
-        </CardContent>
-      </Card>
+        </div>
+      )}
     </div>
   );
 }

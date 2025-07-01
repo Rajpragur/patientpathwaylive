@@ -1,366 +1,329 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell
+} from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { BarChart3, PieChart as PieChartIcon, TrendingUp, Users } from 'lucide-react';
-import { toast } from 'sonner';
+import { Download, TrendingUp, Users, Star, Calendar } from 'lucide-react';
 
-interface AnalyticsData {
-  leadsByStatus: { name: string; value: number; color: string }[];
-  leadsByQuizType: { name: string; value: number }[];
-  dailyLeads: { date: string; count: number }[];
-  totalStats: {
-    totalLeads: number;
-    newLeads: number;
-    contacted: number;
-    scheduled: number;
-    conversionRate: number;
-  };
+interface LeadData {
+  created_at: string;
 }
+
+interface QuizLead {
+  id: string;
+  quiz_type: string;
+  score: number;
+  created_at: string;
+}
+
+interface DailyLeads {
+  date: string;
+  count: number;
+}
+
+interface QuizTypeData {
+  quiz_type: string;
+  count: number;
+}
+
+interface MonthlyScores {
+  month: string;
+  average_score: number;
+}
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
 export function AnalyticsPage() {
   const { user } = useAuth();
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [totalLeads, setTotalLeads] = useState(0);
+  const [dailyLeads, setDailyLeads] = useState<DailyLeads[]>([]);
+  const [quizTypeData, setQuizTypeData] = useState<QuizTypeData[]>([]);
+  const [monthlyScores, setMonthlyScores] = useState<MonthlyScores[]>([]);
+  const [averageScore, setAverageScore] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [doctorId, setDoctorId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user) {
-      fetchDoctorProfile();
-    }
+    fetchData();
   }, [user]);
 
-  useEffect(() => {
-    if (doctorId) {
-      fetchAnalytics();
-    }
-  }, [doctorId]);
-
-  const fetchDoctorProfile = async () => {
+  const fetchData = async () => {
+    setLoading(true);
     try {
-      // Get all doctor profiles for this user
-      const { data: doctorProfiles, error } = await supabase
-        .from('doctor_profiles')
-        .select('id')
-        .eq('user_id', user?.id);
+      const doctorId = user?.id || 'demo';
 
-      if (error) {
-        console.error('Error fetching doctor profiles:', error);
-        setError('Could not fetch doctor profile');
-        setLoading(false);
-        return;
-      }
-
-      if (doctorProfiles && doctorProfiles.length > 0) {
-        // Use the first doctor profile
-        console.log('Found doctor profile:', doctorProfiles[0].id);
-        setDoctorId(doctorProfiles[0].id);
-      } else {
-        console.log('No doctor profile found, creating one...');
-        
-        // Create a doctor profile if none exists
-        const { data: newProfile, error: createError } = await supabase
-          .from('doctor_profiles')
-          .insert([{ 
-            user_id: user?.id,
-            first_name: 'Doctor',
-            last_name: 'User',
-            email: user?.email,
-            doctor_id: Math.floor(100000 + Math.random() * 900000).toString()
-          }])
-          .select();
-
-        if (createError) {
-          console.error('Error creating doctor profile:', createError);
-          setError('Failed to create doctor profile');
-          setLoading(false);
-          return;
-        }
-
-        if (newProfile && newProfile.length > 0) {
-          console.log('Created new doctor profile:', newProfile[0].id);
-          setDoctorId(newProfile[0].id);
-        } else {
-          setError('Failed to create doctor profile');
-          setLoading(false);
-        }
-      }
-    } catch (error) {
-      console.error('Error in fetchDoctorProfile:', error);
-      setError('An unexpected error occurred');
-      setLoading(false);
-    }
-  };
-
-  const fetchAnalytics = async () => {
-    if (!doctorId) return;
-
-    try {
-      console.log('Fetching analytics for doctor ID:', doctorId);
-      
-      const { data: leads, error } = await supabase
+      // Fetch total leads
+      const { count: leadsCount, error: leadsError } = await supabase
         .from('quiz_leads')
-        .select('lead_status, quiz_type, created_at')
+        .select('*', { count: 'exact' })
         .eq('doctor_id', doctorId);
 
-      if (error) {
-        console.error('Error fetching leads for analytics:', error);
-        setError('Could not fetch analytics data');
-        setLoading(false);
-        return;
-      }
+      if (leadsError) throw leadsError;
+      setTotalLeads(leadsCount || 0);
 
-      console.log('Fetched leads for analytics:', leads?.length || 0);
+      // Fetch daily leads
+      const { data: dailyData, error: dailyError } = await supabase
+        .from('quiz_leads')
+        .select('created_at')
+        .eq('doctor_id', doctorId);
 
-      if (leads) {
-        // Leads by status
-        const statusCounts = leads.reduce((acc: any, lead) => {
-          acc[lead.lead_status || 'NEW'] = (acc[lead.lead_status || 'NEW'] || 0) + 1;
-          return acc;
-        }, {});
+      if (dailyError) throw dailyError;
 
-        const leadsByStatus = [
-          { name: 'New', value: statusCounts.NEW || 0, color: '#3b82f6' },
-          { name: 'Contacted', value: statusCounts.CONTACTED || 0, color: '#eab308' },
-          { name: 'Scheduled', value: statusCounts.SCHEDULED || 0, color: '#22c55e' }
-        ];
+      const dailyCounts = dailyData?.reduce((acc: { [key: string]: number }, lead: LeadData) => {
+        const date = lead.created_at.split('T')[0];
+        acc[date] = (acc[date] || 0) + 1;
+        return acc;
+      }, {});
 
-        // Leads by quiz type
-        const quizCounts = leads.reduce((acc: any, lead) => {
-          acc[lead.quiz_type] = (acc[lead.quiz_type] || 0) + 1;
-          return acc;
-        }, {});
+      const dailyLeadsArray: DailyLeads[] = Object.entries(dailyCounts || {}).map(([date, count]) => ({
+        date,
+        count,
+      }));
 
-        const leadsByQuizType = Object.entries(quizCounts).map(([name, value]) => ({
-          name,
-          value: value as number
-        }));
+      setDailyLeads(dailyLeadsArray);
 
-        // Daily leads for last 30 days
-        const dailyLeads = [];
-        const now = new Date();
-        for (let i = 29; i >= 0; i--) {
-          const date = new Date(now);
-          date.setDate(now.getDate() - i);
-          const dateStr = date.toISOString().split('T')[0];
-          
-          const count = leads.filter(lead => 
-            lead.created_at && lead.created_at.split('T')[0] === dateStr
-          ).length;
+      // Fetch quiz type data
+      const { data: quizData, error: quizError } = await supabase
+        .from('quiz_leads')
+        .select('quiz_type')
+        .eq('doctor_id', doctorId);
 
-          dailyLeads.push({
-            date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            count
-          });
+      if (quizError) throw quizError;
+
+      const quizTypeCounts = quizData?.reduce((acc: { [key: string]: number }, lead: { quiz_type: string }) => {
+        acc[lead.quiz_type] = (acc[lead.quiz_type] || 0) + 1;
+        return acc;
+      }, {});
+
+      const quizTypeArray: QuizTypeData[] = Object.entries(quizTypeCounts || {}).map(([quiz_type, count]) => ({
+        quiz_type,
+        count,
+      }));
+
+      setQuizTypeData(quizTypeArray);
+
+      // Fetch monthly scores
+      const { data: scoresData, error: scoresError } = await supabase
+        .from('quiz_leads')
+        .select('score, created_at')
+        .eq('doctor_id', doctorId);
+
+      if (scoresError) throw scoresError;
+
+      const monthlyScoresMap = scoresData?.reduce((acc: { [key: string]: { sum: number; count: number } }, lead: { score: number; created_at: string }) => {
+        const month = lead.created_at.substring(0, 7); // YYYY-MM
+        if (!acc[month]) {
+          acc[month] = { sum: 0, count: 0 };
         }
+        acc[month].sum += lead.score;
+        acc[month].count += 1;
+        return acc;
+      }, {});
 
-        // Total stats
-        const totalLeads = leads.length;
-        const newLeads = statusCounts.NEW || 0;
-        const contacted = statusCounts.CONTACTED || 0;
-        const scheduled = statusCounts.SCHEDULED || 0;
-        const conversionRate = totalLeads > 0 ? (scheduled / totalLeads) * 100 : 0;
+      const monthlyScoresArray: MonthlyScores[] = Object.entries(monthlyScoresMap || {}).map(([month, data]) => ({
+        month,
+        average_score: data.sum / data.count,
+      }));
 
-        setAnalytics({
-          leadsByStatus,
-          leadsByQuizType,
-          dailyLeads,
-          totalStats: {
-            totalLeads,
-            newLeads,
-            contacted,
-            scheduled,
-            conversionRate
-          }
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching analytics:', error);
-      setError('Failed to load analytics data');
+      setMonthlyScores(monthlyScoresArray);
+
+      // Calculate average score
+      const { data: allScores, error: allScoresError } = await supabase
+        .from('quiz_leads')
+        .select('score')
+        .eq('doctor_id', doctorId);
+
+      if (allScoresError) throw allScoresError;
+
+      const totalScore = allScores?.reduce((sum, lead) => sum + lead.score, 0) || 0;
+      const avgScore = allScores && allScores.length > 0 ? totalScore / allScores.length : 0;
+      setAverageScore(avgScore);
+
+    } catch (error: any) {
+      console.error('Error fetching analytics data:', error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="p-6">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-lg text-gray-600">Loading analytics...</p>
-        </div>
-      </div>
-    );
-  }
+  const exportData = async () => {
+    try {
+      const doctorId = user?.id || 'demo';
+      const { data: allLeads, error: allLeadsError } = await supabase
+        .from('quiz_leads')
+        .select('*')
+        .eq('doctor_id', doctorId);
 
-  if (error) {
-    return (
-      <div className="p-6">
-        <div className="text-center">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
-            <h3 className="text-lg font-medium text-red-800 mb-2">Error Loading Analytics</h3>
-            <p className="text-red-700">{error}</p>
-            <Button 
-              onClick={() => window.location.reload()} 
-              className="mt-4"
-            >
-              Retry
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+      if (allLeadsError) throw allLeadsError;
 
-  if (!analytics) {
-    return (
-      <div className="p-6">
-        <div className="text-center">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 max-w-md mx-auto">
-            <h3 className="text-lg font-medium text-blue-800 mb-2">No Analytics Data</h3>
-            <p className="text-blue-700">
-              There's no data available yet. Start collecting leads to see analytics.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+      if (allLeads && allLeads.length > 0) {
+        const csvContent = "data:text/csv;charset=utf-8," +
+          [
+            Object.keys(allLeads[0]).join(","),
+            ...allLeads.map(item => Object.values(item).join(","))
+          ].join("\n");
 
-  const chartConfig = {
-    NEW: { label: "New", color: "#3b82f6" },
-    CONTACTED: { label: "Contacted", color: "#eab308" },
-    SCHEDULED: { label: "Scheduled", color: "#22c55e" },
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "quiz_leads.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        console.log('No leads to export');
+      }
+    } catch (error: any) {
+      console.error('Error exporting data:', error.message);
+    }
+  };
+
+  const refreshData = () => {
+    fetchData();
   };
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Analytics Dashboard</h1>
-        <p className="text-gray-600">Comprehensive insights into your lead generation performance</p>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
+        <Badge variant="secondary">Updated Daily</Badge>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Leads</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{analytics.totalStats.totalLeads}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">New Leads</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{analytics.totalStats.newLeads}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Contacted</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{analytics.totalStats.contacted}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Scheduled</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{analytics.totalStats.scheduled}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Conversion Rate</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">{analytics.totalStats.conversionRate.toFixed(1)}%</div>
-          </CardContent>
-        </Card>
-      </div>
+      {loading ? (
+        <div className="text-center">Loading analytics data...</div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Total Leads
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">{totalLeads}</div>
+                <p className="text-sm text-gray-500">All time leads generated</p>
+              </CardContent>
+            </Card>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Lead Status Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <PieChartIcon className="w-5 h-5" />
-              Lead Status Distribution
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={chartConfig} className="h-[300px]">
-              <PieChart>
-                <Pie
-                  data={analytics.leadsByStatus}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={120}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {analytics.leadsByStatus.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <ChartTooltip content={<ChartTooltipContent />} />
-              </PieChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Star className="w-4 h-4" />
+                  Average Score
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">{averageScore.toFixed(2)}</div>
+                <p className="text-sm text-gray-500">Average quiz score</p>
+              </CardContent>
+            </Card>
 
-        {/* Quiz Type Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="w-5 h-5" />
-              Leads by Quiz Type
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={chartConfig} className="h-[300px]">
-              <BarChart data={analytics.leadsByQuizType}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="value" fill="#3b82f6" />
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      </div>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Daily Leads
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">
+                  {dailyLeads.length > 0 ? dailyLeads[dailyLeads.length - 1].count : 0}
+                </div>
+                <p className="text-sm text-gray-500">Leads generated today</p>
+              </CardContent>
+            </Card>
+          </div>
+          
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={exportData}>
+              <Download className="w-4 h-4 mr-2" />
+              Export Data
+            </Button>
+            <Button onClick={refreshData}>
+              <TrendingUp className="w-4 h-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
 
-      {/* Daily Leads Trend */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5" />
-            Daily Leads (Last 30 Days)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ChartContainer config={chartConfig} className="h-[300px]">
-            <LineChart data={analytics.dailyLeads}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <Line type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={2} />
-            </LineChart>
-          </ChartContainer>
-        </CardContent>
-      </Card>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Daily Leads</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={dailyLeads} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="count" stroke="#8884d8" activeDot={{ r: 8 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Quiz Type Distribution</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={quizTypeData}
+                      dataKey="count"
+                      nameKey="quiz_type"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      fill="#8884d8"
+                      label
+                    >
+                      {quizTypeData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Monthly Average Scores</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={monthlyScores} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="average_score" fill="#82ca9d" />
+                </BarChart>
+              </CardContent>
+            </Card>
+        </>
+      )}
     </div>
   );
 }

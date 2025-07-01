@@ -317,6 +317,42 @@ export type Database = {
           },
         ]
       }
+      nose_landing_pages: {
+        Row: {
+          chatbot_enabled: boolean
+          created_at: string
+          doctor_id: string
+          id: string
+          quiz_embedded: boolean
+          sections: Json
+          subtitle: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          chatbot_enabled?: boolean
+          created_at?: string
+          doctor_id: string
+          id?: string
+          quiz_embedded?: boolean
+          sections?: Json
+          subtitle?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          chatbot_enabled?: boolean
+          created_at?: string
+          doctor_id?: string
+          id?: string
+          quiz_embedded?: boolean
+          sections?: Json
+          subtitle?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       quiz_incidents: {
         Row: {
           created_at: string | null
