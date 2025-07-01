@@ -1,4 +1,3 @@
-
 import { Suspense } from 'react';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -15,6 +14,7 @@ import EmailVerificationPage from './pages/EmailVerificationPage';
 import NotFound from './pages/NotFound';
 import { EmbeddedQuiz } from './routes/EmbeddedQuiz';
 import { ShareQuizPage } from './components/dashboard/ShareQuizPage';
+import NoseLandingPage from './pages/NoseLandingPage';
 
 const queryClient = new QueryClient();
 
@@ -36,6 +36,8 @@ const App = () => {
                 <Route path="/quiz/:quizType" element={<UniversalQuizPage />} />
                 <Route path="/embedded/:quizType" element={<EmbeddedQuiz />} />
                 <Route path="/email-verification" element={<EmailVerificationPage />} />
+                <Route path="/share/nose/:doctorId" element={<NoseLandingPage />} />
+                <Route path="/test-nose-landing" element={<NoseLandingPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>

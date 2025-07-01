@@ -34,9 +34,10 @@ interface EmbeddedChatBotProps {
   doctorId?: string;
   customQuiz?: any;
   quizData?: any;
+  doctorAvatarUrl?: string;
 }
 
-export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quizData }: EmbeddedChatBotProps) {
+export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quizData, doctorAvatarUrl }: EmbeddedChatBotProps) {
   const [searchParams] = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -115,18 +116,24 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
   
-  useEffect(() => {
   const fetchDoctorProfile = async () => {
     if (finalDoctorId) {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('doctor_profiles')
           .select('*')
           .eq('id', finalDoctorId)
           .single();
         
+        if (error) {
+          console.error('Error fetching doctor profile:', error);
+          return;
+        }
+        
         if (data) {
           setDoctorProfile(data);
+        } else {
+          console.warn('No doctor profile found for ID:', finalDoctorId);
         }
       } catch (error) {
         console.error('Error fetching doctor profile:', error);
@@ -134,8 +141,10 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
     }
   };
 
-  fetchDoctorProfile();
-}, [finalDoctorId]);
+  useEffect(() => {
+    fetchDoctorProfile();
+  }, [finalDoctorId]);
+
   const findDoctorByShareKey = async () => {
     try {
       console.log('Looking up doctor by share key:', shareKey);
@@ -606,7 +615,7 @@ const renderMessage = (message: Message, index: number) => (
     {message.role === 'assistant' && (
       <Avatar className="h-8 w-8 border border-gray-200 shadow-sm">
         <AvatarImage 
-          src={doctorProfile?.avatar_url || "/placeholder-doctor.jpg"}
+          src={doctorProfile?.avatar_url || doctorAvatarUrl || "/placeholder-doctor.jpg"}
           alt={`Dr. ${doctorProfile?.first_name || ''} ${doctorProfile?.last_name || ''}`}
         />
         <AvatarFallback className="bg-white">
@@ -718,7 +727,7 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
                     <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="flex-shrink-0">
                       <Avatar className="h-8 w-8 border border-gray-200 shadow">
                         <AvatarImage 
-                          src={doctorProfile?.avatar_url || "/placeholder-doctor.jpg"} 
+                          src={doctorProfile?.avatar_url || doctorAvatarUrl || "/placeholder-doctor.jpg"}
                           alt={`Dr. ${doctorProfile?.first_name || ''} ${doctorProfile?.last_name || ''}`}
                         />
                         <AvatarFallback className="bg-white">
@@ -757,7 +766,7 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
               <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="flex-shrink-0">
                 <Avatar className="h-8 w-8 border border-gray-200 shadow">
                   <AvatarImage 
-                    src={doctorProfile?.avatar_url || "/placeholder-doctor.jpg"}
+                    src={doctorProfile?.avatar_url || doctorAvatarUrl || "/placeholder-doctor.jpg"}
                     alt={`Dr. ${doctorProfile?.first_name || ''} ${doctorProfile?.last_name || ''}`}
                   />
                   <AvatarFallback className="bg-white">

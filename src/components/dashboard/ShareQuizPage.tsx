@@ -238,6 +238,7 @@ export function ShareQuizPage() {
   };
 
   const shareUrl = getQuizUrl();
+  const doctorLandingUrl = doctorProfile?.id ? `${baseUrl}/share/nose/${doctorProfile.id}` : `${baseUrl}/share/nose/demo`;
 
   const handleShareWithContactList = () => {
     if (!selectedList) {
@@ -464,13 +465,25 @@ export function ShareQuizPage() {
                         </>
                       )}
                     </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => window.open(shareUrl, '_blank')}
-                    >
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      Preview
-                    </Button>
+                    {(quizType && quizType.toUpperCase() === 'NOSE') && (
+                      <Button
+                        variant="outline"
+                        onClick={() => window.open(doctorLandingUrl, '_blank')}
+                        className="border-[#0E7C9D] text-[#0E7C9D] font-bold hover:bg-blue-50"
+                      >
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Open Landing Page
+                      </Button>
+                    )}
+                    {(!quizType || quizType.toUpperCase() !== 'NOSE') && (
+                      <Button
+                        variant="outline"
+                        onClick={() => window.open(shareUrl, '_blank')}
+                      >
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Preview
+                      </Button>
+                    )}
                   </div>
 
                   {/* Short URL Generator */}
@@ -807,6 +820,32 @@ export function ShareQuizPage() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Add Share as New Page button for NOSE */}
+        {quizType?.toUpperCase() === 'NOSE' && (
+          <div className="mb-6 flex gap-4 items-center">
+            <Button
+              variant="default"
+              size="lg"
+              onClick={() => {
+                navigator.clipboard.writeText(doctorLandingUrl);
+                toast.success('Landing page link copied!');
+              }}
+              className="bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] text-white font-bold shadow-lg hover:scale-105 transition-all"
+            >
+              Share as New Page
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => window.open(doctorLandingUrl, '_blank')}
+              className="border-[#0E7C9D] text-[#0E7C9D] font-bold hover:bg-blue-50"
+            >
+              Open Landing Page
+            </Button>
+            <span className="text-xs text-gray-500">{doctorLandingUrl}</span>
+          </div>
+        )}
       </div>
     </div>
   );
