@@ -39,6 +39,47 @@ export type Database = {
         }
         Relationships: []
       }
+      contacts: {
+        Row: {
+          created_at: string | null
+          doctor_id: string
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          doctor_id: string
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          doctor_id?: string
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctor_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       custom_quizzes: {
         Row: {
           category: string
@@ -151,6 +192,7 @@ export type Database = {
           logo_url: string | null
           mobile: string | null
           phone: string | null
+          profile_image_url: string | null
           providers: string | null
           specialty: string | null
           twilio_account_sid: string | null
@@ -173,6 +215,7 @@ export type Database = {
           logo_url?: string | null
           mobile?: string | null
           phone?: string | null
+          profile_image_url?: string | null
           providers?: string | null
           specialty?: string | null
           twilio_account_sid?: string | null
@@ -195,6 +238,7 @@ export type Database = {
           logo_url?: string | null
           mobile?: string | null
           phone?: string | null
+          profile_image_url?: string | null
           providers?: string | null
           specialty?: string | null
           twilio_account_sid?: string | null
