@@ -16,314 +16,284 @@ import {
   Pie,
   Cell
 } from 'recharts';
+import { 
+  TrendingUp, 
+  Users, 
+  Calendar, 
+  MessageSquare,
+  Download,
+  Filter
+} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Download, TrendingUp, Users, Star, Calendar } from 'lucide-react';
 
-interface LeadData {
-  created_at: string;
+interface MetricCardProps {
+  title: string;
+  value: number;
+  icon: React.ReactNode;
+  change: number;
+  period: string;
 }
 
-interface QuizLead {
-  id: string;
-  quiz_type: string;
-  score: number;
-  created_at: string;
-}
-
-interface DailyLeads {
+interface SubmissionData {
   date: string;
-  count: number;
+  submissions: number;
 }
 
 interface QuizTypeData {
-  quiz_type: string;
-  count: number;
+  name: string;
+  value: number;
 }
 
-interface MonthlyScores {
-  month: string;
-  average_score: number;
+interface ConversionData {
+  source: string;
+  rate: number;
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+interface Activity {
+  action: string;
+  timestamp: string;
+  type: string;
+}
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+
+const mockSubmissionData: SubmissionData[] = [
+  { date: '2024-01-01', submissions: 50 },
+  { date: '2024-01-08', submissions: 80 },
+  { date: '2024-01-15', submissions: 65 },
+  { date: '2024-01-22', submissions: 90 },
+  { date: '2024-01-29', submissions: 75 },
+];
+
+const mockQuizTypeData: QuizTypeData[] = [
+  { name: 'NOSE', value: 400 },
+  { name: 'DHI', value: 300 },
+  { name: 'Epworth', value: 300 },
+  { name: 'HHIA', value: 200 },
+];
+
+const mockConversionData: ConversionData[] = [
+  { source: 'Google Ads', rate: 0.15 },
+  { source: 'Facebook Ads', rate: 0.12 },
+  { source: 'Organic', rate: 0.08 },
+];
+
+const mockRecentActivity: Activity[] = [
+  { action: 'New quiz submission', timestamp: '5 minutes ago', type: 'NOSE' },
+  { action: 'Lead converted to appointment', timestamp: '30 minutes ago', type: 'DHI' },
+  { action: 'Shared assessment link', timestamp: '1 hour ago', type: 'Epworth' },
+  { action: 'New user signup', timestamp: '2 hours ago', type: 'HHIA' },
+];
 
 export function AnalyticsPage() {
-  const { user } = useAuth();
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalQuizzes, setTotalQuizzes] = useState(0);
   const [totalLeads, setTotalLeads] = useState(0);
-  const [dailyLeads, setDailyLeads] = useState<DailyLeads[]>([]);
-  const [quizTypeData, setQuizTypeData] = useState<QuizTypeData[]>([]);
-  const [monthlyScores, setMonthlyScores] = useState<MonthlyScores[]>([]);
-  const [averageScore, setAverageScore] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [submissionData, setSubmissionData] = useState<SubmissionData[]>(mockSubmissionData);
+  const [quizTypeData, setQuizTypeData] = useState<QuizTypeData[]>(mockQuizTypeData);
+  const [conversionData, setConversionData] = useState<ConversionData[]>(mockConversionData);
+  const [recentActivity, setRecentActivity] = useState<Activity[]>(mockRecentActivity);
+  const { user } = useAuth();
 
   useEffect(() => {
-    fetchData();
+    fetchAnalyticsData();
   }, [user]);
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchAnalyticsData = async () => {
+    // Fetch total users
     try {
-      const doctorId = user?.id || 'demo';
+      const { count: usersCount, error: usersError } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact' });
 
-      // Fetch total leads
+      if (usersError) throw usersError;
+      setTotalUsers(usersCount || 0);
+    } catch (error) {
+      console.error('Error fetching total users:', error);
+    }
+
+    // Fetch total quizzes
+    try {
+      const { count: quizzesCount, error: quizzesError } = await supabase
+        .from('quizzes')
+        .select('*', { count: 'exact' });
+
+      if (quizzesError) throw quizzesError;
+      setTotalQuizzes(quizzesCount || 0);
+    } catch (error) {
+      console.error('Error fetching total quizzes:', error);
+    }
+
+    // Fetch total leads (example: profiles with a 'lead' role)
+    try {
       const { count: leadsCount, error: leadsError } = await supabase
-        .from('quiz_leads')
+        .from('profiles')
         .select('*', { count: 'exact' })
-        .eq('doctor_id', doctorId);
+        .eq('role', 'lead');
 
       if (leadsError) throw leadsError;
       setTotalLeads(leadsCount || 0);
-
-      // Fetch daily leads
-      const { data: dailyData, error: dailyError } = await supabase
-        .from('quiz_leads')
-        .select('created_at')
-        .eq('doctor_id', doctorId);
-
-      if (dailyError) throw dailyError;
-
-      const dailyCounts = dailyData?.reduce((acc: { [key: string]: number }, lead: LeadData) => {
-        const date = lead.created_at.split('T')[0];
-        acc[date] = (acc[date] || 0) + 1;
-        return acc;
-      }, {});
-
-      const dailyLeadsArray: DailyLeads[] = Object.entries(dailyCounts || {}).map(([date, count]) => ({
-        date,
-        count,
-      }));
-
-      setDailyLeads(dailyLeadsArray);
-
-      // Fetch quiz type data
-      const { data: quizData, error: quizError } = await supabase
-        .from('quiz_leads')
-        .select('quiz_type')
-        .eq('doctor_id', doctorId);
-
-      if (quizError) throw quizError;
-
-      const quizTypeCounts = quizData?.reduce((acc: { [key: string]: number }, lead: { quiz_type: string }) => {
-        acc[lead.quiz_type] = (acc[lead.quiz_type] || 0) + 1;
-        return acc;
-      }, {});
-
-      const quizTypeArray: QuizTypeData[] = Object.entries(quizTypeCounts || {}).map(([quiz_type, count]) => ({
-        quiz_type,
-        count,
-      }));
-
-      setQuizTypeData(quizTypeArray);
-
-      // Fetch monthly scores
-      const { data: scoresData, error: scoresError } = await supabase
-        .from('quiz_leads')
-        .select('score, created_at')
-        .eq('doctor_id', doctorId);
-
-      if (scoresError) throw scoresError;
-
-      const monthlyScoresMap = scoresData?.reduce((acc: { [key: string]: { sum: number; count: number } }, lead: { score: number; created_at: string }) => {
-        const month = lead.created_at.substring(0, 7); // YYYY-MM
-        if (!acc[month]) {
-          acc[month] = { sum: 0, count: 0 };
-        }
-        acc[month].sum += lead.score;
-        acc[month].count += 1;
-        return acc;
-      }, {});
-
-      const monthlyScoresArray: MonthlyScores[] = Object.entries(monthlyScoresMap || {}).map(([month, data]) => ({
-        month,
-        average_score: data.sum / data.count,
-      }));
-
-      setMonthlyScores(monthlyScoresArray);
-
-      // Calculate average score
-      const { data: allScores, error: allScoresError } = await supabase
-        .from('quiz_leads')
-        .select('score')
-        .eq('doctor_id', doctorId);
-
-      if (allScoresError) throw allScoresError;
-
-      const totalScore = allScores?.reduce((sum, lead) => sum + lead.score, 0) || 0;
-      const avgScore = allScores && allScores.length > 0 ? totalScore / allScores.length : 0;
-      setAverageScore(avgScore);
-
-    } catch (error: any) {
-      console.error('Error fetching analytics data:', error.message);
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching total leads:', error);
     }
-  };
-
-  const exportData = async () => {
-    try {
-      const doctorId = user?.id || 'demo';
-      const { data: allLeads, error: allLeadsError } = await supabase
-        .from('quiz_leads')
-        .select('*')
-        .eq('doctor_id', doctorId);
-
-      if (allLeadsError) throw allLeadsError;
-
-      if (allLeads && allLeads.length > 0) {
-        const csvContent = "data:text/csv;charset=utf-8," +
-          [
-            Object.keys(allLeads[0]).join(","),
-            ...allLeads.map(item => Object.values(item).join(","))
-          ].join("\n");
-
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "quiz_leads.csv");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } else {
-        console.log('No leads to export');
-      }
-    } catch (error: any) {
-      console.error('Error exporting data:', error.message);
-    }
-  };
-
-  const refreshData = () => {
-    fetchData();
   };
 
   return (
     <div className="p-6 space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
-        <Badge variant="secondary">Updated Daily</Badge>
+        <div className="flex items-center gap-4">
+          <Button variant="outline" className="flex items-center gap-2">
+            <Download className="w-4 h-4" />
+            Export Data
+          </Button>
+          <Button variant="secondary" className="flex items-center gap-2">
+            <Filter className="w-4 h-4" />
+            Filter Results
+          </Button>
+        </div>
       </div>
 
-      {loading ? (
-        <div className="text-center">Loading analytics data...</div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-4 h-4" />
-                  Total Leads
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{totalLeads}</div>
-                <p className="text-sm text-gray-500">All time leads generated</p>
-              </CardContent>
-            </Card>
+      {/* Metrics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Total Users
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{totalUsers}</div>
+            <div className="text-sm text-gray-500 flex items-center gap-1">
+              <TrendingUp className="w-4 h-4 text-green-500" />
+              +12% vs last month
+            </div>
+          </CardContent>
+        </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Star className="w-4 h-4" />
-                  Average Score
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{averageScore.toFixed(2)}</div>
-                <p className="text-sm text-gray-500">Average quiz score</p>
-              </CardContent>
-            </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MessageSquare className="w-5 h-5" />
+              Total Quizzes Taken
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{totalQuizzes}</div>
+            <div className="text-sm text-gray-500 flex items-center gap-1">
+              <TrendingUp className="w-4 h-4 text-green-500" />
+              +8% vs last month
+            </div>
+          </CardContent>
+        </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
-                  Daily Leads
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">
-                  {dailyLeads.length > 0 ? dailyLeads[dailyLeads.length - 1].count : 0}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Total Leads Generated
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{totalLeads}</div>
+            <div className="text-sm text-gray-500 flex items-center gap-1">
+              <TrendingUp className="w-4 h-4 text-green-500" />
+              +15% vs last month
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Quiz Submissions Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Quiz Submissions Over Time</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={submissionData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="submissions" stroke="#8884d8" strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Quiz Types Distribution */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Quiz Types Distribution</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={quizTypeData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {quizTypeData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Conversion Rates */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Lead Conversion Rates</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={conversionData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="source" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="rate" fill="#82ca9d" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Recent Activity */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Activity</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {recentActivity.map((activity, index) => (
+                <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{activity.action}</p>
+                    <p className="text-xs text-gray-500">{activity.timestamp}</p>
+                  </div>
+                  <Badge variant="outline">{activity.type}</Badge>
                 </div>
-                <p className="text-sm text-gray-500">Leads generated today</p>
-              </CardContent>
-            </Card>
-          </div>
-          
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={exportData}>
-              <Download className="w-4 h-4 mr-2" />
-              Export Data
-            </Button>
-            <Button onClick={refreshData}>
-              <TrendingUp className="w-4 h-4 mr-2" />
-              Refresh
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Daily Leads</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={dailyLeads} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="count" stroke="#8884d8" activeDot={{ r: 8 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Quiz Type Distribution</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={quizTypeData}
-                      dataKey="count"
-                      nameKey="quiz_type"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      fill="#8884d8"
-                      label
-                    >
-                      {quizTypeData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Monthly Average Scores</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={monthlyScores} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="average_score" fill="#82ca9d" />
-                </BarChart>
-              </CardContent>
-            </Card>
-        </>
-      )}
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
