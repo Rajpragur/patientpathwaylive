@@ -19,7 +19,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
-import QRCode from 'qrcode.react';
+import { QRCodeSVG } from 'qrcode.react';
 
 export function ShareAssessmentsPage() {
   const { user } = useAuth();
@@ -170,7 +170,7 @@ export function ShareAssessmentsPage() {
               </div>
               
               <div className="text-center">
-                <QRCode value={link.url} size={80} />
+                <QRCodeSVG value={link.url} size={80} />
               </div>
             </CardContent>
           </Card>

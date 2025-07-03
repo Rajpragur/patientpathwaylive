@@ -15,12 +15,12 @@ import NoseLandingPage from './pages/NoseLandingPage';
 import EditableNOSELandingPage from './pages/EditableNOSELandingPage';
 import EmbeddedQuiz from './pages/EmbeddedQuiz';
 import { NOSEPage } from './components/quiz/NOSEPage';
-import { DHIPage } from './pages/quizzes/DHIPage';
-import { EpworthPage } from './pages/quizzes/EpworthPage';
-import { HHIAPage } from './pages/quizzes/HHIAPage';
-import { SNOT22Page } from './pages/quizzes/SNOT22Page';
-import { STOPPage } from './pages/quizzes/STOPPage';
-import { TNSSPage } from './pages/quizzes/TNSSPage';
+import DHIPage from './pages/quizzes/DHIPage';
+import EpworthPage from './pages/quizzes/EpworthPage';
+import HHIAPage from './pages/quizzes/HHIAPage';
+import SNOT22Page from './pages/quizzes/SNOT22Page';
+import STOPPage from './pages/quizzes/STOPPage';
+import TNSSPage from './pages/quizzes/TNSSPage';
 import NOSELandingPage from './pages/share/NOSELandingPage';
 
 const queryClient = new QueryClient();
