@@ -200,25 +200,24 @@ export function ShareAssessmentsPage() {
             />
             <Button
               variant="outline"
-              onClick={() => {
-                navigator.clipboard.writeText(noseLandingUrl);
-                toast.success('Link copied to clipboard!');
-              }}
+              onClick={() => copyToClipboard(noseLandingUrl, 'Landing page URL')}
+              title="Copy URL"
             >
-              <Copy className="w-4 h-4" />
+              <Copy className="w-4 h-4 mr-1" /> Copy
             </Button>
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => window.open(noseLandingUrl, '_blank')}
+              title="View Landing Page"
             >
-              <Eye className="w-4 h-4" />
-              Preview
+              <Eye className="w-4 h-4 mr-1" /> View
             </Button>
             <Button
+              variant="default"
               onClick={() => window.open(noseEditorUrl, '_blank')}
+              title="Edit Landing Page"
             >
-              <Edit className="w-4 h-4" />
-              Edit Page
+              <Edit className="w-4 h-4 mr-1" /> Edit
             </Button>
           </div>
 

@@ -1,0 +1,1 @@
+export { ShareQuizPage as default } from '../components/dashboard/ShareQuizPage'; 

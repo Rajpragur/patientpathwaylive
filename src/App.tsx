@@ -1,4 +1,3 @@
-
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -23,6 +22,8 @@ import STOPPage from './pages/quizzes/STOPPage';
 import TNSSPage from './pages/quizzes/TNSSPage';
 import NOSELandingPage from './pages/share/NOSELandingPage';
 import { AuthProvider } from '@/hooks/useAuth';
+import NoseEditorPage from './pages/NoseEditorPage';
+import ShareQuizPage from './pages/ShareQuizPage';
 
 const queryClient = new QueryClient();
 
@@ -37,6 +38,9 @@ function App() {
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/verify-email" element={<EmailVerificationPage />} />
+              <Route path="/nose/:doctorId?" element={<NoseLandingPage />} />
+              <Route path="/share/nose/:doctorId?" element={<NOSELandingPage />} />
+              <Route path="/share/:quizType/:doctorId?" element={<ShareQuizPage />} />
               <Route path="/portal/*" element={<PortalPage />} />
               <Route path="/quiz" element={<UniversalQuizPage />} />
               <Route path="/quiz/custom/:quizId" element={<CustomQuizPage />} />
@@ -49,9 +53,7 @@ function App() {
               <Route path="/quiz/tnss" element={<TNSSPage />} />
               <Route path="/embed/quiz" element={<EmbeddedQuiz />} />
               <Route path="/social-accounts" element={<SocialAccountsPage />} />
-              <Route path="/nose/:doctorId?" element={<NoseLandingPage />} />
-              <Route path="/nose-editor/:doctorId?" element={<EditableNOSELandingPage />} />
-              <Route path="/share/nose/:doctorId?" element={<NOSELandingPage />} />
+              <Route path="/nose-editor/:doctorId" element={<NoseEditorPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>
