@@ -7,9 +7,24 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
-import { Pencil, Save, X } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { 
+  Pencil, Save, X, Trash2, RefreshCw, 
+  ChevronDown, ChevronUp, Plus, 
+  AlertCircle, Check, ExternalLink
+} from 'lucide-react';
 import { quizzes } from '@/data/quizzes';
 import { EmbeddedChatBot } from '@/components/quiz/EmbeddedChatBot';
+import { Badge } from '@/components/ui/badge';
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const sectionFields = [
   'headline', 'intro', 'whatIsNAO', 'symptoms', 'treatments', 'treatmentOptions', 'comparisonTable', 'vivAerOverview', 'lateraOverview', 'surgicalProcedures', 'whyChoose', 'testimonials', 'cta'
