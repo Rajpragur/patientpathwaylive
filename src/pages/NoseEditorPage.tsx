@@ -4,8 +4,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { generatePageContent, DoctorProfile } from '../lib/openrouter';
 import { Button } from '@/components/ui/button';
+import { quizzes } from '@/data/quizzes';
+import { EmbeddedChatBot } from '@/components/quiz/EmbeddedChatBot';
 import { 
-  Pencil, Save, X
+  Pencil, Save, X, Palette
 } from 'lucide-react';
 
 
@@ -40,6 +42,272 @@ const defaultContent = {
   cta: '',
 };
 
+const defaultChatbotColors = {
+  primary: '#2563eb',
+  secondary: '#0f172a',
+  accent: '#14b8a6',
+  background: '#ffffff',
+  text: '#334155',
+  userBubble: '#2563eb',
+  botBubble: '#f1f5f9',
+  userText: '#ffffff',
+  botText: '#334155'
+};
+
+const ColorPicker = ({ 
+  label, 
+  value, 
+  onChange, 
+  className = '' 
+}: { 
+  label: string; 
+  value: string; 
+  onChange: (color: string) => void; 
+  className?: string; 
+}) => (
+  <div className={`flex flex-col gap-2 ${className}`}>
+    <label className="text-sm font-medium text-gray-700">{label}</label>
+    <div className="flex items-center gap-2">
+      <input
+        type="color"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-10 h-10 rounded border border-gray-300 cursor-pointer"
+      />
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+        placeholder="#000000"
+      />
+    </div>
+  </div>
+);
+
+const ChatbotColorCustomizer = ({ 
+  colors, 
+  onColorsChange, 
+  isVisible, 
+  onClose 
+}: { 
+  colors: typeof defaultChatbotColors;
+  onColorsChange: (colors: typeof defaultChatbotColors) => void;
+  isVisible: boolean;
+  onClose: () => void;
+}) => {
+  const [localColors, setLocalColors] = useState(colors);
+
+  useEffect(() => {
+    setLocalColors(colors);
+  }, [colors]);
+
+  const handleColorChange = (key: keyof typeof defaultChatbotColors, value: string) => {
+    setLocalColors(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSave = () => {
+    onColorsChange(localColors);
+    onClose();
+  };
+
+  const handleReset = () => {
+    setLocalColors(defaultChatbotColors);
+  };
+
+  const presetThemes = [
+    { name: 'Default Blue', colors: defaultChatbotColors },
+    { 
+      name: 'Medical Green', 
+      colors: { 
+        ...defaultChatbotColors, 
+        primary: '#059669', 
+        accent: '#10b981', 
+        userBubble: '#059669' 
+      } 
+    },
+    { 
+      name: 'Professional Purple', 
+      colors: { 
+        ...defaultChatbotColors, 
+        primary: '#7c3aed', 
+        accent: '#8b5cf6', 
+        userBubble: '#7c3aed' 
+      } 
+    },
+    { 
+      name: 'Warm Orange', 
+      colors: { 
+        ...defaultChatbotColors, 
+        primary: '#ea580c', 
+        accent: '#f97316', 
+        userBubble: '#ea580c' 
+      } 
+    },
+    { 
+      name: 'Dark Mode', 
+      colors: { 
+        primary: '#3b82f6',
+        secondary: '#1e293b',
+        accent: '#06b6d4',
+        background: '#0f172a',
+        text: '#e2e8f0',
+        userBubble: '#3b82f6',
+        botBubble: '#334155',
+        userText: '#ffffff',
+        botText: '#e2e8f0'
+      } 
+    }
+  ];
+
+  if (!isVisible) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <Palette className="w-6 h-6 text-blue-600" />
+            <h2 className="text-2xl font-bold text-gray-900">Chatbot Color Customizer</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <X className="w-6 h-6 text-gray-500" />
+          </button>
+        </div>
+        
+        <div className="p-6">
+          {/* Preset Themes */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Themes</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
+              {presetThemes.map((theme, index) => (
+                <button
+                  key={index}
+                  onClick={() => setLocalColors(theme.colors)}
+                  className="p-3 border border-gray-300 rounded-lg hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <div 
+                      className="w-4 h-4 rounded-full" 
+                      style={{ backgroundColor: theme.colors.primary }}
+                    />
+                    <div 
+                      className="w-4 h-4 rounded-full" 
+                      style={{ backgroundColor: theme.colors.accent }}
+                    />
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">{theme.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Color Customization Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <ColorPicker
+              label="Primary Color"
+              value={localColors.primary}
+              onChange={(value) => handleColorChange('primary', value)}
+            />
+            <ColorPicker
+              label="Background"
+              value={localColors.background}
+              onChange={(value) => handleColorChange('background', value)}
+            />
+            <ColorPicker
+              label="Text Color"
+              value={localColors.text}
+              onChange={(value) => handleColorChange('text', value)}
+            />
+            <ColorPicker
+              label="User Bubble"
+              value={localColors.userBubble}
+              onChange={(value) => handleColorChange('userBubble', value)}
+            />
+            <ColorPicker
+              label="Bot Bubble"
+              value={localColors.botBubble}
+              onChange={(value) => handleColorChange('botBubble', value)}
+            />
+            <ColorPicker
+              label="User Text"
+              value={localColors.userText}
+              onChange={(value) => handleColorChange('userText', value)}
+            />
+            <ColorPicker
+              label="Bot Text"
+              value={localColors.botText}
+              onChange={(value) => handleColorChange('botText', value)}
+            />
+          </div>
+
+          {/* Preview */}
+          <div className="mt-8">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Preview</h3>
+            <div 
+              className="border rounded-lg p-4 max-w-md"
+              style={{ backgroundColor: localColors.background }}
+            >
+              <div className="space-y-3">
+                <div className="flex justify-end">
+                  <div 
+                    className="px-4 py-2 rounded-2xl rounded-tr-sm max-w-xs"
+                    style={{ 
+                      backgroundColor: localColors.userBubble,
+                      color: localColors.userText
+                    }}
+                  >
+                    Sample user message
+                  </div>
+                </div>
+                <div className="flex justify-start">
+                  <div 
+                    className="px-4 py-2 rounded-2xl rounded-tl-sm max-w-xs"
+                    style={{ 
+                      backgroundColor: localColors.botBubble,
+                      color: localColors.botText
+                    }}
+                  >
+                    Sample bot response
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-between mt-8 pt-6 border-t border-gray-200">
+            <Button
+              onClick={handleReset}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              Reset to Default
+            </Button>
+            <div className="flex gap-3">
+              <Button
+                onClick={onClose}
+                variant="outline"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSave}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+              >
+                <Save className="w-4 h-4" />
+                Save Colors
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 const EditableSection = ({
   label,
   value,
@@ -132,7 +400,7 @@ const EditableSection = ({
             variant="outline"
             onClick={addRow}
             className="border-blue-300 text-blue-600 hover:bg-blue-50"
-          >{}
+          >
             + Add Row
           </Button>
         </div>
@@ -155,9 +423,9 @@ const EditableSection = ({
           </Button>
         </div>
       </div>
-
     );
   }
+
   // Advanced testimonials editing UI
   if (isEditing && advancedTestimonials) {
     let testimonials: { text: string; author: string; location: string }[] = Array.isArray(editValue) ? editValue : [];
@@ -215,6 +483,7 @@ const EditableSection = ({
       </div>
     );
   }
+
   // Advanced contact editing UI
   if (isEditing && advancedContact) {
     let locations: { city: string; phone: string; address: string }[] = Array.isArray(editValue) ? editValue : [];
@@ -271,6 +540,7 @@ const EditableSection = ({
       </div>
     );
   }
+
   // Default/other section editing
   return (
     <div className={`relative group mb-6 ${isEditing ? 'z-10' : ''}`}>  
@@ -325,18 +595,19 @@ const NoseEditorPage: React.FC = () => {
   const [editValue, setEditValue] = useState<string>('');
   const [showAboveFoldQuiz, setShowAboveFoldQuiz] = useState(false);
   const aboveFoldQuizRef = useRef<HTMLDivElement>(null);
+  const [showChatWidget, setShowChatWidget] = useState(true);
+  const [showChatMessage, setShowChatMessage] = useState(false);
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [chatbotColors, setChatbotColors] = useState(defaultChatbotColors);
+  const [showColorCustomizer, setShowColorCustomizer] = useState(false);
 
-  useEffect(() => {
-    if ('scrollRestoration' in window.history) {
-      window.history.scrollRestoration = 'manual';
-    }
-  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
       if (!doctorId || !user) return;
       setLoading(true);
       setError(null);
+      
       // Fetch doctor
       const { data: docData } = await supabase
         .from('doctor_profiles')
@@ -344,21 +615,26 @@ const NoseEditorPage: React.FC = () => {
         .eq('id', doctorId)
         .single();
       setDoctor(docData || defaultDoctor);
+      
       // Fetch AI content
       const { data, error } = await supabase
         .from('ai_landing_pages')
-        .select('content')
+        .select('content, chatbot_colors')
         .eq('user_id', user.id)
         .eq('doctor_id', doctorId)
         .single();
+      
       if (data && data.content) setContent(data.content);
       else setContent(defaultContent);
+      
+      if (data && data.chatbot_colors) setChatbotColors(data.chatbot_colors);
+      else setChatbotColors(defaultChatbotColors);
+      
       if (error && error.code !== 'PGRST116') setError(error.message);
       setLoading(false);
     };
     fetchData();
   }, [doctorId, user]);
-
 
   const handleEdit = (field: string) => {
     setEditingSection(field);
@@ -396,6 +672,7 @@ const NoseEditorPage: React.FC = () => {
         user_id: user.id,
         doctor_id: doctorId,
         content: newContent,
+        chatbot_colors: chatbotColors,
       },
     ], { onConflict: 'user_id,doctor_id' });
     setEditingSection(null);
@@ -413,13 +690,168 @@ const NoseEditorPage: React.FC = () => {
     setShowAboveFoldQuiz(true);
   };
 
+  const handleColorsSave = async (newColors: typeof defaultChatbotColors) => {
+    if (!user || !doctorId) return;
+    
+    setChatbotColors(newColors);
+    
+    // Save to database
+    await supabase.from('ai_landing_pages').upsert([
+      {
+        user_id: user.id,
+        doctor_id: doctorId,
+        content: content,
+        chatbot_colors: newColors,
+      },
+    ], { onConflict: 'user_id,doctor_id' });
+  };
+
   if (loading) return <div className="p-8">Loading...</div>;
   if (error) return <div className="p-8 text-red-600">Error: {error}</div>;
 
   // Helper to safely render lists
   const safeList = (arr: any, fallback: string) => Array.isArray(arr) && arr.length > 0 ? arr : [fallback];
   const doctorAvatarUrl = doctor?.avatar_url || '/lovable-uploads/6b38df79-5ad8-494b-83ed-7dba6c54d4b1.png';
-  const quizIframeSrc = `${window.location.origin}/quiz/nose?source=website&utm_source=website&utm_medium=web&utm_campaign=quiz_share`;
+
+  const ChatWidget = () => {
+    if (!showChatWidget) return null;
+  
+    return (
+      <>
+        <div className="fixed bottom-6 right-6 z-50">
+          <div className="relative">
+            {showChatMessage && (
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-teal-500 rounded-full animate-pulse"></div>
+            )}
+            
+            {showChatMessage && (
+              <div className="absolute bottom-24 right-2 bg-white rounded-2xl shadow-2xl p-6 mb-2 border border-gray-100 animate-slideIn" style={{ width: '340px', minWidth: '340px' }}>
+                <div className="text-sm text-gray-700 mb-3 font-medium">
+                  {content.cta || 'Take our quick assessment to see if you have nasal obstruction!'}
+                </div>
+                <div className="text-xs text-gray-500 flex items-center">
+                  <span>Click to start the quiz</span>
+                  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </div>
+                <div className="absolute bottom-0 right-6 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-white transform translate-y-full"></div>
+                
+                <button
+                  onClick={() => setShowChatMessage(false)}
+                  className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-gray-100 rounded-full"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            
+            <button
+              onClick={() => setShowChatModal(true)}
+              className="relative text-white bg-blue-600 p-4 rounded-full shadow-2xl transition-all duration-300 hover:scale-110 flex items-center justify-center w-20 h-20"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+  
+        {showChatModal && (
+          <div 
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn"
+            style={{ 
+              overflow: 'hidden',
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0
+            }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowChatModal(false);
+              }
+            }}
+          >
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl relative overflow-hidden transform transition-all duration-300 ease-out animate-slideIn" style={{ height: '90vh' }}>
+              <div className="p-6 flex justify-between items-center sticky top-0 z-10" style={{ backgroundColor: chatbotColors.primary, color: chatbotColors.text}}>
+                <div className="flex items-center space-x-4">
+                  <img src={doctorAvatarUrl} alt="Doctor" className="w-12 h-12 rounded-full object-cover border-2 border-white/30" />
+                  <div>
+                    <h3 className="font-bold text-lg">NOSE Assessment</h3>
+                    <p className="text-sm">Quick breathing evaluation with {doctor.name}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowChatModal(false)}
+                  className="text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/10 rounded-full"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="overflow-y-auto overflow-x-hidden" style={{ height: 'calc(90vh - 96px)' }}>
+                <EmbeddedChatBot 
+                  quizType="NOSE" 
+                  doctorId={doctorId || doctor?.id} 
+                  quizData={quizzes.NOSE} 
+                  doctorAvatarUrl={doctorAvatarUrl} 
+                  chatbotColors={chatbotColors}
+                />
+              </div>
+            </div>
+            <button
+              onClick={() => setShowColorCustomizer(true)}
+              className="ml-4 p-2 rounded-full hover:bg-white/10 transition"
+              title="Customize Chatbot Colors">
+              <Palette className="w-6 h-6 text-white" />
+            </button>
+            {showColorCustomizer && (
+              <ChatbotColorCustomizer
+                colors={chatbotColors}
+                onColorsChange={handleColorsSave}
+                isVisible={showColorCustomizer}
+                onClose={() => setShowColorCustomizer(false)}
+              />
+            )}
+          </div>
+        )}
+        
+
+        
+        <style jsx>{`
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          
+          @keyframes slideIn {
+            from {
+              opacity: 0;
+              transform: scale(0.95) translateY(-10px);
+            }
+            to {
+              opacity: 1;
+              transform: scale(1) translateY(0);
+            }
+          }
+          
+          .animate-fadeIn {
+            animation: fadeIn 0.3s ease-out;
+          }
+          
+          .animate-slideIn {
+            animation: slideIn 0.3s ease-out;
+          }
+        `}</style>
+      </>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-teal-50">
@@ -801,7 +1233,7 @@ const NoseEditorPage: React.FC = () => {
           </EditableSection>
         </div>
       </section>
-
+      <ChatWidget />
     </div>
   );
 };

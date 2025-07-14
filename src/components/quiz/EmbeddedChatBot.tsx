@@ -14,6 +14,16 @@ import { ImprovedAIAssistant } from './ImprovedAIAssistant';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
+const defaultChatbotColors = {
+  primary: '#2563eb',
+  background: '#ffffff',
+  text: '#ffffff',
+  userBubble: '#2563eb',
+  botBubble: '#f1f5f9',
+  userText: '#ffffff',
+  botText: '#334155'
+};
+
 interface Message {
   role: 'assistant' | 'user';
   content: string;
@@ -35,9 +45,10 @@ interface EmbeddedChatBotProps {
   customQuiz?: any;
   quizData?: any;
   doctorAvatarUrl?: string;
+  chatbotColors?: typeof defaultChatbotColors;
 }
 
-export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quizData, doctorAvatarUrl }: EmbeddedChatBotProps) {
+export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quizData, doctorAvatarUrl,chatbotColors }: EmbeddedChatBotProps) {
   const [searchParams] = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -57,17 +68,13 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
   const [finalDoctorId, setFinalDoctorId] = useState<string | null>(null);
   const [doctorProfile, setDoctorProfile] = useState<any>(null);
+  const colors = chatbotColors || defaultChatbotColors;
 
   // Enhanced source tracking
   const source = searchParams.get('source') || searchParams.get('utm_source') || 'direct';
   const campaign = searchParams.get('campaign') || searchParams.get('utm_campaign') || 'default';
   const medium = searchParams.get('medium') || searchParams.get('utm_medium') || 'web';
 
-  // Set up new color theme
-  const orange = '#f97316';
-  const teal = '#0f766e';
-  const lightBg = '#fef7f0';
-  const cardBg = '#ffffff';
 
   // Add state for post-quiz chat
   const [postQuizChat, setPostQuizChat] = useState([]);
@@ -202,9 +209,9 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen" style={{ background: lightBg }}>
+      <div className="flex items-center justify-center h-screen" style={{ background: colors.background }}>
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: orange }}></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: colors.primary	 }}></div>
           <p className="text-lg text-gray-600">Loading assessment...</p>
         </div>
       </div>
@@ -213,12 +220,12 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
 
   if (notFound || !quizData) {
     return (
-      <div className="flex items-center justify-center h-screen" style={{ background: lightBg }}>
+      <div className="flex items-center justify-center h-screen" style={{ background: colors.background }}>
         <div className="text-center max-w-md mx-auto p-6">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Assessment Not Found</h1>
           <p className="text-gray-600 mb-4">The requested assessment could not be found or is no longer available.</p>
-          <Button onClick={() => window.location.href = '/'} style={{ backgroundColor: orange, borderColor: orange }}>
+          <Button onClick={() => window.location.href = '/'} style={{ backgroundColor: colors.primary	, borderColor: colors.primary	 }}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Return to Home
           </Button>
@@ -625,15 +632,11 @@ const renderMessage = (message: Message, index: number) => (
     )}
     
     <div
-      className={`rounded-2xl px-5 py-3 max-w-[80%] shadow-sm transition-all duration-200 ${
-        message.role === 'user'
-          ? 'bg-primary text-white'
-          : 'bg-white border border-gray-200 text-gray-700'
-      }`}
+      className='rounded-2xl px-5 py-3 max-w-[80%] shadow-sm transition-all duration-200'
       style={
-        message.role === 'user' 
-          ? { backgroundColor: theme.colors.primary }
-          : undefined
+        message.role === 'user'
+          ? { backgroundColor: colors.userBubble, color: colors.userText }
+          : { backgroundColor: colors.botBubble, color: colors.botText }
       }
     >
       <span className="whitespace-pre-wrap text-base leading-relaxed">
@@ -657,6 +660,7 @@ const renderMessage = (message: Message, index: number) => (
     )}
   </motion.div>
 );
+
 
 // Fix the renderAnswerOption function
 const renderAnswerOption = (option: any, index: number, handleAnswer: Function, setInput: Function) => (
@@ -691,12 +695,10 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
 // Remove any references to primary-light, primary-dark etc
 // Use the simplified theme object above
   return (
-    <div className="flex flex-col h-full max-h-full" style={{ background: lightBg }}>
-      <div className="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-      
+    <div className="flex flex-col h-full max-h-full" style={{ background: colors.background	 }}>
+      <div className="shadow-sm border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
       </div>
-      
-      <div className="flex-1 overflow-hidden flex flex-col max-w-4xl mx-auto w-full rounded-2xl shadow-lg bg-white" style={{ minHeight: 400 }}>
+      <div className="flex-1 overflow-hidden flex flex-col max-w-4xl mx-auto w-full rounded-2xl shadow-lg" style={{ minHeight: 400 }}>
       <div className="flex-1 overflow-y-auto p-6 space-y-4" style={{ maxHeight: '100%', minHeight: 0 }}>
       <AnimatePresence initial={false}>
             {messages.map((message, index) => (
@@ -717,7 +719,7 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
                           alt={`Dr. ${doctorProfile?.first_name || ''} ${doctorProfile?.last_name || ''}`}
                         />
                         <AvatarFallback className="bg-white">
-                          <Bot className="w-4 h-4" style={{ color: teal }} />
+                          <Bot className="w-4 h-4" style={{ color: colors.text	 }} />
                         </AvatarFallback>
                       </Avatar>
                     </motion.div>
@@ -728,7 +730,7 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
                         ? 'text-gray-900 hover:shadow-lg'
                         : 'bg-white border border-gray-200 text-gray-700 hover:shadow-lg'
                     }`}
-                    style={message.role === 'user' ? { backgroundColor: `${orange}20`, borderColor: orange } : {}}
+                    style={message.role === 'user' ? { backgroundColor: colors.userBubble, color: colors.userText , borderColor: colors.primary	 } : {backgroundColor: colors.botBubble, color: colors.botText , borderColor: colors.primary}}
                   >
                     <span className="whitespace-pre-wrap text-base leading-relaxed">{message.content}</span>
                     {message.isQuestion && message.options && !quizCompleted && (
@@ -741,7 +743,7 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
                   </div>
                   {message.role === 'user' && (
                     <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="flex-shrink-0">
-                      <UserCircle className="w-7 h-7 bg-white rounded-full border border-gray-200 shadow p-1" style={{ color: orange }} />
+                      <UserCircle className="w-7 h-7 bg-white rounded-full border border-gray-200 shadow p-1" style={{ color: colors.primary	 }} />
                     </motion.div>
                   )}
                 </div>
@@ -756,7 +758,7 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
                     alt={`Dr. ${doctorProfile?.first_name || ''} ${doctorProfile?.last_name || ''}`}
                   />
                   <AvatarFallback className="bg-white">
-                    <Bot className="w-4 h-4" style={{ color: teal }} />
+                    <Bot className="w-4 h-4" style={{ color: colors.primary}} />
                   </AvatarFallback>
                 </Avatar>
               </motion.div>
@@ -764,9 +766,9 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
           </AnimatePresence>
           
           {result && quizCompleted && !collectingInfo && (
-            <Card className="rounded-2xl mt-6 border" style={{ borderColor: teal }}>
+            <Card className="rounded-2xl mt-6 border" style={{ borderColor: colors.primary	}}>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2" style={{ color: orange }}>
+                <CardTitle className="flex items-center gap-2" style={{ color: colors.primary	 }}>
                   <CheckCircle className="w-5 h-5" />
                   Assessment Complete
                 </CardTitle>
@@ -774,8 +776,8 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="text-center p-4 rounded-lg bg-gray-50">
-                    <p className="text-sm" style={{ color: teal }}>Your Score</p>
-                    <p className="text-2xl font-bold" style={{ color: orange }}>{result.score}/{quizData.maxScore}</p>
+                    <p className="text-sm" style={{ color: colors.primary }}>Your Score</p>
+                    <p className="text-2xl font-bold" style={{ color: colors.primary	 }}>{result.score}/{quizData.maxScore}</p>
                   </div>
                   <div className={`text-center p-4 rounded-lg border ${getSeverityColor(result.severity)}`}>
                     <div className="flex items-center justify-center gap-2 mb-1">
@@ -785,18 +787,18 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
                     <p className="font-bold capitalize">{result.severity}</p>
                   </div>
                   <div className="text-center p-4 rounded-lg bg-gray-50">
-                    <p className="text-sm" style={{ color: teal }}>Questions</p>
-                    <p className="text-2xl font-bold" style={{ color: teal }}>{quizData.questions.length}</p>
+                    <p className="text-sm" style={{ color: colors.primary }}>Questions</p>
+                    <p className="text-2xl font-bold" style={{ color: colors.primary }}>{quizData.questions.length}</p>
                   </div>
                 </div>
                 <div className="p-4 rounded-lg bg-gray-50">
-                  <h4 className="font-semibold mb-2" style={{ color: orange }}>Results Summary:</h4>
-                  <p style={{ color: teal }}>{result.interpretation}</p>
+                  <h4 className="font-semibold mb-2" style={{ color: colors.primary	 }}>Results Summary:</h4>
+                  <p style={{ color: colors.primary }}>{result.interpretation}</p>
                 </div>
                 <Button 
                   onClick={resetQuiz} 
                   className="w-full rounded-xl text-white" 
-                  style={{ backgroundColor: orange, borderColor: orange }}
+                  style={{ backgroundColor: colors.primary	, borderColor: colors.primary	 }}
                 >
                   <RotateCcw className="w-4 h-4 mr-2" />
                   Retake Quiz
@@ -818,7 +820,7 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
             <Button 
               onClick={startQuiz} 
               className="w-full rounded-xl text-lg font-semibold transition-all duration-150 shadow-md hover:shadow-lg text-white" 
-              style={{ backgroundColor: orange, borderColor: orange }}
+              style={{ backgroundColor: colors.primary, borderColor: colors.primary	 }}
             >
               Start Assessment
             </Button>
@@ -843,7 +845,7 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
               <Button 
                 onClick={handleInfoSubmit} 
                 className="rounded-xl shadow text-white" 
-                style={{ backgroundColor: teal, borderColor: teal }}
+                style={{ backgroundColor: colors.primary, borderColor: colors.primary }}
                 disabled={isSubmittingLead}
               >
                 {isSubmittingLead ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
@@ -863,7 +865,7 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
               <Button 
                 onClick={handlePostQuizSend} 
                 className="rounded-xl shadow text-white" 
-                style={{ backgroundColor: orange, borderColor: orange }}
+                style={{ backgroundColor: colors.primary	, borderColor: colors.primary	 }}
               >
                 <Send className="w-4 h-4" />
               </Button>

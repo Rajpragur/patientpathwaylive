@@ -43,6 +43,7 @@ const NOSELandingPage: React.FC = () => {
   const [showChatWidget, setShowChatWidget] = useState(true);
   const [showChatMessage, setShowChatMessage] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
+  const [chatbotColors, setChatbotColors] = useState(null);
 
   useEffect(() => {
     const fetchDoctorData = async () => {
@@ -95,6 +96,22 @@ const NOSELandingPage: React.FC = () => {
     }, 30000);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    const fetchChatbotColors = async () => {
+      if (!doctor || !user) return;
+      const { data, error } = await supabase
+        .from('ai_landing_pages')
+        .select('chatbot_colors')
+        .eq('user_id', user.id)
+        .eq('doctor_id', doctor.id)
+        .single();
+      if (data && data.chatbot_colors) setChatbotColors(data.chatbot_colors);
+      else setChatbotColors(null); // fallback to default in chatbot
+    };
+    fetchChatbotColors();
+  }, [doctor, user]);
+  
 
   useEffect(() => {
     const fetchOrCreateAIContent = async () => {
@@ -257,6 +274,7 @@ const NOSELandingPage: React.FC = () => {
                   doctorId={doctorId || doctor?.id} 
                   quizData={quizzes.NOSE} 
                   doctorAvatarUrl={doctorAvatarUrl} 
+                  chatbotColors={chatbotColors}
                 />
               </div>
             </div>
