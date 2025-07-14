@@ -4,31 +4,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { generatePageContent, DoctorProfile } from '../lib/openrouter';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardHeader, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
-  Pencil, Save, X, Trash2, RefreshCw, 
-  ChevronDown, ChevronUp, Plus, 
-  AlertCircle, Check, ExternalLink
+  Pencil, Save, X
 } from 'lucide-react';
-import { quizzes } from '@/data/quizzes';
-import { EmbeddedChatBot } from '@/components/quiz/EmbeddedChatBot';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-const sectionFields = [
-  'headline', 'intro', 'whatIsNAO', 'symptoms', 'treatments', 'treatmentOptions', 'comparisonTable', 'vivAerOverview', 'lateraOverview', 'surgicalProcedures', 'whyChoose', 'testimonials', 'cta'
-];
 
 const defaultDoctor: DoctorProfile = {
   id: 'demo',
@@ -75,6 +54,7 @@ const EditableSection = ({
   advancedTestimonials = false,
   advancedContact = false,
   children,
+  className = '',
 }: {
   label: string;
   value: any;
@@ -89,6 +69,7 @@ const EditableSection = ({
   advancedTestimonials?: boolean;
   advancedContact?: boolean;
   children?: React.ReactNode;
+  className?: string;
 }) => {
   // Advanced table editing UI for comparisonTable
   if (isEditing && advancedTable) {
@@ -109,44 +90,72 @@ const EditableSection = ({
       onEditChange && onEditChange(newRows);
     };
     return (
-      <div className="bg-white border-2 border-blue-400 shadow-xl rounded-xl p-4 flex flex-col gap-2 animate-fade-in">
-        <table className="min-w-full bg-white rounded-xl shadow text-sm mb-2">
+      <div className="bg-white border border-blue-300 shadow-lg rounded-2xl p-6 animate-fade-in">
+        <table className="w-full text-sm">
           <thead>
-            <tr className="bg-blue-100">
-              <th className="py-2 px-4">Treatment</th>
-              <th className="py-2 px-4">Pros</th>
-              <th className="py-2 px-4">Cons</th>
-              <th className="py-2 px-4">Invasiveness</th>
+            <tr className="text-left text-blue-800 border-b border-blue-200">
+              {["Treatment", "Pros", "Cons", "Invasiveness"].map((col, idx) => (
+                <th key={idx} className="py-3 px-2 font-semibold">{col}</th>
+              ))}
               <th></th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row, i) => (
-              <tr key={i}>
+              <tr key={i} className="border-b hover:bg-blue-50 transition">
                 {Array(4).fill(0).map((_, j) => (
                   <td key={j} className="py-2 px-2">
                     <input
-                      className="border rounded p-1 w-full text-sm"
                       value={row[j] || ''}
                       onChange={e => updateCell(i, j, e.target.value)}
+                      className="w-full bg-transparent border border-transparent focus:border-blue-400 rounded-md px-2 py-1 focus:outline-none focus:bg-white transition-all"
+                      placeholder={`Enter ${["Treatment", "Pros", "Cons", "Invasiveness"][j].toLowerCase()}`}
                     />
                   </td>
                 ))}
-                <td>
-                  <button onClick={() => removeRow(i)} className="text-red-500 hover:underline text-xs">Remove</button>
+                <td className="text-right pr-2">
+                  <button
+                    onClick={() => removeRow(i)}
+                    className="text-red-500 text-xs hover:underline hover:text-red-700"
+                  >
+                    Remove
+                  </button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        <div className="flex gap-2 mb-2">
-          <Button size="sm" variant="outline" onClick={addRow}>Add Row</Button>
+
+        <div className="flex gap-2 mt-4">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={addRow}
+            className="border-blue-300 text-blue-600 hover:bg-blue-50"
+          >{}
+            + Add Row
+          </Button>
         </div>
-        <div className="flex gap-2 mt-2">
-          <Button size="sm" onClick={onSave} className="flex items-center gap-1 bg-blue-600 text-white hover:bg-blue-700"><Save className="w-4 h-4" />Save</Button>
-          <Button size="sm" variant="outline" onClick={onCancel} className="flex items-center gap-1 border-red-300 text-red-600 hover:bg-red-50"><X className="w-4 h-4" />Cancel</Button>
+
+        <div className="flex gap-2 mt-4 justify-end">
+          <Button
+            size="sm"
+            onClick={onSave}
+            className="flex items-center gap-1 bg-blue-600 text-white hover:bg-blue-700"
+          >
+            <Save className="w-4 h-4" /> Save
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onCancel}
+            className="flex items-center gap-1 border-red-300 text-red-600 hover:bg-red-50"
+          >
+            <X className="w-4 h-4" /> Cancel
+          </Button>
         </div>
       </div>
+
     );
   }
   // Advanced testimonials editing UI
@@ -266,7 +275,7 @@ const EditableSection = ({
   return (
     <div className={`relative group mb-6 ${isEditing ? 'z-10' : ''}`}>  
       <div className="flex items-center gap-2 mb-2">
-        <h2 className="text-2xl font-semibold text-[#0E7C9D]">{label}</h2>
+        <h2 className={className}>{label}</h2>
         {!isEditing && (
           <button onClick={onEdit} className="ml-2 p-1 rounded hover:bg-gray-200" aria-label={`Edit ${label}`}>
             <Pencil className="w-4 h-4 text-gray-500" />
@@ -312,13 +321,10 @@ const NoseEditorPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string>('');
   const [showAboveFoldQuiz, setShowAboveFoldQuiz] = useState(false);
   const aboveFoldQuizRef = useRef<HTMLDivElement>(null);
-  const footerQuizRef = useRef<HTMLDivElement>(null);
-  const [showChatbot, setShowChatbot] = useState(false);
 
   useEffect(() => {
     if ('scrollRestoration' in window.history) {
@@ -353,10 +359,6 @@ const NoseEditorPage: React.FC = () => {
     fetchData();
   }, [doctorId, user]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setShowChatbot(true), 30000);
-    return () => clearTimeout(timer);
-  }, []);
 
   const handleEdit = (field: string) => {
     setEditingSection(field);
@@ -406,34 +408,6 @@ const NoseEditorPage: React.FC = () => {
     setEditValue('');
   };
 
-  const handleDelete = async () => {
-    if (!user || !doctorId) return;
-    setSaving(true);
-    setError(null);
-    const { error } = await supabase
-      .from('ai_landing_pages')
-      .delete()
-      .eq('user_id', user.id)
-      .eq('doctor_id', doctorId);
-    if (error) setError(error.message);
-    else navigate('/dashboard/share-assessments');
-    setSaving(false);
-  };
-
-  const handleRegenerate = async () => {
-    if (!doctor) return;
-    setAiLoading(true);
-    setError(null);
-    try {
-      const generated = await generatePageContent(doctor);
-      setContent(generated);
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
   const handleShowQuiz = (e?: React.MouseEvent) => {
     e?.preventDefault();
     setShowAboveFoldQuiz(true);
@@ -448,177 +422,207 @@ const NoseEditorPage: React.FC = () => {
   const quizIframeSrc = `${window.location.origin}/quiz/nose?source=website&utm_source=website&utm_medium=web&utm_campaign=quiz_share`;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
-      {/* Above the Fold */}
-      <section className="max-w-4xl mx-auto px-4 text-center mb-12">
-        <div className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6">
-          <img src={doctorAvatarUrl} alt="Practice Logo" className="w-12 h-12 object-contain" />
-        </div>
-        <EditableSection
-          label="Headline"
-          value={content.headline}
-          isEditing={editingSection === 'headline'}
-          onEdit={() => handleEdit('headline')}
-          editValue={editingSection === 'headline' ? editValue : ''}
-          onEditChange={handleChange}
-          onSave={handleSave}
-          onCancel={handleCancel}
-        >
-          <h1 className="text-5xl font-bold text-[#0E7C9D] mb-4">{content.headline || 'Struggling to Breathe Through Your Nose?'}</h1>
-        </EditableSection>
-        <EditableSection
-          label="Intro"
-          value={content.intro}
-          isEditing={editingSection === 'intro'}
-          onEdit={() => handleEdit('intro')}
-          editValue={editingSection === 'intro' ? editValue : ''}
-          onEditChange={handleChange}
-          onSave={handleSave}
-          onCancel={handleCancel}
-        >
-          <p className="text-xl text-gray-700 mb-6">{content.intro || 'Take Our Quick "Nose Test" to See If You Have Nasal Airway Obstruction'}</p>
-        </EditableSection>
-        <Button
-          className="inline-block bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] hover:from-[#0E7C9D]/90 hover:to-[#FD904B]/90 text-white font-bold py-4 px-8 rounded-2xl transition-all duration-300 hover:scale-105 shadow-lg text-lg mb-4"
-          onClick={handleShowQuiz}
-        >
-          Take the Nose Test Now »
-        </Button>
-        {/* Embed NOSE Quiz Above the Fold (hidden until button click) */}
-        <div id="nose-quiz" className="my-8" ref={aboveFoldQuizRef}>
-          {showAboveFoldQuiz && (
-            <iframe
-              src={quizIframeSrc}
-              width="100%"
-              height="500px"
-              frameBorder="0"
-              style={{ borderRadius: '16px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' }}
-              title="NOSE Assessment Quiz"
-              allow="clipboard-write"
-            />
-          )}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-teal-50">
+      {/* Hero Section */}
+      <section className="w-full bg-white border-b border-slate-200 py-20">
+        <div className="max-w-7xl mx-auto px-8 text-center">
+          <div className="mb-12">
+            <div className="w-28 h-28 rounded-2xl flex items-center justify-center mx-auto mb-8">
+              <img src={doctorAvatarUrl} alt="Practice Logo" className="w-20 h-20 rounded-xl object-cover" />
+            </div>
+            <EditableSection
+              label="Headline"
+              value={content.headline}
+              isEditing={editingSection === 'headline'}
+              onEdit={() => handleEdit('headline')}
+              editValue={editingSection === 'headline' ? editValue : ''}
+              onEditChange={handleChange}
+              onSave={handleSave}
+              onCancel={handleCancel}
+              className='font-bold text-2xl'
+            >
+              <h1 className="text-5xl font-bold text-slate-900 mb-8 leading-tight max-w-6xl mx-auto">
+                {content.headline || 'Struggling to Breathe Through Your Nose?'}
+              </h1>
+            </EditableSection>
+            <EditableSection
+              label="Intro"
+              value={content.intro}
+              isEditing={editingSection === 'intro'}
+              onEdit={() => handleEdit('intro')}
+              editValue={editingSection === 'intro' ? editValue : ''}
+              onEditChange={handleChange}
+              onSave={handleSave}
+              onCancel={handleCancel}
+              className='font-bold text-2xl'
+            >
+              <p className="text-2xl text-slate-600 mb-12 max-w-4xl mx-auto leading-relaxed">
+                {content.intro || 'Take Our Quick "Nose Test" to See If You Have Nasal Airway Obstruction'}
+              </p>
+            </EditableSection>
+            <Button
+              className="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-6 px-12 rounded-xl transition-all duration-300 hover:scale-105 shadow-xl text-xl group"
+              onClick={handleShowQuiz}
+            >
+              <span>Take the Nose Test Now</span>
+              <svg className="w-6 h-6 ml-3 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </Button>
+          </div>
         </div>
       </section>
 
       {/* What is NAO */}
-      <section className="max-w-3xl mx-auto mb-12">
-        <EditableSection
-          label="What Is Nasal Airway Obstruction?"
-          value={content.whatIsNAO}
-          isEditing={editingSection === 'whatIsNAO'}
-          onEdit={() => handleEdit('whatIsNAO')}
-          editValue={editingSection === 'whatIsNAO' ? editValue : ''}
-          onEditChange={handleChange}
-          onSave={handleSave}
-          onCancel={handleCancel}
-          multiline
-        >
-          <p className="text-lg text-gray-700 mb-4">{content.whatIsNAO || 'Nasal Airway Obstruction (NAO) occurs when airflow through the nose is chronically limited.'}</p>
-        </EditableSection>
+      <section className="w-full bg-slate-100 py-24">
+        <div className="max-w-7xl mx-auto px-8 text-center">
+          <EditableSection
+            label="What Is Nasal Airway Obstruction?"
+            value={content.whatIsNAO}
+            isEditing={editingSection === 'whatIsNAO'}
+            onEdit={() => handleEdit('whatIsNAO')}
+            editValue={editingSection === 'whatIsNAO' ? editValue : ''}
+            onEditChange={handleChange}
+            onSave={handleSave}
+            onCancel={handleCancel}
+            multiline
+            className='font-bold text-2xl'
+          >
+            <h2 className="text-5xl font-bold text-slate-900 mb-8">
+              What Is Nasal Airway Obstruction?
+            </h2>
+            <p className="text-2xl text-slate-600 leading-relaxed max-w-5xl mx-auto">
+              {content.whatIsNAO || 'Nasal Airway Obstruction (NAO) occurs when airflow through the nose is chronically limited.'}
+            </p>
+          </EditableSection>
+        </div>
       </section>
 
-      {/* Symptoms & Impact */}
-      <section className="max-w-3xl mx-auto mb-12">
-        <EditableSection
-          label="Symptoms & Impact"
-          value={Array.isArray(content.symptoms) ? content.symptoms.join('\n') : content.symptoms}
-          isEditing={editingSection === 'symptoms'}
-          onEdit={() => handleEdit('symptoms')}
-          editValue={editingSection === 'symptoms' ? editValue : ''}
-          onEditChange={handleChange}
-          onSave={handleSave}
-          onCancel={handleCancel}
-          multiline
-        >
-          <ul className="list-disc list-inside text-gray-700 text-lg mb-4">
-            {safeList(content.symptoms, 'Chronic nasal congestion or stuffiness').map((s: string, i: number) => (
-              <li key={i}>{s}</li>
-            ))}
-          </ul>
-        </EditableSection>
+      {/*Symptoms and Impact*/}
+      <section className="w-full bg-white py-24">
+        <div className="max-w-7xl mx-auto px-8 text-center">
+          <EditableSection
+            label="Symptoms & Impact"
+            value={Array.isArray(content.symptoms) ? content.symptoms.join('\n') : content.symptoms}
+            isEditing={editingSection === 'symptoms'}
+            onEdit={() => handleEdit('symptoms')}
+            editValue={editingSection === 'symptoms' ? editValue : ''}
+            onEditChange={handleChange}
+            onSave={handleSave}
+            onCancel={handleCancel}
+            multiline
+            className='font-bold text-2xl'
+          >
+            <h2 className="text-5xl font-bold text-slate-900 mb-12">Symptoms & Impact</h2>
+            <div className="flex justify-center">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {safeList(content.symptoms, 'Chronic nasal congestion or stuffiness').map((symptom: string, i: number) => (
+                  <div
+                    key={i}
+                    className="bg-slate-50 rounded-xl p-8 shadow-sm border border-slate-200 hover:shadow-md transition-shadow w-80"
+                  >
+                    <div className="w-3 h-3 bg-blue-600 rounded-full mb-4 mx-auto"></div>
+                    <span className="text-slate-700 text-lg">{symptom}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </EditableSection>
+        </div>
       </section>
 
-      {/* Treatment Options */}
-      <section className="max-w-4xl mx-auto mb-12">
-        <EditableSection
-          label="Comprehensive Treatment Options"
-          value={content.treatments}
-          isEditing={editingSection === 'treatments'}
-          onEdit={() => handleEdit('treatments')}
-          editValue={editingSection === 'treatments' ? editValue : ''}
-          onEditChange={handleChange}
-          onSave={handleSave}
-          onCancel={handleCancel}
-          multiline
-        >
-          <p className="text-gray-700 mb-4">{content.treatments || ''}</p>
-        </EditableSection>
-        <EditableSection
-          label="Treatment Options: From Gentle to Surgical"
-          value={Array.isArray(content.treatmentOptions) ? content.treatmentOptions.join('\n') : content.treatmentOptions}
-          isEditing={editingSection === 'treatmentOptions'}
-          onEdit={() => handleEdit('treatmentOptions')}
-          editValue={editingSection === 'treatmentOptions' ? editValue : ''}
-          onEditChange={handleChange}
-          onSave={handleSave}
-          onCancel={handleCancel}
-          multiline
-        >
-          <ul className="list-disc list-inside text-gray-700 mb-2">
-            {safeList(content.treatmentOptions, 'Medical Management').map((option: string, i: number) => (
-              <li key={i}>{option}</li>
-            ))}
-          </ul>
-        </EditableSection>
-        {/* Comparison Table */}
-        <EditableSection
-          label="Comparison Table"
-          value={Array.isArray(content.comparisonTable) ? content.comparisonTable : []}
-          isEditing={editingSection === 'comparisonTable'}
-          onEdit={() => handleEdit('comparisonTable')}
-          editValue={editingSection === 'comparisonTable' ? editValue : []}
-          onEditChange={setEditValue}
-          onSave={handleSave}
-          onCancel={handleCancel}
-          advancedTable={true}
-        >
-          <div className="overflow-x-auto mb-8">
-            <table className="min-w-full bg-white rounded-xl shadow text-sm">
-              <thead>
-                <tr className="bg-blue-100">
-                  <th className="py-2 px-4">Treatment</th>
-                  <th className="py-2 px-4">Pros</th>
-                  <th className="py-2 px-4">Cons</th>
-                  <th className="py-2 px-4">Invasiveness</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(Array.isArray(content.comparisonTable) ? content.comparisonTable : []).map((row: any, i: number) => {
-                  let safeRow = Array.isArray(row) ? row : ['', '', '', ''];
-                  // If row is a string, try to split by tab or comma
-                  if (!Array.isArray(row) && typeof row === 'string') {
-                    const split = row.split('\t');
-                    safeRow = split.length === 4 ? split : ['', '', '', ''];
-                  }
-                  // Ensure always 4 columns
-                  if (safeRow.length < 4) safeRow = [...safeRow, '', '', '', ''].slice(0, 4);
-                  return (
-                    <tr key={i}>
-                      {safeRow.slice(0, 4).map((cell: string, j: number) => (
-                        <td key={`${i}-${j}`} className="py-2 px-4">{cell}</td>
-                      ))}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </EditableSection>
-        
-      </section>
+      <section className="w-full bg-slate-100 py-24">
+        <div className="max-w-7xl mx-auto px-8 text-center">
+          <EditableSection
+            label={`Comprehensive Treatment Options at ${doctor?.name?.split(' ')[0]}'s Practice`}
+            value={content.treatments}
+            isEditing={editingSection === 'treatments'}
+            onEdit={() => handleEdit('treatments')}
+            editValue={editingSection === 'treatments' ? editValue : ''}
+            onEditChange={handleChange}
+            onSave={handleSave}
+            onCancel={handleCancel}
+            multiline
+            className='font-bold text-2xl'
+          >
+            <h2 className="text-5xl font-bold text-slate-900 mb-8 max-w-7xl mx-auto px-8 text-center">
+              Comprehensive Treatment Options at undefined Practice
+            </h2>
+            <p className="text-2xl text-slate-600 mb-16 max-w-5xl mx-auto leading-relaxed">{content.treatments || ''}</p>
+          </EditableSection>
 
-      {/* VivAer & Latera Overviews */}
-      <section className="max-w-3xl mx-auto mb-12">
+          <EditableSection
+            label="Treatment Options: From Gentle to Surgical"
+            value={Array.isArray(content.treatmentOptions) ? content.treatmentOptions.join('\n') : content.treatmentOptions}
+            isEditing={editingSection === 'treatmentOptions'}
+            onEdit={() => handleEdit('treatmentOptions')}
+            editValue={editingSection === 'treatmentOptions' ? editValue : ''}
+            onEditChange={handleChange}
+            onSave={handleSave}
+            onCancel={handleCancel}
+            multiline
+            className='font-bold text-2xl'
+          >
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+              {safeList(content.treatmentOptions, 'Medical Management').map((option: string, i: number) => (
+                <div key={i} className="bg-white rounded-xl p-8 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+                  <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mb-6 mx-auto">
+                    <span className="text-white font-bold text-lg">{i + 1}</span>
+                  </div>
+                  <p className="text-slate-700 text-lg leading-relaxed">{option}</p>
+                </div>
+              ))}
+            </div>
+          </EditableSection>
+
+          <EditableSection
+            label="Comparison Table"
+            value={Array.isArray(content.comparisonTable) ? content.comparisonTable : []}
+            isEditing={editingSection === 'comparisonTable'}
+            onEdit={() => handleEdit('comparisonTable')}
+            editValue={editingSection === 'comparisonTable' ? editValue : []}
+            onEditChange={setEditValue}
+            onSave={handleSave}
+            onCancel={handleCancel}
+            advancedTable={true}
+            className='font-bold text-2xl'
+          >
+            <div className="overflow-x-auto bg-white rounded-xl shadow-sm border border-slate-200">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-slate-900 text-white">
+                    <th className="py-6 px-8 text-left font-semibold text-lg">Treatment</th>
+                    <th className="py-6 px-8 text-left font-semibold text-lg">Pros</th>
+                    <th className="py-6 px-8 text-left font-semibold text-lg">Cons</th>
+                    <th className="py-6 px-8 text-left font-semibold text-lg">Invasiveness</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(Array.isArray(content.comparisonTable) ? content.comparisonTable : []).map((row: any, i: number) => {
+                    let safeRow = Array.isArray(row) ? row : ['', '', '', ''];
+                    if (!Array.isArray(row) && typeof row === 'string') {
+                      const split = row.split('\t');
+                      safeRow = split.length === 4 ? split : ['', '', '', ''];
+                    }
+                    if (safeRow.length < 4) safeRow = [...safeRow, '', '', '', ''].slice(0, 4);
+                    return (
+                      <tr key={i} className={i % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
+                        {safeRow.slice(0, 4).map((cell: string, j: number) => (
+                          <td key={`${i}-${j}`} className="py-6 px-8 text-slate-700 text-lg">{cell}</td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </EditableSection>
+        </div>
+      </section>
+      {/*VivAer Overview*/}
+      <section className="w-full bg-white py-24">
+      <div className="max-w-7xl mx-auto px-8">
+      <div className="grid md:grid-cols-2 gap-16">
         <EditableSection
           label="VivAer Overview"
           value={content.vivAerOverview}
@@ -629,8 +633,12 @@ const NoseEditorPage: React.FC = () => {
           onSave={handleSave}
           onCancel={handleCancel}
           multiline
+          className='font-bold text-2xl'
         >
-          <p className="text-gray-700 mb-4">{content.vivAerOverview || ''}</p>
+        <div className="text-center bg-slate-50 rounded-xl p-12 border border-slate-200">
+          <h2 className="text-4xl font-bold text-slate-900 mb-8">VivAer Overview</h2>
+          <p className="text-slate-600 text-lg leading-relaxed">{content.vivAerOverview || ''}</p>
+        </div>
         </EditableSection>
         <EditableSection
           label="Latera Overview"
@@ -642,14 +650,21 @@ const NoseEditorPage: React.FC = () => {
           onSave={handleSave}
           onCancel={handleCancel}
           multiline
+          className='font-bold text-2xl'
         >
-          <p className="text-gray-700 mb-4">{content.lateraOverview || ''}</p>
+          <div className="text-center bg-slate-50 rounded-xl p-12 border border-slate-200">
+            <h2 className="text-4xl font-bold text-slate-900 mb-8">Latera Overview</h2>
+            <p className="text-slate-600 text-lg leading-relaxed">{content.lateraOverview || ''}</p>
+          </div>
         </EditableSection>
+        </div>
+        </div>
       </section>
 
       {/* Surgical Procedures */}
-      <section className="max-w-3xl mx-auto mb-12">
-        <EditableSection
+      <section className="w-full bg-slate-100 py-24">
+          <div className="max-w-7xl mx-auto px-8 text-center">
+          <EditableSection
           label="Surgical Procedures"
           value={content.surgicalProcedures}
           isEditing={editingSection === 'surgicalProcedures'}
@@ -659,14 +674,18 @@ const NoseEditorPage: React.FC = () => {
           onSave={handleSave}
           onCancel={handleCancel}
           multiline
-        >
-          <p className="text-gray-700 mb-4">{content.surgicalProcedures || ''}</p>
-        </EditableSection>
-      </section>
-
+          className='font-bold text-2xl'>
+              <h2 className="text-5xl font-bold text-slate-900 mb-12">Surgical Procedures</h2>
+              <p className="text-2xl text-slate-600 leading-relaxed max-w-5xl mx-auto">
+                {content.surgicalProcedures || ''}
+              </p>
+          </EditableSection>
+          </div>
+      </section>  
       {/* Call to Action */}
-      <section className="max-w-3xl mx-auto mb-12 text-center">
-        <EditableSection
+       <section className="w-full bg-blue-600 py-24">
+          <div className="max-w-7xl mx-auto px-8 text-center">
+          <EditableSection
           label="Call to Action"
           value={content.cta}
           isEditing={editingSection === 'cta'}
@@ -675,22 +694,30 @@ const NoseEditorPage: React.FC = () => {
           onEditChange={handleChange}
           onSave={handleSave}
           onCancel={handleCancel}
-          multiline
-        >
-          <p className="text-gray-700 mb-4">{content.cta || ''}</p>
-          <Button
-            onClick={handleShowQuiz}
-            className="inline-block bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] hover:from-[#0E7C9D]/90 hover:to-[#FD904B]/90 text-white font-bold py-4 px-8 rounded-2xl transition-all duration-300 hover:scale-105 shadow-lg text-lg"
+          multiline 
+          className='text-white font-bold'
           >
-            Take the Nose Test »
-          </Button>
-        </EditableSection>
-      </section>
-
+              <h2 className="text-5xl font-bold text-white mb-12">Take the Next Step</h2>
+              <p className="text-2xl text-blue-100 mb-16 max-w-4xl mx-auto leading-relaxed">
+                {content.cta || ''}
+              </p>
+              <button
+                onClick={handleShowQuiz}
+                className="inline-flex items-center bg-white text-blue-600 font-bold py-6 px-12 rounded-xl transition-all duration-300 hover:scale-105 shadow-xl text-xl group hover:shadow-2xl"
+              >
+                <span>Take the Nose Test</span>
+                <svg className="w-6 h-6 ml-3 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </button>
+            </EditableSection>
+          </div>
+        </section>
       {/* Why Choose This Practice */}
-      <section className="max-w-3xl mx-auto mb-12">
-        <EditableSection
-          label={`Why Choose ${doctor?.name?.split(' ')[0]}'s Practice`}
+      <section className="w-full bg-white py-24">
+          <div className="max-w-7xl mx-auto px-8 text-center">
+          <EditableSection
+          label={`Why Choose your Practice`}
           value={Array.isArray(content.whyChoose) ? content.whyChoose.join('\n') : content.whyChoose}
           isEditing={editingSection === 'whyChoose'}
           onEdit={() => handleEdit('whyChoose')}
@@ -699,37 +726,80 @@ const NoseEditorPage: React.FC = () => {
           onSave={handleSave}
           onCancel={handleCancel}
           multiline
-        >
-          <ul className="list-disc list-inside text-gray-700 text-lg mb-4">
-            {safeList(content.whyChoose, 'Board-Certified ENT Specialists').map((reason: string, i: number) => (
-              <li key={i}>{reason}</li>
-            ))}
-          </ul>
-        </EditableSection>
-      </section>
-
-      {/* Testimonials */}
-      <section className="max-w-3xl mx-auto mb-12">
-        <EditableSection
-          label="Patient Testimonials"
-          value={Array.isArray(content.testimonials) ? content.testimonials : []}
-          isEditing={editingSection === 'testimonials'}
-          onEdit={() => handleEdit('testimonials')}
-          editValue={editingSection === 'testimonials' ? editValue : []}
-          onEditChange={setEditValue}
-          onSave={handleSave}
-          onCancel={handleCancel}
-          advancedTestimonials={true}
-        >
-          <div className="grid md:grid-cols-2 gap-6">
-            {(Array.isArray(content.testimonials) ? content.testimonials : []).map((t: { text: string; author: string; location: string }, i: number) => (
-              <div key={i} className="bg-white rounded-xl shadow p-6 text-gray-700">
-                <p className="mb-2">"{t.text || ''}"</p>
-                <div className="text-sm text-gray-500">— {t.author || 'Patient'}, {t.location || ''}</div>
+          className='font-bold text-2xl'
+          >
+              <h2 className="text-5xl font-bold text-slate-900 mb-16">Why Choose your (your real name) Practice</h2>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                {safeList(content.whyChoose, 'Board-Certified ENT Specialists').map((reason: string, i: number) => (
+                  <div key={i} className="bg-slate-50 rounded-xl p-8 text-left border border-slate-200 hover:shadow-md transition-shadow">
+                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center mb-6">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <span className="text-slate-700 text-lg leading-relaxed">{reason}</span>
+                  </div>
+                ))}
               </div>
-            ))}
+            </EditableSection>
           </div>
-        </EditableSection>
+      </section>
+      {/* Testimonials */}
+      <section className="w-full bg-slate-100 py-24">
+        <div className="max-w-7xl mx-auto px-8 text-center">
+          <EditableSection
+            label="Patient Testimonials"
+            value={Array.isArray(content.testimonials) ? content.testimonials : []}
+            isEditing={editingSection === 'testimonials'}
+            onEdit={() => handleEdit('testimonials')}
+            editValue={editingSection === 'testimonials' ? editValue : []}
+            onEditChange={setEditValue}
+            onSave={handleSave}
+            onCancel={handleCancel}
+            advancedTestimonials
+            className='font-bold text-2xl'
+          >
+            <h2 className="text-5xl font-bold text-slate-900 mb-16">Patient Testimonials</h2>
+            <div className="grid md:grid-cols-2 gap-12 max-w-6xl mx-auto">
+              {(Array.isArray(content.testimonials) ? content.testimonials : []).map(
+                (testimonial: { text: string; author: string; location: string }, i: number) => (
+                  <div
+                    key={i}
+                    className="bg-white rounded-xl p-12 border border-slate-200 relative shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    <div className="absolute top-8 left-8 text-8xl text-slate-300">"</div>
+                    <p className="text-slate-700 mb-8 pt-12 text-xl leading-relaxed italic">
+                      {testimonial.text || ''}
+                    </p>
+                    <div className="flex items-center justify-center">
+                      <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mr-4">
+                        <svg
+                          className="w-6 h-6 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                          />
+                        </svg>
+                      </div>
+                      <div className="text-left">
+                        <div className="font-semibold text-slate-900 text-lg">
+                          {testimonial.author || 'Patient'}
+                        </div>
+                        <div className="text-slate-500">{testimonial.location || ''}</div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+          </EditableSection>
+        </div>
       </section>
 
     </div>

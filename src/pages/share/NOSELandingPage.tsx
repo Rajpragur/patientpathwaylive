@@ -21,13 +21,6 @@ const defaultDoctor: DoctorProfile = {
   website: 'https://www.exhalesinus.com/',
 };
 
-const sources = [
-  { label: 'Mayo Clinic - Septoplasty', url: 'https://www.mayoclinic.org/tests-procedures/septoplasty' },
-  { label: 'Exhale Sinus & Facial Pain Center', url: 'https://www.exhalesinus.com/' },
-  { label: 'Aerin Medical (VivAer)', url: 'https://www.aerinmedical.com/vivaer/' },
-  { label: 'Stryker (Latera)', url: 'https://ent.stryker.com/products/latera' },
-  { label: 'Health.com – Nasal Obstruction Treatments', url: 'https://www.health.com/condition/nasal-obstruction' },
-];
 
 const EditableSection = ({ children, editable, onEdit }: { children: React.ReactNode; editable: boolean; onEdit?: () => void }) => (
   <div className="relative group">
@@ -305,8 +298,8 @@ const NOSELandingPage: React.FC = () => {
       <section className="w-full bg-white border-b border-slate-200 py-20">
         <div className="max-w-7xl mx-auto px-8 text-center">
           <div className="mb-12">
-            <div className="w-28 h-28 rounded-2xl flex items-center justify-center mx-auto mb-8">
-              <img src={doctorAvatarUrl} alt="Practice Logo" className="w-20 h-20 rounded-xl object-cover" />
+            <div className="w-20 rounded-2xl flex items-center justify-center mx-auto mb-8">
+              <img src={doctorAvatarUrl} alt="Practice Logo" className="w-20 rounded-xl object-cover" />
             </div>
             <h1 className="text-5xl font-bold text-slate-900 mb-8 leading-tight max-w-6xl mx-auto">
               {aiContent.headline || 'Struggling to Breathe Through Your Nose?'}
