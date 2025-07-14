@@ -34,10 +34,9 @@ interface EmbeddedChatBotProps {
   doctorId?: string;
   customQuiz?: any;
   quizData?: any;
-  doctorAvatarUrl?: string;
 }
 
-export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quizData, doctorAvatarUrl }: EmbeddedChatBotProps) {
+export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quizData }: EmbeddedChatBotProps) {
   const [searchParams] = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -57,6 +56,8 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
   const [finalDoctorId, setFinalDoctorId] = useState<string | null>(null);
   const [doctorProfile, setDoctorProfile] = useState<any>(null);
+  const [showResultsFirst, setShowResultsFirst] = useState(true); // Default to showing results first
+  const [ctaText, setCtaText] = useState("For more info about non-invasive in office procedure to give you relief, Schedule a 5min screening phone call.");
 
   // Enhanced source tracking
   const source = searchParams.get('source') || searchParams.get('utm_source') || 'direct';
@@ -88,12 +89,15 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
   useEffect(() => {
     if (quizData) {
       setLoading(false);
-      setMessages([
-        {
-          role: 'assistant',
-          content: `Hello! Welcome to the ${quizData.title}. ${quizData.description}\n\nThis assessment will help evaluate your symptoms. Click "Start Assessment" when you're ready to begin.`
-        }
-      ]);
+      
+      // Start the quiz immediately without asking for confirmation
+      setQuizStarted(true);
+      askNextQuestion(0);
+      
+      // Check if the quiz has custom CTA text
+      if (quizData.cta_text) {
+        setCtaText(quizData.cta_text);
+      }
     }
   }, [quizData]);
 
@@ -116,35 +120,28 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
   
-  const fetchDoctorProfile = async () => {
-    if (finalDoctorId) {
-      try {
-        const { data, error } = await supabase
-          .from('doctor_profiles')
-          .select('*')
-          .eq('id', finalDoctorId)
-          .single();
-        
-        if (error) {
-          console.error('Error fetching doctor profile:', error);
-          return;
-        }
-        
-        if (data) {
-          setDoctorProfile(data);
-        } else {
-          console.warn('No doctor profile found for ID:', finalDoctorId);
-        }
-      } catch (error) {
-        console.error('Error fetching doctor profile:', error);
-      }
-    }
-  };
-
   useEffect(() => {
+    const fetchDoctorProfile = async () => {
+      if (finalDoctorId) {
+        try {
+          const { data } = await supabase
+            .from('doctor_profiles')
+            .select('*')
+            .eq('id', finalDoctorId)
+            .single();
+          
+          if (data) {
+            setDoctorProfile(data);
+          }
+        } catch (error) {
+          console.error('Error fetching doctor profile:', error);
+        }
+      }
+    };
+
     fetchDoctorProfile();
   }, [finalDoctorId]);
-
+  
   const findDoctorByShareKey = async () => {
     try {
       console.log('Looking up doctor by share key:', shareKey);
@@ -226,16 +223,6 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
       </div>
     );
   }
-
-  const startQuiz = () => {
-    setQuizStarted(true);
-    setMessages(prev => [...prev, { role: 'user', content: 'Start Assessment' }]);
-    setShowTyping(true);
-    setTimeout(() => {
-      setShowTyping(false);
-      askNextQuestion(0);
-    }, 700);
-  };
 
   const askNextQuestion = (questionIndex: number) => {
     if (questionIndex < quizData.questions.length) {
@@ -343,13 +330,25 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
       score = quizResult.score;
     }
 
-    setMessages(prev => [...prev, {
-      role: 'assistant',
-      content: `🎉 Congratulations! You've completed the ${quizData.title}.\n\nTo receive your detailed results and connect with our medical team, please provide your contact information below.`
-    }, {
-      role: 'assistant',
-      content: 'Please enter your full name:'
-    }]);
+    if (showResultsFirst) {
+      // Show results first, then ask for contact info
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `🎉 Congratulations! You've completed the ${quizData.title}.\n\nYour Results:\n\nScore: ${score}/${quizData.maxScore}\nSeverity: ${result?.severity.charAt(0).toUpperCase() + result?.severity.slice(1)}\n\nInterpretation: ${result?.interpretation}\n\n${ctaText}\n\nTo connect with our medical team, please provide your contact information below.`
+      }, {
+        role: 'assistant',
+        content: 'Please enter your full name:'
+      }]);
+    } else {
+      // Ask for contact info first, then show results
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `🎉 Congratulations! You've completed the ${quizData.title}.\n\nTo receive your detailed results and connect with our medical team, please provide your contact information below.`
+      }, {
+        role: 'assistant',
+        content: 'Please enter your full name:'
+      }]);
+    }
 
     setCollectingInfo(true);
     setInfoStep(0);
@@ -429,15 +428,29 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
       // Submit lead to database
       await submitLead();
       
-      setTimeout(() => {
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: `Thank you ${userInfo.name}! Your assessment results have been saved.\n\nYour Results:\n\nScore: ${result.score}/${quizData.maxScore}\nSeverity: ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}\n\nInterpretation: ${result.interpretation}\n\nA healthcare provider will review your results and may contact you for follow-up care if needed.`
-        }, { 
-          role: 'assistant', 
-          content: 'If you have any questions or want to chat, type below! Or click Retake Quiz to start again.' 
-        }]);
-      }, 300);
+      // If we didn't show results first, show them now
+      if (!showResultsFirst) {
+        setTimeout(() => {
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: `Thank you ${userInfo.name}! Your assessment results have been saved.\n\nYour Results:\n\nScore: ${result.score}/${quizData.maxScore}\nSeverity: ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}\n\nInterpretation: ${result.interpretation}\n\n${ctaText}`
+          }, { 
+            role: 'assistant', 
+            content: 'If you have any questions or want to chat, type below! Or click Retake Quiz to start again.' 
+          }]);
+        }, 300);
+      } else {
+        // If we already showed results, just show a thank you message
+        setTimeout(() => {
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: `Thank you ${userInfo.name}! Your information has been saved. A healthcare provider will review your results and may contact you for follow-up care if needed.`
+          }, { 
+            role: 'assistant', 
+            content: 'If you have any questions or want to chat, type below! Or click Retake Quiz to start again.' 
+          }]);
+        }, 300);
+      }
       return;
     }
   };
@@ -565,10 +578,8 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
     setPostQuizChat([]);
     setPostQuizInput('');
     setTimeout(() => {
-      setMessages([{
-        role: 'assistant',
-        content: `Hello! Welcome to the ${quizData.title}. ${quizData.description}\n\nThis assessment will help evaluate your symptoms. Click "Start Assessment" when you're ready to begin.`
-      }]);
+      setQuizStarted(true);
+      askNextQuestion(0);
     }, 100);
   };
 
@@ -615,7 +626,7 @@ const renderMessage = (message: Message, index: number) => (
     {message.role === 'assistant' && (
       <Avatar className="h-8 w-8 border border-gray-200 shadow-sm">
         <AvatarImage 
-          src={doctorProfile?.avatar_url || doctorAvatarUrl || "/placeholder-doctor.jpg"}
+          src={doctorProfile?.avatar_url || doctorProfile?.logo_url || "/placeholder-doctor.jpg"}
           alt={`Dr. ${doctorProfile?.first_name || ''} ${doctorProfile?.last_name || ''}`}
         />
         <AvatarFallback className="bg-white">
@@ -691,14 +702,28 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
 // Remove any references to primary-light, primary-dark etc
 // Use the simplified theme object above
   return (
-    <div className="flex flex-col h-full max-h-full" style={{ background: lightBg }}>
+    <div className="flex flex-col h-screen" style={{ background: lightBg }}>
       <div className="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-      
+        <div>
+          <h1 className="text-xl font-bold" style={{ color: teal }}>{quizData.title}</h1>
+          <p className="text-sm text-gray-500">{quizData.description}</p>
+        </div>
+        {quizStarted && !quizCompleted && (
+          <div className="flex items-center gap-4">
+            <Progress 
+              value={(currentQuestionIndex / quizData.questions.length) * 100} 
+              className="w-32"
+            />
+            <span className="text-sm text-gray-500">
+              {currentQuestionIndex}/{quizData.questions.length}
+            </span>
+          </div>
+        )}
       </div>
       
       <div className="flex-1 overflow-hidden flex flex-col max-w-4xl mx-auto w-full rounded-2xl shadow-lg bg-white" style={{ minHeight: 400 }}>
-      <div className="flex-1 overflow-y-auto p-6 space-y-4" style={{ maxHeight: '100%', minHeight: 0 }}>
-      <AnimatePresence initial={false}>
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          <AnimatePresence initial={false}>
             {messages.map((message, index) => (
               <motion.div
                 key={index}
@@ -713,7 +738,7 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
                     <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="flex-shrink-0">
                       <Avatar className="h-8 w-8 border border-gray-200 shadow">
                         <AvatarImage 
-                          src={doctorProfile?.avatar_url || doctorAvatarUrl || "/placeholder-doctor.jpg"}
+                          src={doctorProfile?.avatar_url || doctorProfile?.logo_url || "/placeholder-doctor.jpg"} 
                           alt={`Dr. ${doctorProfile?.first_name || ''} ${doctorProfile?.last_name || ''}`}
                         />
                         <AvatarFallback className="bg-white">
@@ -752,7 +777,7 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
               <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="flex-shrink-0">
                 <Avatar className="h-8 w-8 border border-gray-200 shadow">
                   <AvatarImage 
-                    src={doctorProfile?.avatar_url || doctorAvatarUrl || "/placeholder-doctor.jpg"}
+                    src={doctorProfile?.avatar_url || doctorProfile?.logo_url || "/placeholder-doctor.jpg"}
                     alt={`Dr. ${doctorProfile?.first_name || ''} ${doctorProfile?.last_name || ''}`}
                   />
                   <AvatarFallback className="bg-white">
@@ -814,16 +839,6 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
           transition={{ duration: 0.4, ease: 'easeOut' }}
           className="p-4 sticky bottom-0 z-10 bg-white/90 backdrop-blur rounded-b-2xl border-t border-gray-200"
         >
-          {!quizStarted && !quizCompleted && (
-            <Button 
-              onClick={startQuiz} 
-              className="w-full rounded-xl text-lg font-semibold transition-all duration-150 shadow-md hover:shadow-lg text-white" 
-              style={{ backgroundColor: orange, borderColor: orange }}
-            >
-              Start Assessment
-            </Button>
-          )}
-          
           {collectingInfo && (
             <div className="flex gap-2">
               <Input
