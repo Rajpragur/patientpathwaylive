@@ -250,12 +250,12 @@ const NOSELandingPage: React.FC = () => {
             }}
           >
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl relative overflow-hidden transform transition-all duration-300 ease-out animate-slideIn" style={{ height: '90vh' }}>
-              <div className="bg-gradient-to-r from-blue-500 to-teal-500 p-6 flex justify-between items-center sticky top-0 z-10">
+              <div className="bg-gradient-to-r from-blue-500 to-teal-500 p-6 flex justify-between items-center sticky top-0 z-10" style={{ backgroundColor: chatbotColors.primary, color: chatbotColors.text}}>
                 <div className="flex items-center space-x-4">
                   <img src={doctorAvatarUrl} alt="Doctor" className="w-12 h-12 rounded-full object-cover border-2 border-white/30" />
                   <div>
-                    <h3 className="text-white font-bold text-lg">NOSE Assessment</h3>
-                    <p className="text-white/90 text-sm">Quick breathing evaluation with {doctor.name}</p>
+                    <h3 className="font-bold text-lg">NOSE Assessment</h3>
+                    <p className="text-sm">Quick breathing evaluation with {doctor.name}</p>
                   </div>
                 </div>
                 <button

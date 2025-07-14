@@ -776,7 +776,7 @@ const NoseEditorPage: React.FC = () => {
               }
             }}
           >
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl relative overflow-hidden transform transition-all duration-300 ease-out animate-slideIn" style={{ height: '90vh' }}>
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl relative overflow-hidden transform transition-all duration-300 ease-out animate-slideIn" style={{ height: '89vh' }}>
               <div className="p-6 flex justify-between items-center sticky top-0 z-10" style={{ backgroundColor: chatbotColors.primary, color: chatbotColors.text}}>
                 <div className="flex items-center space-x-4">
                   <img src={doctorAvatarUrl} alt="Doctor" className="w-12 h-12 rounded-full object-cover border-2 border-white/30" />
