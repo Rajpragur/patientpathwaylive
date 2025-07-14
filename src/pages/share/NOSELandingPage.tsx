@@ -151,9 +151,6 @@ const NOSELandingPage: React.FC = () => {
   const handleShowQuiz = (e?: React.MouseEvent) => {
     e?.preventDefault();
     setShowAboveFoldQuiz(true);
-    setTimeout(() => {
-      footerQuizRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 100);
   };
 
   // Dynamically generate the quiz iframe src
@@ -179,7 +176,7 @@ const NOSELandingPage: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
       {/* Above the Fold */}
       <section className="max-w-4xl mx-auto px-4 text-center mb-12">
-        <div className="w-20 h-20 bg-gradient-to-br from-[#0E7C9D] to-[#FD904B] rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl">
+        <div className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6">
           <img src={doctorAvatarUrl} alt="Practice Logo" className="w-12 h-12 object-contain" />
         </div>
         <h1 className="text-5xl font-bold text-[#0E7C9D] mb-4">{aiContent.headline || 'Struggling to Breathe Through Your Nose?'}</h1>
@@ -263,9 +260,6 @@ const NOSELandingPage: React.FC = () => {
           </table>
         </div>
         {/* Mid-page Quiz Embed */}
-        <div className="my-8">
-          <EmbeddedChatBot quizType="NOSE" doctorId={doctorId || doctor.id} quizData={quizzes.NOSE} doctorAvatarUrl={doctorAvatarUrl} />
-        </div>
       </section>
 
       {/* VivAer & Latera Overviews */}
@@ -325,37 +319,6 @@ const NOSELandingPage: React.FC = () => {
         </div>
       </section>
 
-
-      {/* Footer Quiz Embed */}
-      <section id="nose-quiz-footer" className="max-w-3xl mx-auto mb-12" ref={footerQuizRef}>
-        <EmbeddedChatBot quizType="NOSE" doctorId={doctorId || doctor.id} quizData={quizzes.NOSE} doctorAvatarUrl={doctorAvatarUrl} />
-      </section>
-
-      {/* Chatbot Widget (pops up after 30s) */}
-      {showChatbot && (
-        // <ChatbotWidget doctorId={doctor.id} />
-        <div className="fixed bottom-6 right-6 z-50">
-          <div className="w-20 h-20 bg-gradient-to-br from-[#0E7C9D] to-[#FD904B] rounded-full flex items-center justify-center shadow-xl cursor-pointer">
-            <span className="text-white text-3xl">💬</span>
-          </div>
-          <div className="mt-2 bg-white rounded-xl shadow-lg p-4 text-gray-700 max-w-xs">[Chatbot will pop up here after 30s as you mentioned this is just a placeholder]</div>
-        </div>
-      )}
-
-      {/* Contact Info */}
-      <section className="max-w-3xl mx-auto mb-12">
-        <h2 className="text-2xl font-semibold text-[#0E7C9D] mb-4">Contact Us</h2>
-        <div className="mb-4">
-          {doctor.locations.map((loc, i) => (
-            <div key={i} className="mb-2">
-              <span className="font-semibold">{loc.city}:</span> <a href={`tel:${loc.phone.replace(/[^\d]/g, '')}`} className="text-blue-700 underline">{loc.phone}</a> | {loc.address}
-            </div>
-          ))}
-        </div>
-        <div className="mb-4">
-          <a href={doctor.website} target="_blank" rel="noopener noreferrer" className="text-blue-700 underline">Visit Practice Website</a>
-        </div>
-      </section>
     </div>
   );
 };
