@@ -33,6 +33,18 @@ const EditableSection = ({ children, editable, onEdit }: { children: React.React
   </div>
 );
 
+
+const defaultChatbotColors = {
+  primary: '#2563eb',
+  background: '#ffffff',
+  text: '#ffffff',
+  userBubble: '#2563eb',
+  botBubble: '#f1f5f9',
+  userText: '#ffffff',
+  botText: '#334155'
+};
+
+
 const NOSELandingPage: React.FC = () => {
   const { doctorId } = useParams<{ doctorId: string }>();
   const { user } = useAuth();
@@ -43,7 +55,7 @@ const NOSELandingPage: React.FC = () => {
   const [showChatWidget, setShowChatWidget] = useState(true);
   const [showChatMessage, setShowChatMessage] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
-  const [chatbotColors, setChatbotColors] = useState(null);
+  const [chatbotColors, setChatbotColors] = useState(defaultChatbotColors);
 
   useEffect(() => {
     const fetchDoctorData = async () => {
@@ -250,7 +262,11 @@ const NOSELandingPage: React.FC = () => {
             }}
           >
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl relative overflow-hidden transform transition-all duration-300 ease-out animate-slideIn" style={{ height: '90vh' }}>
-              <div className="bg-gradient-to-r from-blue-500 to-teal-500 p-6 flex justify-between items-center sticky top-0 z-10" style={{ backgroundColor: chatbotColors.primary, color: chatbotColors.text}}>
+              <div className="bg-gradient-to-r from-blue-500 to-teal-500 p-6 flex justify-between items-center sticky top-0 z-10" 
+              style={{
+                backgroundColor: (chatbotColors || defaultChatbotColors).primary,
+                color: (chatbotColors || defaultChatbotColors).text
+              }}>
                 <div className="flex items-center space-x-4">
                   <img src={doctorAvatarUrl} alt="Doctor" className="w-12 h-12 rounded-full object-cover border-2 border-white/30" />
                   <div>
