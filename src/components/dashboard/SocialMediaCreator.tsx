@@ -76,7 +76,6 @@ const SocialMediaCreator = () => {
     }
   };
 
-  // Helper to get doctor name
   const getDoctorName = () => {
     if (doctorProfile?.first_name && doctorProfile?.last_name) {
       return `Dr. ${doctorProfile.first_name} ${doctorProfile.last_name}`;
