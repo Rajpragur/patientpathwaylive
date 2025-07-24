@@ -25,7 +25,8 @@ import {
   Twitter,
   Link2,
   Loader2,
-  Users
+  Users,
+  Edit
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -57,6 +58,7 @@ export function ShareQuizPage() {
   const [shortUrl, setShortUrl] = useState<string>('');
   const [isGeneratingShortUrl, setIsGeneratingShortUrl] = useState(false);
   const [ctaText, setCtaText] = useState('For more info about non-invasive in office procedure to give you relief, Schedule a 5min screening phone call.');
+  const [customMessage, setCustomMessage] = useState('');
   const baseUrl = window.location.origin;
 
   useEffect(() => {
@@ -680,7 +682,7 @@ export function ShareQuizPage() {
                     className="flex-1 font-mono text-sm"
                   />
                   <Button
-                    onClick={() => handleCopy(embedCode, 'Embed code copied to clipboard!')}
+                    onClick={() => handleCopy(embedCode, 'Embed code copied!')}
                     className="min-w-[100px]"
                   >
                     {copied ? (

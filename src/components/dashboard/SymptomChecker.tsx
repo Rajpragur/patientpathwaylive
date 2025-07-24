@@ -1,3 +1,4 @@
+// Remove the duplicate import block and keep only one set of imports at the top
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -349,4 +350,132 @@ function Share2(props: React.SVGProps<SVGSVGElement>) {
       <line x1="15.41" x2="8.59" y1="6.51" y2="10.49" />
     </svg>
   )
+}
+// Define the guided question flow and mapping
+const guidedQuestions = [
+  {
+    id: 'main_symptom',
+    question: 'What is your main symptom? (e.g., nasal congestion, dizziness, hearing loss, etc.)',
+    type: 'text',
+  },
+  {
+    id: 'duration',
+    question: 'How long have you had this symptom?',
+    type: 'text',
+  },
+  {
+    id: 'severity',
+    question: 'How severe is it? (mild, moderate, severe)',
+    type: 'text',
+  },
+  {
+    id: 'location',
+    question: 'Where do you feel the symptom most? (nose, ear, head, etc.)',
+    type: 'text',
+  },
+  {
+    id: 'other_symptoms',
+    question: 'Do you have any other symptoms? (list or type "no")',
+    type: 'text',
+  },
+];
+
+const symptomToQuizMap = [
+  { keywords: ['nose', 'nasal', 'congestion', 'obstruction', 'breathing'], quiz: 'NOSE' },
+  { keywords: ['sinus', 'facial pain', 'pressure', 'snot', 'postnasal'], quiz: 'SNOT22' },
+  { keywords: ['dizzy', 'vertigo', 'balance'], quiz: 'DHI' },
+  { keywords: ['hearing', 'ear', 'deaf'], quiz: 'HHIA' },
+  { keywords: ['sleep', 'tired', 'snore', 'apnea'], quiz: 'STOP' },
+  { keywords: ['allergy', 'sneeze', 'runny'], quiz: 'TNSS' },
+];
+
+export function GuidedSymptomChecker() {
+  const [step, setStep] = useState(0);
+  const [answers, setAnswers] = useState({});
+  const [chat, setChat] = useState([
+    { role: 'assistant', content: '👋 Hi! I will ask you a few questions to help find the best assessment for you.' }
+  ]);
+  const [loading, setLoading] = useState(false);
+  const [recommendedQuiz, setRecommendedQuiz] = useState(null);
+
+  const handleAnswer = (answer) => {
+    const currentQ = guidedQuestions[step];
+    setAnswers(prev => ({ ...prev, [currentQ.id]: answer }));
+    setChat(prev => [...prev, { role: 'user', content: answer }]);
+    if (step < guidedQuestions.length - 1) {
+      setStep(step + 1);
+      setTimeout(() => {
+        setChat(prev => [...prev, { role: 'assistant', content: guidedQuestions[step + 1].question }]);
+      }, 400);
+    } else {
+      // Evaluate mapping
+      setLoading(true);
+      setTimeout(() => {
+        const allText = Object.values({ ...answers, [currentQ.id]: answer }).join(' ').toLowerCase();
+        let foundQuiz = null;
+        for (const map of symptomToQuizMap) {
+          if (map.keywords.some(k => allText.includes(k))) {
+            foundQuiz = map.quiz;
+            break;
+          }
+        }
+        setRecommendedQuiz(foundQuiz);
+        setChat(prev => [...prev, { role: 'assistant', content: foundQuiz ? `Based on your answers, I recommend the ${foundQuiz} assessment. Would you like to take it now?` : 'I could not determine a specific assessment. Would you like to see all available quizzes?' }]);
+        setLoading(false);
+      }, 1200);
+    }
+  };
+
+  // UI for current question
+  const currentQ = guidedQuestions[step];
+  const [input, setInput] = useState('');
+
+  return (
+    <div className="flex flex-col h-full bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg overflow-hidden">
+      <div className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
+            <Brain className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Symptom Checker (Guided)</h1>
+            <p className="text-sm text-gray-500">Answer a few questions to find the right assessment</p>
+          </div>
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        {chat.map((msg, i) => (
+          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`flex gap-3 max-w-[80%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white'}`}>{msg.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}</div>
+              <div className={`p-3 rounded-2xl shadow-sm ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-white border border-gray-200 rounded-bl-none'}`}>
+                <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div className="flex justify-start">
+            <div className="flex gap-3">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white flex items-center justify-center"><Bot className="w-4 h-4" /></div>
+              <div className="p-3 rounded-2xl rounded-bl-none bg-white border border-gray-200 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-blue-600" /><span className="text-sm text-gray-600">Analyzing answers...</span></div>
+            </div>
+          </div>
+        )}
+      </div>
+      {!recommendedQuiz && !loading && (
+        <div className="p-4 bg-white border-t border-gray-200">
+          <div className="flex gap-2">
+            <Input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && input.trim()) { handleAnswer(input); setInput(''); } }} placeholder={currentQ?.question} disabled={loading} className="flex-1" />
+            <Button onClick={() => { if (input.trim()) { handleAnswer(input); setInput(''); } }} disabled={loading || !input.trim()} className="bg-blue-600 hover:bg-blue-700"><Send className="w-4 h-4" /></Button>
+          </div>
+        </div>
+      )}
+      {recommendedQuiz && !loading && (
+        <div className="p-4 bg-white border-t border-gray-200">
+          <Button className="bg-blue-600 hover:bg-blue-700 w-full">Take {recommendedQuiz} Assessment</Button>
+        </div>
+      )}
+    </div>
+  );
 }

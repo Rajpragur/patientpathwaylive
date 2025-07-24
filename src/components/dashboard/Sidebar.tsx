@@ -56,6 +56,12 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
       description: 'Share assessments'
     },
     {
+      id: 'social-media',
+      label: 'Social Media Creator',
+      icon: TestTube, 
+      description: 'Create social media posts'
+    },
+    {
       id: 'schedule',
       label: 'Schedule',
       icon: Calendar,

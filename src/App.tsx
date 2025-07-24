@@ -42,6 +42,8 @@ function App() {
               <Route path="/share/nose/:doctorId?" element={<NOSELandingPage />} />
               <Route path="/share/:quizType/:doctorId?" element={<ShareQuizPage />} />
               <Route path="/portal/*" element={<PortalPage />} />
+              <Route path="/portal/share/:quizId" element={<ShareQuizPage />} />
+              <Route path="/portal/share/custom/:customQuizId" element={<ShareQuizPage />} />
               <Route path="/quiz" element={<UniversalQuizPage />} />
               <Route path="/quiz/custom/:quizId" element={<CustomQuizPage />} />
               <Route path="/quiz/nose" element={<NOSEPage />} />

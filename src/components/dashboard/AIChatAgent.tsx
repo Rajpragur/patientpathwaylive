@@ -24,6 +24,28 @@ interface Message {
   timestamp: Date;
 }
 
+const entHealthDates = [
+  { date: '2024-01-24', day: 'Wed', occasion: 'International Day of Education', relevance: 'Health literacy, ENT patient education' },
+  { date: '2024-02-04', day: 'Sun', occasion: 'World Cancer Day', relevance: 'Includes head & neck cancer awareness' },
+  { date: '2024-02-13', day: 'Tue', occasion: 'World Radio Day', relevance: 'Ear health, hearing loss due to noise' },
+  { date: '2024-03-03', day: 'Sun', occasion: 'World Hearing Day', relevance: 'Directly ENT — hearing loss awareness' },
+  { date: '2024-03-20', day: 'Wed', occasion: 'World Oral Health Day', relevance: 'Mouth, throat, tonsils — ENT overlaps' },
+  { date: '2024-04-07', day: 'Sun', occasion: 'World Health Day', relevance: 'General health; promote ENT checkups' },
+  { date: '2024-04-16', day: 'Tue', occasion: 'Voice Day', relevance: 'Throat, vocal cord health (ENT focus)' },
+  { date: '2024-05-12', day: 'Sun', occasion: 'International Nurses Day', relevance: 'Healthcare support staff shoutout' },
+  { date: '2024-05-16', day: 'Thu', occasion: 'International Cough Day', relevance: 'Cough = ENT/respiratory relevance' },
+  { date: '2024-05-31', day: 'Fri', occasion: 'World No Tobacco Day', relevance: 'ENT cancers, vocal health, sinus impact' },
+  { date: '2024-06-21', day: 'Fri', occasion: 'International Yoga Day', relevance: 'Breath, sinuses, posture and ENT care' },
+  { date: '2024-07-01', day: 'Mon', occasion: 'National Doctor’s Day (India)', relevance: 'Doctors\' celebration day 🇮🇳' },
+  { date: '2024-07-03', day: 'Wed', occasion: 'International Plastic Bag Free Day', relevance: 'Talk about ENT microplastic exposure' },
+  { date: '2024-07-15', day: 'Mon', occasion: 'World Youth Skills Day', relevance: 'ENT health for growing minds' },
+  { date: '2024-08-01', day: 'Thu', occasion: 'World Breastfeeding Week', relevance: 'ENT: lactation & infant ear infections' },
+  { date: '2024-09-21', day: 'Sat', occasion: 'World Alzheimer’s Day', relevance: 'Aging & hearing loss, ENT link' },
+];
+
+// Sort by date ascending
+entHealthDates.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
 export function AIChatAgent() {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
@@ -228,7 +250,13 @@ Also Please avoid returning a response with ** ** etc. type of formatting.`,
     }
   };
 
-  
+  const handleSendENTDatesToAI = async () => {
+    setIsLoading(true);
+    const formattedList = entHealthDates.map(d => `- ${d.date} (${d.day}): ${d.occasion} — ${d.relevance}`).join('\n');
+    const aiPrompt = `Here is a list of important health dates for ENT and general health awareness. For each date, create a short, engaging social media post (1-2 sentences) for an ENT clinic, referencing the occasion and its relevance.\n\n${formattedList}`;
+    setNewMessage(aiPrompt);
+    await handleSendMessage();
+  };
 
   return (
     <ExpandableChat position="bottom-right">
@@ -331,6 +359,12 @@ Also Please avoid returning a response with ** ** etc. type of formatting.`,
             placeholder="Ask about strategy, marketing, or get support..."
             disabled={isLoading}
           />
+          <Button
+            onClick={handleSendENTDatesToAI}
+            className="mb-2 bg-blue-600 text-white hover:bg-blue-700"
+          >
+            Generate Social Media Content for ENT Health Dates
+          </Button>
           <Button
             onClick={handleSendMessage}
             disabled={!newMessage.trim() || isLoading}

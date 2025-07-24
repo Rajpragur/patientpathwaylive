@@ -9,6 +9,7 @@ import { quizzes } from '@/data/quizzes';
 import { CustomQuizCreator } from './CustomQuizCreator';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { GuidedSymptomChecker } from './SymptomChecker';
 
 export function QuizManagementPage() {
   const navigate = useNavigate();
@@ -206,6 +207,7 @@ export function QuizManagementPage() {
           <CustomQuizCreator baseQuizId={selectedBaseQuiz} onQuizCreated={() => { setActiveTab('existing'); fetchDoctorProfileAndQuizzes(); }} />
         </TabsContent>
       </Tabs>
+      <GuidedSymptomChecker />
     </div>
   );
 }

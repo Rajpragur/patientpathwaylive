@@ -18,7 +18,8 @@ import {
   Megaphone,
   Brain,
   Globe,
-  Users
+  Users,
+  TestTube
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -46,6 +47,12 @@ const mainMenuItems = [
     label: 'Assessments',
     icon: <ListChecks size={22} />,
     description: 'Manage quizzes'
+  },
+  {
+    id: 'social-media',
+    label: 'Social Media Creator',
+    icon: <TestTube size={22} />,
+    description: 'Create social media posts'
   },
   {
     id: 'schedule',

@@ -21,6 +21,7 @@ import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ContactsPage } from '@/components/dashboard/ContactsPage';
+import SocialMediaCreator from '@/components/dashboard/SocialMediaCreator';
 
 export default function PortalPage() {
   const { user, loading, signOut } = useAuth();
@@ -95,6 +96,10 @@ export default function PortalPage() {
         return <TrendsPage />;
       case 'quizzes':
         return <QuizManagementPage />;
+      case 'share':
+        return <SocialIntegrationsPage />;
+      case 'social-media':
+        return <SocialMediaCreator />;
       case 'schedule':
         return <SchedulePage />;
       case 'social':
