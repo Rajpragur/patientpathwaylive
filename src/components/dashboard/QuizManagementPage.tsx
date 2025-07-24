@@ -62,7 +62,7 @@ export function QuizManagementPage() {
     if (isCustom) {
       navigate(`/portal/share/custom/${quizId}`);
     } else {
-      navigate(`/portal/share/${quizId}`);
+      navigate(`/portal/share/${quizId.toLowerCase()}`);
     }
   };
 
@@ -90,8 +90,18 @@ export function QuizManagementPage() {
       console.error(err);
     }
   };
-
   const predefinedQuizzes = Object.values(quizzes).filter(quiz => quiz && quiz.id);
+  const categorizedQuizzes = {
+    Nasal: ['NOSE', 'SNOT22', 'TNSS'],
+    Sleep: ['DHI', 'EPWORTH', 'STOP'],
+    Hearing: ['HHIA'],
+    Universal: [],
+  };
+  const categorizedPredefined = Object.entries(categorizedQuizzes).map(([category, ids]) => ({
+    category,
+    quizzes: predefinedQuizzes.filter(q => ids.includes(q.id))
+  }));  
+
 
   return (
     <div className="p-6 space-y-6">
@@ -112,94 +122,88 @@ export function QuizManagementPage() {
         </TabsList>
 
         <TabsContent value="existing" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Default quizzes */}
-            {predefinedQuizzes.map((quiz) => (
-              <Card key={quiz.id} className="hover:shadow-md transition-shadow">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">{quiz.title}</CardTitle>
-                    <Badge variant="secondary">{quiz.id}</Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-sm text-gray-600">{quiz.description}</p>
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <span>{quiz.questions?.length || 0} Questions</span>
-                    <span>•</span>
-                    <span>Max Score: {quiz.maxScore || 0}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button 
-                      size="sm" 
-                      onClick={() => handleShareQuiz(quiz.id, false)}
-                      className="flex-1"
-                    >
-                      <Share2 className="w-4 h-4 mr-2" />
-                      Share
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => handleCopyQuiz(quiz.id)}
-                    >
-                      <Copy className="w-4 h-4 mr-2" />
-                      Copy & Edit
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+          <div className="space-y-10">
+            {categorizedPredefined.map(({ category, quizzes }) => (
+              <div key={category}>
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">{category} Related</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-center">
+                  {quizzes.map((quiz) => (
+                    <Card key={quiz.id} className="hover:shadow-md transition-shadow">
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-lg">{quiz.title}</CardTitle>
+                          <Badge variant="secondary">{quiz.id}</Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <p className="text-sm text-gray-600">{quiz.description}</p>
+                        <div className="flex items-center gap-2 text-sm text-gray-500">
+                          <span>{quiz.questions?.length || 0} Questions</span>
+                          <span>•</span>
+                          <span>Max Score: {quiz.maxScore || 0}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={() => handleShareQuiz(quiz.id, false)} className="flex-1">
+                            <Share2 className="w-4 h-4 mr-2" />
+                            Share
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => handleCopyQuiz(quiz.id)}>
+                            <Copy className="w-4 h-4 mr-2" />
+                            Copy & Edit
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
             ))}
-            {/* Custom quizzes */}
+
+            {/* Custom Quizzes */}
             {loadingCustom ? (
-              <div className="col-span-full text-center py-8">Loading your custom quizzes...</div>
-            ) : customQuizzes.length === 0 ? null : customQuizzes.map((quiz) => (
-              <Card key={quiz.id} className="hover:shadow-md transition-shadow border-blue-200">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      {quiz.title}
-                      <Badge variant="outline" className="ml-2 bg-blue-100 text-blue-700 border-blue-300">Custom</Badge>
-                    </CardTitle>
-                    <Badge variant="secondary">{quiz.id}</Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-sm text-gray-600">{quiz.description}</p>
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <span>{quiz.questions?.length || 0} Questions</span>
-                    <span>•</span>
-                    <span>Max Score: {quiz.max_score || 0}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button 
-                      size="sm" 
-                      onClick={() => handleShareQuiz(quiz.id, true)}
-                      className="flex-1"
-                    >
-                      <Share2 className="w-4 h-4 mr-2" />
-                      Share
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => handleEditCustomQuiz(quiz.id)}
-                    >
-                      <Edit className="w-4 h-4 mr-2" />
-                      Edit
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDeleteCustomQuiz(quiz.id)}
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+              <div className="text-center py-8">Loading your custom quizzes...</div>
+            ) : customQuizzes.length > 0 && (
+              <div>
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4">Your Custom Quizzes</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {customQuizzes.map((quiz) => (
+                    <Card key={quiz.id} className="hover:shadow-md transition-shadow border-blue-200">
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-lg flex items-center gap-2">
+                            {quiz.title}
+                            <Badge variant="outline" className="ml-2 bg-blue-100 text-blue-700 border-blue-300">Custom</Badge>
+                          </CardTitle>
+                          <Badge variant="secondary">{quiz.id}</Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <p className="text-sm text-gray-600">{quiz.description}</p>
+                        <div className="flex items-center gap-2 text-sm text-gray-500">
+                          <span>{quiz.questions?.length || 0} Questions</span>
+                          <span>•</span>
+                          <span>Max Score: {quiz.max_score || 0}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={() => handleShareQuiz(quiz.id, true)} className="flex-1">
+                            <Share2 className="w-4 h-4 mr-2" />
+                            Share
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => handleEditCustomQuiz(quiz.id)}>
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={() => handleDeleteCustomQuiz(quiz.id)}>
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </TabsContent>
 

@@ -26,7 +26,8 @@ import {
   Link2,
   Loader2,
   Users,
-  Edit
+  Edit,
+  Pencil
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -36,7 +37,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { QRCodeSVG } from 'qrcode.react';
 
 export function ShareQuizPage() {
-  const { quizType, customQuizId } = useParams<{ quizType?: string; customQuizId?: string }>();
+  const { quizId, customQuizId } = useParams<{ quizId?: string; customQuizId?: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -129,7 +130,7 @@ export function ShareQuizPage() {
   const getQuizUrl = (source?: string) => {
     const baseQuizUrl = customQuizId 
       ? `${baseUrl}/custom-quiz/${customQuizId}`
-      : `${baseUrl}/quiz/${quizType?.toLowerCase()}`;
+      : `${baseUrl}/quiz/${quizId?.toLowerCase()}`;
     
     const trackingParams = new URLSearchParams();
     
@@ -197,7 +198,7 @@ export function ShareQuizPage() {
     const finalUrl = urlWithSource.toString();
 
     let socialUrl = '';
-    const message = encodeURIComponent(`Take this ${quizType} assessment to evaluate your health.`);
+    const message = encodeURIComponent(`Take this ${quizId} assessment to evaluate your health.`);
 
     switch (platform) {
       case 'facebook':
@@ -241,7 +242,7 @@ export function ShareQuizPage() {
 
   const shareUrl = getQuizUrl();
   const doctorLandingUrl = doctorProfile?.id ? `${baseUrl}/share/nose/${doctorProfile.id}` : `${baseUrl}/share/nose/demo`;
-
+  const doctorEditingUrl = doctorProfile?.id ? `${baseUrl}/nose-editor/${doctorProfile.id}` : `${baseUrl}/share/nose/demo`;
   const handleShareWithContactList = () => {
     if (!selectedList) {
       toast.error('Please select a contact list');
@@ -261,27 +262,26 @@ export function ShareQuizPage() {
     }
   };
 
-  const handleUpdateCta = () => {
-    if (!customQuizId) {
-      toast.error('CTA can only be updated for custom quizzes');
-      return;
-    }
+  const mailHtml = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html dir="ltr" xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en" style="padding:0;Margin:0"><head><meta charset="UTF-8"><meta content="width=device-width, initial-scale=1" name="viewport"><meta name="x-apple-disable-message-reformatting"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta content="telephone=no" name="format-detection"><title>E</title> <!--[if (mso 16)]><style type="text/css"> a {text-decoration: none;}  </style><![endif]--><!--[if gte mso 9]><style>sup { font-size: 100% !important; }</style><![endif]--><!--[if gte mso 9]><noscript> <xml> <o:OfficeDocumentSettings> <o:AllowPNG></o:AllowPNG> <o:PixelsPerInch>96</o:PixelsPerInch> </o:OfficeDocumentSettings> </xml> </noscript>
+<![endif]--><!--[if mso]><xml> <w:WordDocument xmlns:w="urn:schemas-microsoft-com:office:word"> <w:DontUseAdvancedTypographyReadingMail></w:DontUseAdvancedTypographyReadingMail> </w:WordDocument> </xml>
+<![endif]--><style type="text/css">#outlook a { padding:0;}.ExternalClass { width:100%;}.ExternalClass,.ExternalClass p,.ExternalClass span,.ExternalClass font,.ExternalClass td,.ExternalClass div { line-height:100%;}.b { mso-style-priority:100!important; text-decoration:none!important;}a[x-apple-data-detectors] { color:inherit!important; text-decoration:none!important; font-size:inherit!important; font-family:inherit!important; font-weight:inherit!important; line-height:inherit!important;}.a { display:none; float:left; overflow:hidden; width:0; max-height:0; line-height:0; mso-hide:all;}@media only screen and (max-width:600px) {p, ul li, ol li, a { line-height:150%!important } h1, h2, h3, h1 a, h2 a, h3 a { line-height:120%!important } h1 { font-size:30px!important; text-align:center } h2 { font-size:26px!important; text-align:center } h3 { font-size:20px!important; text-align:center }
+ .bd p, .bd ul li, .bd ol li, .bd a { font-size:16px!important } *[class="gmail-fix"] { display:none!important } .x { display:block!important } .p table, .q table, .r table, .p, .r, .q { width:100%!important; max-width:600px!important } .adapt-img { width:100%!important; height:auto!important } a.b, button.b { font-size:20px!important; display:block!important; padding:10px 0px 10px 0px!important } }@media screen and (max-width:384px) {.mail-message-content { width:414px!important } }</style>
+ </head> <body data-new-gr-c-s-loaded="14.1244.0" style="font-family:arial, 'helvetica neue', helvetica, sans-serif;width:100%;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;padding:0;Margin:0"><div dir="ltr" class="es-wrapper-color" lang="en" style="background-color:#F6F6F6"><!--[if gte mso 9]><v:background xmlns:v="urn:schemas-microsoft-com:vml" fill="t"> <v:fill type="tile" color="#f6f6f6"></v:fill> </v:background><![endif]--><table class="es-wrapper" width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;padding:0;Margin:0;width:100%;height:100%;background-repeat:repeat;background-position:center top;background-color:#F6F6F6"><tr style="border-collapse:collapse">
+<td valign="top" style="padding:0;Margin:0"><table class="p" cellspacing="0" cellpadding="0" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;table-layout:fixed !important;width:100%"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0"><table class="bd" cellspacing="0" cellpadding="0" bgcolor="#ffffff" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;background-color:#FFFFFF;width:600px"><tr style="border-collapse:collapse"><td align="left" style="Margin:0;padding-top:20px;padding-bottom:20px;padding-left:20px;padding-right:20px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse">
+<td valign="top" align="center" style="padding:0;Margin:0;width:560px"><table width="100%" cellspacing="0" cellpadding="0" role="presentation" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0;font-size:0px"><a target="_blank" href="http://nta.breatheeasy.life/relief-asi-pop-nose-medicare" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px"><img src="https://cdn.prod.website-files.com/6213b8b7ae0610f9484d627a/63d85029011f18f6bfabf2f3_Exhale_Sinus_Horizontal_logo-p-800.png" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47"></a> </td></tr><tr style="border-collapse:collapse">
+<td align="left" style="padding:0;Margin:0;padding-top:20px"><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">Hello {{contact.first_name}},<br><br>This is Dr. Vaughn, your ENT. Do you experience difficulty breathing through your nose and nothing seems to help? You may have nasal obstruction, a common condition that affects millions of Americans.<br><br>I am now offering non-invasive treatment options that can help you breathe better with lasting results. The non-invasive treatments may be performed right in our office, and patients may return to normal activities on the same day.<br><br>Are you a candidate? Click below to take a quick test and find out.</p></td></tr> <tr style="border-collapse:collapse">
+<td align="center" style="padding:10px;Margin:0"><span class="x" style="border-style:solid;border-color:#2CB543;background:#6fa8dc;border-width:0px 0px 2px 0px;display:inline-block;border-radius:5px;width:auto"><a href="http://nta.breatheeasy.life/relief-asi-pop-nose-medicare" class="b b-1619632113981" target="_blank" style="mso-style-priority:100 !important;text-decoration:none;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;color:#FFFFFF;font-size:14px;display:inline-block;background:#6fa8dc;border-radius:5px;font-family:arial, 'helvetica neue', helvetica, sans-serif;font-weight:normal;font-style:normal;line-height:16.8px;width:auto;text-align:center;padding:10px 20px;mso-padding-alt:0;mso-border-alt:10px solid #6fa8dc">Am I a Candidate?</a></span></td></tr> <tr style="border-collapse:collapse">
+<td align="left" style="padding:0;Margin:0;padding-top:20px"><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">If you experience difficulty breathing through your nose and nothing seems to help, we recommend taking the NOSE Test to measure your nasal blockage severity.<br><br>The <b>Nasal Obstruction Symptom Evaluation (NOSE)</b>&nbsp;Test is a short, 5-question survey. <span style="color:#333333">Each question is scored from 0 (not a problem) to 5 (severe problem). Your total score helps your provider understand how serious your symptoms are and what treatment options might be appropriate.</span></p>
+ <p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#333333;font-size:14px"><br></p><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#333333;font-size:14px">It takes less than a minute to complete and is a simple first step toward breathing easier.</p></td></tr> <tr style="border-collapse:collapse">
+<td align="center" style="padding:10px;Margin:0"><span class="x" style="border-style:solid;border-color:#2CB543;background:#6fa8dc;border-width:0px 0px 2px 0px;display:inline-block;border-radius:5px;width:auto"><a href="http://nta.breatheeasy.life/relief-asi-pop-nose-medicare" class="b" target="_blank" style="mso-style-priority:100 !important;text-decoration:none;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;color:#FFFFFF;font-size:14px;display:inline-block;background:#6fa8dc;border-radius:5px;font-family:arial, 'helvetica neue', helvetica, sans-serif;font-weight:normal;font-style:normal;line-height:16.8px;width:auto;text-align:center;padding:10px 20px 10px 20px;mso-padding-alt:0;mso-border-alt:10px solid #6fa8dc">Take the NOSE Test</a></span></td></tr> <tr style="border-collapse:collapse">
+<td align="left" style="padding:0;Margin:0;padding-top:20px"><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">You may be eligible to use your Medicare or insurance benefits towards your treatment. If you have any questions or would like help checking your insurance coverage, please call us at <a target="_blank" href="tel:(630)513-1691" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px"></a><a href="tel:224-412-5949" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px">224-412-5949</a>.</p>
+ <p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px"><br></p><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">Sincerely,</p><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">Ryan Vaughn, MD<br>Exhale Sinus&nbsp;</p></td></tr></table></td></tr></table></td></tr></table></td></tr></table>
+ <table class="r" cellspacing="0" cellpadding="0" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;table-layout:fixed !important;width:100%;background-color:transparent;background-repeat:repeat;background-position:center top"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0"><table class="bc" cellspacing="0" cellpadding="0" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;background-color:transparent;width:600px"><tr style="border-collapse:collapse"><td align="left" style="Margin:0;padding-top:20px;padding-bottom:20px;padding-left:20px;padding-right:20px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse">
+<td valign="top" align="center" style="padding:0;Margin:0;width:560px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0;display:none"></td> </tr></table></td></tr></table></td></tr></table></td></tr></table> <table class="p" cellspacing="0" cellpadding="0" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;table-layout:fixed !important;width:100%"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0"><table class="bd" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;background-color:transparent;width:600px" cellspacing="0" cellpadding="0" align="center" role="none"><tr style="border-collapse:collapse">
+<td align="left" style="padding:0;Margin:0;padding-left:20px;padding-right:20px;padding-bottom:30px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td valign="top" align="center" style="padding:0;Margin:0;width:560px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0;display:none"></td> </tr></table></td></tr></table></td></tr></table></td></tr></table></td></tr></table></div></body></html>`;
 
-    // Update the CTA text in the database
-    supabase
-      .from('custom_quizzes')
-      .update({ cta_text: ctaText })
-      .eq('id', customQuizId)
-      .then(({ error }) => {
-        if (error) {
-          console.error('Error updating CTA:', error);
-          toast.error('Failed to update CTA text');
-        } else {
-          toast.success('CTA text updated successfully');
-        }
-      });
- };
-
+const blob = new Blob([mailHtml], { type: 'text/html' });
+const mailiframSrc = URL.createObjectURL(blob);
  const generateEmbedCode = (quizUrl: string) => {
    const iframeCode = `<iframe src="${quizUrl}" width="100%" height="500px" frameBorder="0"></iframe>`;
    setEmbedCode(iframeCode);
@@ -333,7 +333,7 @@ export function ShareQuizPage() {
   }
 
   const quizExists = customQuizId ? customQuiz : Object.values(quizzes).find(
-    quiz => quiz.id.toLowerCase() === quizType?.toLowerCase()
+    quiz => quiz.id.toLowerCase() === quizId?.toLowerCase()
   );
   
   if (!quizExists) {
@@ -352,17 +352,17 @@ export function ShareQuizPage() {
       </div>
     );
   }
-
+  
   const quizInfo = customQuiz ? {
     title: customQuiz.title,
     description: customQuiz.description,
     shareMessage: customQuiz.share_message || `Take this ${customQuiz.title} assessment to evaluate your symptoms.`,
     linkedinMessage: customQuiz.linkedin_message || `Share this ${customQuiz.title} assessment with your patients to evaluate their symptoms.`
   } : {
-    title: quizType || 'Assessment',
+    title: quizId || 'Assessment',
     description: quizExists.description || "Medical assessment tool",
-    shareMessage: `Take this ${quizType || 'assessment'} to evaluate your symptoms.`,
-    linkedinMessage: `Share this ${quizType || 'assessment'} with your patients to evaluate their symptoms.`
+    shareMessage: `Take this ${quizId || 'assessment'} to evaluate your symptoms.`,
+    linkedinMessage: `Share this ${quizId || 'assessment'} with your patients to evaluate their symptoms.`
   };
 
   return (
@@ -467,7 +467,8 @@ export function ShareQuizPage() {
                         </>
                       )}
                     </Button>
-                    {(quizType && quizType.toUpperCase() === 'NOSE') && (
+                    {(quizId && quizId.toUpperCase() === 'NOSE') && (
+                      <>
                       <Button
                         variant="outline"
                         onClick={() => window.open(doctorLandingUrl, '_blank')}
@@ -476,8 +477,17 @@ export function ShareQuizPage() {
                         <ExternalLink className="w-4 h-4 mr-2" />
                         Open Landing Page
                       </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => window.open(doctorEditingUrl, '_blank')}
+                        className="border-[#0E7C9D] text-[#0E7C9D] font-bold hover:bg-blue-50"
+                      >
+                        <Pencil className="w-4 h-4 mr-2" />
+                        Open Editing Page
+                      </Button>
+                      </>
                     )}
-                    {(!quizType || quizType.toUpperCase() !== 'NOSE') && (
+                    {(!quizId || quizId.toUpperCase() !== 'NOSE') && (
                       <Button
                         variant="outline"
                         onClick={() => window.open(shareUrl, '_blank')}
@@ -565,40 +575,6 @@ export function ShareQuizPage() {
                           <Mail className="w-4 h-4 mr-2" />
                           Email
                         </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">QR Code</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex flex-col items-center">
-                      {showQrCode ? (
-                        <div className="bg-white p-4 rounded-lg border border-gray-200">
-                          <QRCodeSVG value={shareUrl} size={200} />
-                        </div>
-                      ) : (
-                        <Button 
-                          variant="outline" 
-                          onClick={generateQrCode}
-                          className="w-full"
-                        >
-                          <QrCode className="w-4 h-4 mr-2" />
-                          Generate QR Code
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Additional Options</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-2 gap-2">
                         <Button 
                           variant="outline" 
                           onClick={() => handleSocialShare('text')}
@@ -634,25 +610,61 @@ export function ShareQuizPage() {
                       </div>
                     </CardContent>
                   </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">QR Code</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex flex-col items-center">
+                      {showQrCode ? (
+                        <div className="bg-white p-4 rounded-lg border border-gray-200">
+                          <QRCodeSVG value={shareUrl} size={200} />
+                        </div>
+                      ) : (
+                        <Button 
+                          variant="outline" 
+                          onClick={generateQrCode}
+                          className="w-full"
+                        >
+                          <QrCode className="w-4 h-4 mr-2" />
+                          Generate QR Code
+                        </Button>
+                        
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card className="h-[500px]">
+                    <CardHeader>
+                      <CardTitle className="text-xl text-center">Mail</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="aspect-video h-[400px] w-[520px] bg-white border rounded-lg flex items-center justify-center">
+                        <iframe
+                          src={mailiframSrc}
+                          className="w-full h-full rounded-lg"
+                          title={`Mail Preview`}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
 
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">Customize CTA</CardTitle>
+                      <CardTitle className="text-lg">Email options</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <Input 
-                          placeholder="For more info about non-invasive in office procedure..."
-                          value={ctaText}
-                          onChange={(e) => setCtaText(e.target.value)}
-                        />
-                        <Button 
-                          className="w-full"
-                          onClick={handleUpdateCta}
-                          disabled={!customQuizId}
-                        >
-                          Update Call-to-Action
-                        </Button>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <h4 className="font-medium">Send from</h4>
+                        <p className="text-sm text-gray-600">aerin-medical@involveme.com</p>
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="font-medium">Sender Name</h4>
+                        <p className="text-sm text-gray-600">Mehdi Arani</p>
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="font-medium">Subject</h4>
+                        <p className="text-sm text-gray-600">Subject here</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -822,32 +834,6 @@ export function ShareQuizPage() {
             </Card>
           </TabsContent>
         </Tabs>
-
-        {/* Add Share as New Page button for NOSE */}
-        {quizType?.toUpperCase() === 'NOSE' && (
-          <div className="mb-6 flex gap-4 items-center">
-            <Button
-              variant="default"
-              size="lg"
-              onClick={() => {
-                navigator.clipboard.writeText(doctorLandingUrl);
-                toast.success('Landing page link copied!');
-              }}
-              className="bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] text-white font-bold shadow-lg hover:scale-105 transition-all"
-            >
-              Share as New Page
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={() => window.open(doctorLandingUrl, '_blank')}
-              className="border-[#0E7C9D] text-[#0E7C9D] font-bold hover:bg-blue-50"
-            >
-              Open Landing Page
-            </Button>
-            <span className="text-xs text-gray-500">{doctorLandingUrl}</span>
-          </div>
-        )}
       </div>
     </div>
   );

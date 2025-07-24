@@ -320,6 +320,7 @@ export function AnalyticsPage() {
                   <Tooltip />
                   <Bar dataKey="average_score" fill="#82ca9d" />
                 </BarChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
         </>

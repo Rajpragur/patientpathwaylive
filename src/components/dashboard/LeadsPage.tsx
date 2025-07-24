@@ -4,14 +4,25 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, TrendingUp, Clock, Filter, Search, ArrowUpDown } from 'lucide-react';
+import { Users, TrendingUp, Clock, Filter, Search, ArrowUpDown, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Lead } from '@/types/quiz';
 import { EnhancedLeadsTable } from './EnhancedLeadsTable';
-import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { formatDistanceToNow, format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, parseISO, addWeeks, subWeeks } from 'date-fns';
+
+
+interface MarketingEvent {
+  id: string;
+  title: string;
+  description?: string;
+  event_date: string;
+  event_type: string;
+  doctor_id: string;
+  created_at: string;
+}
 
 export function LeadsPage() {
   const { user } = useAuth();
@@ -25,6 +36,10 @@ export function LeadsPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [doctorId, setDoctorId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [currentWeek, setCurrentWeek] = useState(new Date());
+  const [marketingEvents, setMarketingEvents] = useState<MarketingEvent[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+
 
   useEffect(() => {
     if (user) {
@@ -35,8 +50,9 @@ export function LeadsPage() {
   useEffect(() => {
     if (doctorId) {
       fetchLeads();
+      fetchMarketingEvents();
     }
-  }, [doctorId]);
+  }, [doctorId, currentWeek]);
 
   const fetchDoctorProfile = async () => {
     if (!user) return;
@@ -144,6 +160,60 @@ export function LeadsPage() {
     }
   };
 
+  const fetchMarketingEvents = async () => {
+    if (!doctorId) return;
+
+    setEventsLoading(true);
+    try {
+      const weekStart = startOfWeek(currentWeek, { weekStartsOn: 0 }); // Sunday
+      const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 0 }); // Saturday
+
+      console.log('Fetching marketing events for week:', format(weekStart, 'yyyy-MM-dd'), 'to', format(weekEnd, 'yyyy-MM-dd'));
+
+      const { data: eventsData, error: eventsError } = await supabase
+        .from('marketing_events')
+        .select('*')
+        .eq('doctor_id', doctorId)
+        .gte('event_date', format(weekStart, 'yyyy-MM-dd'))
+        .lte('event_date', format(weekEnd, 'yyyy-MM-dd'))
+        .order('event_date', { ascending: true });
+
+      if (eventsError) {
+        console.error('Events fetch error:', eventsError);
+        toast.error('Could not fetch marketing events');
+        return;
+      }
+
+      console.log('Fetched marketing events:', eventsData?.length || 0);
+      setMarketingEvents(eventsData || []);
+    } catch (error) {
+      console.error('Unexpected error fetching events:', error);
+      toast.error('An unexpected error occurred while fetching events');
+    } finally {
+      setEventsLoading(false);
+    }
+  };
+
+  const getWeekDays = () => {
+    const weekStart = startOfWeek(currentWeek, { weekStartsOn: 0 }); // Sunday
+    const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 0 }); // Saturday
+    return eachDayOfInterval({ start: weekStart, end: weekEnd });
+  };
+
+  const getEventsForDay = (day: Date) => {
+    return marketingEvents.filter(event => 
+      isSameDay(parseISO(event.event_date), day)
+    );
+  };
+
+  const navigateWeek = (direction: 'prev' | 'next') => {
+    if (direction === 'prev') {
+      setCurrentWeek(subWeeks(currentWeek, 1));
+    } else {
+      setCurrentWeek(addWeeks(currentWeek, 1));
+    }
+  };
+
   const filteredLeads = leads.filter(lead => {
     const matchesSearch = 
       lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -234,6 +304,8 @@ export function LeadsPage() {
     );
   }
 
+  const weekDays = getWeekDays();
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -289,6 +361,90 @@ export function LeadsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Marketing Calendar */}
+      <Card className="shadow-lg border-gray-200">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5" />
+              Marketing Calendar
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigateWeek('prev')}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <span className="text-sm font-medium px-3">
+                {format(weekDays[0], 'MMM d')} - {format(weekDays[6], 'MMM d, yyyy')}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigateWeek('next')}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {eventsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+              <span className="ml-2 text-sm text-gray-600">Loading events...</span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-7 gap-2">
+              {weekDays.map((day, index) => {
+                const dayEvents = getEventsForDay(day);
+                const isToday = isSameDay(day, new Date());
+                
+                return (
+                  <div
+                    key={index}
+                    className={`p-3 border rounded-lg min-h-[80px] ${
+                      isToday 
+                        ? 'bg-blue-50 border-blue-200' 
+                        : 'bg-gray-50 border-gray-200'
+                    }`}
+                  >
+                    <div className={`text-xs font-medium mb-1 ${
+                      isToday ? 'text-blue-700' : 'text-gray-600'
+                    }`}>
+                      {format(day, 'EEE')}
+                    </div>
+                    <div className={`text-lg font-bold mb-2 ${
+                      isToday ? 'text-blue-800' : 'text-gray-800'
+                    }`}>
+                      {format(day, 'd')}
+                    </div>
+                    <div className="space-y-1">
+                      {dayEvents.map((event) => (
+                        <div
+                          key={event.id}
+                          className="text-xs bg-white px-2 py-1 rounded border shadow-sm truncate"
+                          title={event.title}
+                        >
+                          <div className="font-medium text-gray-800 truncate">
+                            {event.title}
+                          </div>
+                          <div className="text-gray-500 capitalize">
+                            {event.event_type}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Filters and Sorting */}
       <Card className="shadow-lg border-gray-200">
