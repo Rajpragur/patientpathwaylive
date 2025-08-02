@@ -4,7 +4,17 @@ import { EmbeddedChatBot } from '@/components/quiz/EmbeddedChatBot';
 import { useAuth } from '@/hooks/useAuth';
 import { quizzes } from '@/data/quizzes';
 import { supabase } from '@/integrations/supabase/client';
-import { generatePageContent, DoctorProfile } from '../../lib/openrouter';
+import { PageContent, DoctorProfile, fetchGeneratedPageContent } from '../../lib/contentGenerator'; // Updated import
+
+const safeList = (text: string, defaultItem: string): string[] => {
+  if (!text || text.trim() === '') {
+    return [defaultItem];
+  }
+  // This is a simple split. For more robust parsing, consider
+  // a markdown parser or specific delimiters.
+  return text.split(/(?<=\.)\s*|\n/).filter(item => item.trim() !== '');
+};
+
 
 const defaultDoctor: DoctorProfile = {
   id: 'demo',
@@ -21,6 +31,66 @@ const defaultDoctor: DoctorProfile = {
   website: 'https://www.exhalesinus.com/',
 };
 
+const defaultPageContent: PageContent = {
+  headline: 'Struggling to Breathe Through Your Nose?',
+  intro: 'Take our quick assessment to discover if nasal airway obstruction is affecting your quality of life.',
+  whatIsNAO: 'Nasal Airway Obstruction (NAO) occurs when airflow through the nose is chronically limited, affecting your ability to breathe comfortably.',
+  symptoms: [
+    'Difficulty breathing through nose',
+    'Frequent mouth breathing',
+    'Snoring or sleep disruption',
+    'Reduced sense of smell',
+    'Chronic nasal congestion',
+    'Facial pressure or pain',
+    'Recurring sinus infections',
+    'Poor sleep quality',
+    'Daytime fatigue'
+  ],
+  treatments: 'We offer comprehensive treatment options ranging from minimally invasive procedures to surgical solutions.',
+  treatmentOptions: [
+    {
+      name: 'VivAer Nasal Airway Remodeling',
+      pros: 'Minimally invasive, performed in office, quick recovery',
+      cons: 'May require multiple sessions for optimal results',
+      invasiveness: 'Low - radiofrequency treatment with minimal discomfort'
+    },
+    {
+      name: 'Latera Nasal Implant',
+      pros: 'Supports lateral nasal wall, bioabsorbable, quick procedure',
+      cons: 'Limited to lateral wall collapse issues',
+      invasiveness: 'Low - simple implant placement'
+    },
+    {
+      name: 'Septoplasty',
+      pros: 'Addresses deviated septum, long-lasting results',
+      cons: 'Requires anesthesia, longer recovery period',
+      invasiveness: 'Moderate - surgical procedure'
+    }
+  ],
+  vivAerOverview: 'VivAer is a minimally invasive radiofrequency treatment that remodels nasal airway tissue to improve breathing without surgery.',
+  lateraOverview: 'Latera is an FDA-approved bioabsorbable nasal implant that supports the lateral nasal wall to reduce obstruction.',
+  surgicalProcedures: 'For severe cases, surgical options including septoplasty and turbinate reduction provide comprehensive structural correction.',
+  whyChoose: 'Our practice combines cutting-edge technology with personalized care to provide the most effective treatment for your nasal breathing issues.',
+  testimonials: [
+    {
+      text: 'The VivAer procedure completely changed my ability to breathe. I wish I had done this sooner!',
+      author: 'Sarah M.',
+      location: 'Fort Worth'
+    },
+    {
+      text: 'Dr. Smith explained all my options clearly and the treatment was quick and effective.',
+      author: 'Michael R.',
+      location: 'Southlake'
+    }
+  ],
+  contact: 'Contact our office today to schedule your consultation and start breathing better.',
+  cta: 'Take our quick 2-minute assessment to discover if you\'re a candidate for nasal airway treatments!',
+  colors: {
+    primary: '#2563eb',
+    secondary: '#1e40af',
+    accent: '#3b82f6'
+  }
+};
 
 const EditableSection = ({ children, editable, onEdit }: { children: React.ReactNode; editable: boolean; onEdit?: () => void }) => (
   <div className="relative group">
@@ -33,7 +103,6 @@ const EditableSection = ({ children, editable, onEdit }: { children: React.React
   </div>
 );
 
-
 const defaultChatbotColors = {
   primary: '#2563eb',
   background: '#ffffff',
@@ -44,18 +113,63 @@ const defaultChatbotColors = {
   botText: '#334155'
 };
 
-
 const NOSELandingPage: React.FC = () => {
   const { doctorId } = useParams<{ doctorId: string }>();
   const { user } = useAuth();
   const [doctor, setDoctor] = useState<DoctorProfile | null>(null);
-  const [isEditable, setIsEditable] = useState(false);
-  const [aiContent, setAIContent] = useState<any>(null);
+  const [isEditable, setIsEditable] = useState(false); // Consider removing or implementing editing
+  const [aiContent, setAIContent] = useState<PageContent | null>(null);
   const [loadingAI, setLoadingAI] = useState(false);
   const [showChatWidget, setShowChatWidget] = useState(true);
   const [showChatMessage, setShowChatMessage] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
   const [chatbotColors, setChatbotColors] = useState(defaultChatbotColors);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  // generateAttempted is still useful for preventing multiple requests on initial load
+  const generateAttempted = useRef(false);
+
+  // Validation function to ensure content structure is correct - now primarily for client-side default fallback
+  const validatePageContent = (content: any): PageContent => {
+    // This validation function is more for ensuring we have *something* coherent
+    // if the AI returns partial data or for initial defaults.
+    // The backend should ideally return fully validated content.
+    const validated: PageContent = {
+      headline: content?.headline || defaultPageContent.headline,
+      intro: content?.intro || defaultPageContent.intro,
+      whatIsNAO: content?.whatIsNAO || defaultPageContent.whatIsNAO,
+      symptoms: Array.isArray(content?.symptoms) && content.symptoms.length >= 9
+        ? content.symptoms.slice(0, 9)
+        : defaultPageContent.symptoms,
+      treatments: content?.treatments || defaultPageContent.treatments,
+      treatmentOptions: Array.isArray(content?.treatmentOptions) && content.treatmentOptions.length > 0
+        ? content.treatmentOptions.map((option: any) => ({
+            name: option?.name || 'Treatment Option',
+            pros: option?.pros || 'Benefits available',
+            cons: option?.cons || 'Some limitations may apply',
+            invasiveness: option?.invasiveness || 'Varies by procedure'
+          }))
+        : defaultPageContent.treatmentOptions,
+      vivAerOverview: content?.vivAerOverview || defaultPageContent.vivAerOverview,
+      lateraOverview: content?.lateraOverview || defaultPageContent.lateraOverview,
+      surgicalProcedures: content?.surgicalProcedures || defaultPageContent.surgicalProcedures,
+      whyChoose: content?.whyChoose || defaultPageContent.whyChoose,
+      testimonials: Array.isArray(content?.testimonials) && content.testimonials.length > 0
+        ? content.testimonials.map((testimonial: any) => ({
+            text: testimonial?.text || 'Great experience with the treatment.',
+            author: testimonial?.author || 'Patient',
+            location: testimonial?.location || 'Local'
+          }))
+        : defaultPageContent.testimonials,
+      contact: content?.contact || defaultPageContent.contact,
+      cta: content?.cta || defaultPageContent.cta,
+      colors: {
+        primary: content?.colors?.primary || defaultPageContent.colors.primary,
+        secondary: content?.colors?.secondary || defaultPageContent.colors.secondary,
+        accent: content?.colors?.accent || defaultPageContent.colors.accent
+      }
+    };
+    return validated;
+  };
 
   useEffect(() => {
     const fetchDoctorData = async () => {
@@ -70,32 +184,32 @@ const NOSELandingPage: React.FC = () => {
 
         if (error) {
           console.error('Error fetching doctor profile:', error);
-          setDoctor(defaultDoctor);
+          setDoctor(defaultDoctor); // Fallback to default
           return;
         }
 
         if (data) {
           setDoctor({
             id: data.id,
-            name: `${data.first_name} ${data.last_name}`,
+            name: `${data.first_name || 'Dr.'} ${data.last_name || 'Smith'}`,
             credentials: data.specialty || 'MD',
-            locations: [
-              {
+            // Ensure locations array is always valid
+            locations: data.location || data.clinic_name || data.phone ?
+              [{
                 city: data.location || 'Main Office',
                 address: data.clinic_name || 'Please contact for address',
                 phone: data.phone || 'Please contact for phone'
-              }
-            ],
-            testimonials: defaultDoctor.testimonials,
+              }] : defaultDoctor.locations, // Fallback if no specific data
+            testimonials: defaultDoctor.testimonials, // Or fetch from data if available
             website: data.website || defaultDoctor.website,
             avatar_url: data.avatar_url
           });
         } else {
-          setDoctor(defaultDoctor);
+          setDoctor(defaultDoctor); // Fallback if no data found
         }
       } catch (error) {
         console.error('Error in fetchDoctorData:', error);
-        setDoctor(defaultDoctor);
+        setDoctor(defaultDoctor); // Fallback on error
       }
     };
 
@@ -112,95 +226,154 @@ const NOSELandingPage: React.FC = () => {
   useEffect(() => {
     const fetchChatbotColors = async () => {
       if (!doctor || !user) return;
-      const { data, error } = await supabase
-        .from('ai_landing_pages')
-        .select('chatbot_colors')
-        .eq('user_id', user.id)
-        .eq('doctor_id', doctor.id)
-        .single();
-      if (data && data.chatbot_colors) setChatbotColors(data.chatbot_colors);
-      else setChatbotColors(null); // fallback to default in chatbot
-    };
-    fetchChatbotColors();
-  }, [doctor, user]);
-  
-
-  useEffect(() => {
-    const fetchOrCreateAIContent = async () => {
-      if (!doctor || !user) return;
-
-      setLoadingAI(true);
-
-      const { data, error } = await supabase
-        .from('ai_landing_pages')
-        .select('content')
-        .eq('user_id', user.id)
-        .eq('doctor_id', doctor.id)
-        .single();
-
-      if (data && data.content) {
-        setAIContent(data.content);
-        setLoadingAI(false);
-        return;
-      }
 
       try {
-        const generated = await generatePageContent(doctor);
-        setAIContent(generated);
+        const { data, error } = await supabase
+          .from('ai_landing_pages')
+          .select('chatbot_colors')
+          .eq('user_id', user.id)
+          .eq('doctor_id', doctor.id)
+          .single();
 
-        await supabase.from('ai_landing_pages').insert([
-          {
-            user_id: user.id,
-            doctor_id: doctor.id,
-            content: generated,
-          },
-        ]);
-      } catch (e) {
-        setAIContent({ error: e.message });
+        if (data && data.chatbot_colors) {
+          setChatbotColors(data.chatbot_colors);
+        } else {
+          setChatbotColors(defaultChatbotColors);
+        }
+      } catch (error) {
+        console.error('Error fetching chatbot colors:', error);
+        setChatbotColors(defaultChatbotColors);
+      }
+    };
+
+    fetchChatbotColors();
+  }, [doctor, user]);
+
+  useEffect(() => {
+    const loadAIContent = async () => {
+      // Only proceed if doctor and user are loaded and we haven't attempted generation yet
+      if (!doctor || !user || generateAttempted.current) return;
+
+      setLoadingAI(true);
+      setGenerationError(null);
+      generateAttempted.current = true; // Mark as attempted
+
+      try {
+        // First, try to fetch existing content from Supabase
+        const { data: existingData, error: fetchError } = await supabase
+          .from('ai_landing_pages')
+          .select('content, chatbot_colors')
+          .eq('user_id', user.id)
+          .eq('doctor_id', doctor.id)
+          .single();
+
+        if (existingData && existingData.content) {
+          console.log('Found existing content, validating and using it.');
+          const validatedContent = validatePageContent(existingData.content);
+          setAIContent(validatedContent);
+          if (existingData.chatbot_colors) {
+            setChatbotColors(existingData.chatbot_colors);
+          }
+          setLoadingAI(false);
+          return; // Exit if content found
+        }
+
+        console.log('No existing content found, initiating backend generation...');
+
+        // If no existing content, trigger backend generation
+        const generatedContent = await fetchGeneratedPageContent(doctor.id, user.id, doctor.website);
+
+        setAIContent(generatedContent);
+        // Set chatbot colors from the generated content's colors if available, otherwise default
+        if (generatedContent.colors) {
+          setChatbotColors({
+            primary: generatedContent.colors.primary,
+            background: '#ffffff',
+            text: '#ffffff', // Assuming white text on primary background
+            userBubble: generatedContent.colors.primary,
+            botBubble: '#f1f5f9',
+            userText: '#ffffff',
+            botText: '#334155'
+          });
+        }
+
+        // Save generated content to database (this should ideally be handled by the backend after generation)
+        // However, if the frontend is responsible for saving after receiving, keep this.
+        // It's generally better for the backend to save after successful generation.
+        const { error: insertError } = await supabase
+          .from('ai_landing_pages')
+          .upsert([
+            {
+              user_id: user.id,
+              doctor_id: doctor.id,
+              content: generatedContent,
+              chatbot_colors: generatedContent.colors ? {
+                primary: generatedContent.colors.primary,
+                background: '#ffffff',
+                text: '#ffffff',
+                userBubble: generatedContent.colors.primary,
+                botBubble: '#f1f5f9',
+                userText: '#ffffff',
+                botText: '#334155'
+              } : defaultChatbotColors,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }
+          ], { onConflict: 'user_id,doctor_id' });
+
+        if (insertError) {
+          console.error('Error saving generated content to Supabase:', insertError);
+          setGenerationError('Content generated but failed to save to database.');
+        } else {
+          console.log('Generated content saved to Supabase successfully.');
+        }
+
+      } catch (error: any) {
+        console.error('Error in loadAIContent:', error);
+        setGenerationError(`Failed to load or generate content: ${error.message || 'Unknown error'}. Falling back to default.`);
+        // Fallback to default content and doctor info if generation fails
+        setAIContent({
+          ...defaultPageContent,
+          headline: `Advanced Nasal Treatments with ${doctor.name}`,
+          whyChoose: `Choose ${doctor.name} for expert nasal care.`,
+          contact: `Contact ${doctor.name} to schedule your consultation.`
+        });
       } finally {
         setLoadingAI(false);
       }
     };
 
-    fetchOrCreateAIContent();
-  }, [doctor, user]);
+    // Trigger content loading only when doctor and user are available
+    if (doctor && user) {
+      loadAIContent();
+    }
+  }, [doctor, user]); // Depend on doctor and user objects
 
   const handleShowQuiz = (e?: React.MouseEvent) => {
     e?.preventDefault();
-    setShowChatModal(true); // Open the modal instead of inline quiz
+    setShowChatModal(true);
   };
 
-  const quizIframeSrc = `${window.location.origin}/quiz/nose?source=website&utm_source=website&utm_medium=web&utm_campaign=quiz_share`;
   const doctorAvatarUrl = doctor?.avatar_url || '/lovable-uploads/6b38df79-5ad8-494b-83ed-7dba6c54d4b1.png';
 
+  // Loading state
   if (!doctor || loadingAI || !aiContent) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-teal-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600 text-lg">Loading your personalized assessment...</p>
+          {generationError && (
+            <p className="text-orange-600 text-sm mt-2">{generationError}</p>
+          )}
         </div>
       </div>
     );
   }
-
-  if (aiContent.error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-teal-50 flex items-center justify-center p-4">
-        <div className="max-w-2xl mx-auto p-8 bg-red-50 border border-red-200 text-red-800 rounded-2xl shadow-lg">
-          <h2 className="text-2xl font-bold mb-4 text-center">AI Content Error</h2>
-          <div className="mb-4 text-center">{aiContent.error}</div>
-          <pre className="overflow-x-auto text-xs bg-red-100 p-4 rounded-lg border">{aiContent.raw}</pre>
-        </div>
-      </div>
-    );
-  }
-
-  const safeList = (arr: any, fallback: string) => Array.isArray(arr) && arr.length > 0 ? arr : [fallback];
 
   const ChatWidget = () => {
     if (!showChatWidget) return null;
-  
+
     return (
       <>
         <div className="fixed bottom-6 right-6 z-50">
@@ -208,11 +381,11 @@ const NOSELandingPage: React.FC = () => {
             {showChatMessage && (
               <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-teal-500 rounded-full animate-pulse"></div>
             )}
-            
+
             {showChatMessage && (
               <div className="absolute bottom-24 right-2 bg-white rounded-2xl shadow-2xl p-6 mb-2 border border-gray-100 animate-slideIn" style={{ width: '340px', minWidth: '340px' }}>
                 <div className="text-sm text-gray-700 mb-3 font-medium">
-                  {aiContent.cta || 'Take our quick assessment to see if you have nasal obstruction!'}
+                  {aiContent.cta}
                 </div>
                 <div className="text-xs text-gray-500 flex items-center">
                   <span>Click to start the quiz</span>
@@ -221,7 +394,7 @@ const NOSELandingPage: React.FC = () => {
                   </svg>
                 </div>
                 <div className="absolute bottom-0 right-6 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-white transform translate-y-full"></div>
-                
+
                 <button
                   onClick={() => setShowChatMessage(false)}
                   className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-gray-100 rounded-full"
@@ -232,7 +405,7 @@ const NOSELandingPage: React.FC = () => {
                 </button>
               </div>
             )}
-            
+
             <button
               onClick={() => setShowChatModal(true)}
               className="relative text-white bg-blue-600 p-4 rounded-full shadow-2xl transition-all duration-300 hover:scale-110 flex items-center justify-center w-20 h-20"
@@ -243,11 +416,11 @@ const NOSELandingPage: React.FC = () => {
             </button>
           </div>
         </div>
-  
+
         {showChatModal && (
-          <div 
+          <div
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn"
-            style={{ 
+            style={{
               overflow: 'hidden',
               position: 'fixed',
               top: 0,
@@ -262,10 +435,10 @@ const NOSELandingPage: React.FC = () => {
             }}
           >
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl relative overflow-hidden transform transition-all duration-300 ease-out animate-slideIn" style={{ height: '90vh' }}>
-              <div className="bg-gradient-to-r from-blue-500 to-teal-500 p-6 flex justify-between items-center sticky top-0 z-10" 
+              <div className="bg-gradient-to-r from-blue-500 to-teal-500 p-6 flex justify-between items-center sticky top-0 z-10"
               style={{
-                backgroundColor: (chatbotColors || defaultChatbotColors).primary,
-                color: (chatbotColors || defaultChatbotColors).text
+                backgroundColor: chatbotColors.primary,
+                color: chatbotColors.text
               }}>
                 <div className="flex items-center space-x-4">
                   <img src={doctorAvatarUrl} alt="Doctor" className="w-12 h-12 rounded-full object-cover border-2 border-white/30" />
@@ -283,26 +456,26 @@ const NOSELandingPage: React.FC = () => {
                   </svg>
                 </button>
               </div>
-              
+
               <div className="overflow-y-auto overflow-x-hidden" style={{ height: 'calc(90vh - 96px)' }}>
-                <EmbeddedChatBot 
-                  quizType="NOSE" 
-                  doctorId={doctorId || doctor?.id} 
-                  quizData={quizzes.NOSE} 
-                  doctorAvatarUrl={doctorAvatarUrl} 
+                <EmbeddedChatBot
+                  quizType="NOSE"
+                  doctorId={doctor.id} // Already guaranteed to be available here
+                  quizData={quizzes.NOSE}
+                  doctorAvatarUrl={doctorAvatarUrl}
                   chatbotColors={chatbotColors}
                 />
               </div>
             </div>
           </div>
         )}
-        
+
         <style jsx>{`
           @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
           }
-          
+
           @keyframes slideIn {
             from {
               opacity: 0;
@@ -313,11 +486,11 @@ const NOSELandingPage: React.FC = () => {
               transform: scale(1) translateY(0);
             }
           }
-          
+
           .animate-fadeIn {
             animation: fadeIn 0.3s ease-out;
           }
-          
+
           .animate-slideIn {
             animation: slideIn 0.3s ease-out;
           }
@@ -328,6 +501,12 @@ const NOSELandingPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
+      {generationError && (
+        <div className="bg-orange-100 border-l-4 border-orange-500 text-orange-700 p-4 mb-4">
+          <p className="text-sm">{generationError}</p>
+        </div>
+      )}
+
       {/* Hero Section */}
       <section className="w-full bg-white border-b border-slate-200 py-20">
         <div className="max-w-7xl mx-auto px-8 text-center">
@@ -336,10 +515,10 @@ const NOSELandingPage: React.FC = () => {
               <img src={doctorAvatarUrl} alt="Practice Logo" className="w-20 rounded-xl object-cover" />
             </div>
             <h1 className="text-5xl font-bold text-slate-900 mb-8 leading-tight max-w-6xl mx-auto">
-              {aiContent.headline || 'Struggling to Breathe Through Your Nose?'}
+              {aiContent.headline}
             </h1>
             <p className="text-2xl text-slate-600 mb-12 max-w-4xl mx-auto leading-relaxed">
-              {aiContent.intro || 'Take Our Quick "Nose Test" to See If You Have Nasal Airway Obstruction'}
+              {aiContent.intro}
             </p>
             <button
               onClick={handleShowQuiz}
@@ -362,7 +541,7 @@ const NOSELandingPage: React.FC = () => {
             <EditableSection editable={isEditable}>
               <h2 className="text-5xl font-bold text-slate-900 mb-8">What Is Nasal Airway Obstruction?</h2>
               <p className="text-2xl text-slate-600 leading-relaxed max-w-5xl mx-auto">
-                {aiContent.whatIsNAO || 'Nasal Airway Obstruction (NAO) occurs when airflow through the nose is chronically limited.'}
+                {aiContent.whatIsNAO}
               </p>
             </EditableSection>
           </div>
@@ -374,7 +553,7 @@ const NOSELandingPage: React.FC = () => {
             <EditableSection editable={isEditable}>
               <h2 className="text-5xl font-bold text-slate-900 mb-12">Symptoms & Impact</h2>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
-                {safeList(aiContent.symptoms, 'Chronic nasal congestion or stuffiness').map((symptom: string, i: number) => (
+                {aiContent.symptoms.map((symptom: string, i: number) => (
                   <div key={i} className="bg-slate-50 rounded-xl p-8 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
                     <div className="w-4 h-4 bg-blue-600 rounded-full mb-4 mx-auto"></div>
                     <span className="text-slate-700 text-lg">{symptom}</span>
@@ -393,44 +572,26 @@ const NOSELandingPage: React.FC = () => {
                 Comprehensive Treatment Options at {doctor.name.split(' ')[0]}'s Practice
               </h2>
               <p className="text-2xl text-slate-600 mb-16 max-w-5xl mx-auto leading-relaxed">
-                {aiContent.treatments || ''}
+                {aiContent.treatments}
               </p>
-              
+
               <div className="mb-16">
                 <h3 className="text-3xl font-semibold text-slate-800 mb-12">Treatment Options: From Gentle to Surgical</h3>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
-                  {safeList(aiContent.treatmentOptions, 'Medical Management').map((option: string, i: number) => (
+                  {aiContent.treatmentOptions.map((option, i: number) => (
                     <div key={i} className="bg-white rounded-xl p-8 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
                       <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mb-6 mx-auto">
                         <span className="text-white font-bold text-lg">{i + 1}</span>
                       </div>
-                      <p className="text-slate-700 text-lg leading-relaxed">{option}</p>
+                      <h4 className="text-slate-900 font-semibold text-xl mb-4">{option.name}</h4>
+                      <div className="text-left space-y-2 text-sm">
+                        <div><span className="font-semibold text-green-600">Pros:</span> {option.pros}</div>
+                        <div><span className="font-semibold text-orange-600">Cons:</span> {option.cons}</div>
+                        <div><span className="font-semibold text-blue-600">Invasiveness:</span> {option.invasiveness}</div>
+                      </div>
                     </div>
                   ))}
                 </div>
-              </div>
-
-              {/* Comparison Table */}
-              <div className="overflow-x-auto bg-white rounded-xl shadow-sm border border-slate-200">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-slate-900 text-white">
-                      <th className="py-6 px-8 text-left font-semibold text-lg">Treatment</th>
-                      <th className="py-6 px-8 text-left font-semibold text-lg">Pros</th>
-                      <th className="py-6 px-8 text-left font-semibold text-lg">Cons</th>
-                      <th className="py-6 px-8 text-left font-semibold text-lg">Invasiveness</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(Array.isArray(aiContent.comparisonTable) ? aiContent.comparisonTable : []).map((row: string[], i: number) => (
-                      <tr key={i} className={i % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
-                        {(Array.isArray(row) ? row : []).map((cell: string, j: number) => (
-                          <td key={`${i}-${j}`} className="py-6 px-8 text-slate-700 text-lg">{cell}</td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
               </div>
             </EditableSection>
           </div>
@@ -443,11 +604,11 @@ const NOSELandingPage: React.FC = () => {
               <div className="grid md:grid-cols-2 gap-16">
                 <div className="text-center bg-slate-50 rounded-xl p-12 border border-slate-200">
                   <h2 className="text-4xl font-bold text-slate-900 mb-8">VivAer Overview</h2>
-                  <p className="text-slate-600 text-lg leading-relaxed">{aiContent.vivAerOverview || ''}</p>
+                  <p className="text-slate-600 text-lg leading-relaxed">{aiContent.vivAerOverview}</p>
                 </div>
                 <div className="text-center bg-slate-50 rounded-xl p-12 border border-slate-200">
                   <h2 className="text-4xl font-bold text-slate-900 mb-8">Latera Overview</h2>
-                  <p className="text-slate-600 text-lg leading-relaxed">{aiContent.lateraOverview || ''}</p>
+                  <p className="text-slate-600 text-lg leading-relaxed">{aiContent.lateraOverview}</p>
                 </div>
               </div>
             </EditableSection>
@@ -492,6 +653,7 @@ const NOSELandingPage: React.FC = () => {
           <div className="max-w-7xl mx-auto px-8 text-center">
             <EditableSection editable={isEditable}>
               <h2 className="text-5xl font-bold text-slate-900 mb-16">Why Choose {doctor.name.split(' ')[0]}'s Practice</h2>
+              {/* Assuming whyChoose is a string, split it into paragraphs for display */}
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
                 {safeList(aiContent.whyChoose, 'Board-Certified ENT Specialists').map((reason: string, i: number) => (
                   <div key={i} className="bg-slate-50 rounded-xl p-8 text-left border border-slate-200 hover:shadow-md transition-shadow">
@@ -534,7 +696,7 @@ const NOSELandingPage: React.FC = () => {
           </div>
         </section>
       </div>
-      
+
       <ChatWidget />
     </div>
   );

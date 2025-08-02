@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { generatePageContent, DoctorProfile } from '../lib/openrouter';
+import { generatePageContent, DoctorProfile } from '../lib/contentGenerator';
 import { Button } from '@/components/ui/button';
 import { quizzes } from '@/data/quizzes';
 import { EmbeddedChatBot } from '@/components/quiz/EmbeddedChatBot';

@@ -56,7 +56,13 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
   const [answers, setAnswers] = useState<QuizAnswer[]>([]);
   const [quizCompleted, setQuizCompleted] = useState(false);
   const [quizStarted, setQuizStarted] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState({
+    score: 0,
+    interpretation: '',
+    severity: '',
+    summary: '',
+    detailedAnswers: []
+  });
   const [userInfo, setUserInfo] = useState({ name: '', email: '', phone: '' });
   const [collectingInfo, setCollectingInfo] = useState(false);
   const [infoStep, setInfoStep] = useState(0);
@@ -92,6 +98,26 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
     return phoneRegex.test(phone);
   };
 
+  const askNextQuestion = (questionIndex: number) => {
+    if (questionIndex < quizData.questions.length) {
+      setShowTyping(true);
+      setTimeout(() => {
+        setShowTyping(false);
+        const question = quizData.questions[questionIndex];
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `Question ${questionIndex + 1} of ${quizData.questions.length}:\n\n${question.text}`,
+          isQuestion: true,
+          questionIndex,
+          options: question.options
+        }]);
+        setCurrentQuestionIndex(questionIndex);
+      }, 700);
+    } else {
+      setTimeout(() => completeQuiz(), 700);
+    }
+  };
+
   useEffect(() => {
     if (quizData) {
       setLoading(false);
@@ -101,6 +127,8 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
           content: `Hello! Welcome to the ${quizData.title}. ${quizData.description}\n\nThis assessment will help evaluate your symptoms. Click "Start Assessment" when you're ready to begin.`
         }
       ]);
+      setMessages(prev => [...prev, { role: 'user', content: 'Start Assessment' }]);
+      askNextQuestion(0);
     }
   }, [quizData]);
 
@@ -234,36 +262,6 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
     );
   }
 
-  const startQuiz = () => {
-    setQuizStarted(true);
-    setMessages(prev => [...prev, { role: 'user', content: 'Start Assessment' }]);
-    setShowTyping(true);
-    setTimeout(() => {
-      setShowTyping(false);
-      askNextQuestion(0);
-    }, 700);
-  };
-
-  const askNextQuestion = (questionIndex: number) => {
-    if (questionIndex < quizData.questions.length) {
-      setShowTyping(true);
-      setTimeout(() => {
-        setShowTyping(false);
-        const question = quizData.questions[questionIndex];
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: `Question ${questionIndex + 1} of ${quizData.questions.length}:\n\n${question.text}`,
-          isQuestion: true,
-          questionIndex,
-          options: question.options
-        }]);
-        setCurrentQuestionIndex(questionIndex);
-      }, 700);
-    } else {
-      setTimeout(() => completeQuiz(), 700);
-    }
-  };
-
   const handleAnswer = (answerText: string, answerIndex: number) => {
     const newAnswer: QuizAnswer = {
       questionIndex: currentQuestionIndex,
@@ -300,7 +298,8 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
     
     let score = 0;
     let detailedAnswers: any = {};
-
+    let severity = 'normal';
+    let interpretation = '';
     if (quizData.isCustom) {
       // Calculate score for custom quiz
       answers.forEach((answer, index) => {
@@ -318,8 +317,6 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
 
       // Calculate severity based on percentage
       const percentage = (score / quizData.maxScore) * 100;
-      let severity = 'normal';
-      let interpretation = '';
 
       if (percentage >= quizData.scoring.severe_threshold) {
         severity = 'severe';
@@ -333,11 +330,13 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
       } else {
         interpretation = 'Your symptoms appear to be minimal. Continue monitoring your condition.';
       }
-
-      setResult({ score, interpretation, severity, summary: interpretation, detailedAnswers });
+      resultSetter(score,interpretation,severity,detailedAnswers);
     } else {
       // Use existing scoring for standard quizzes
       const quizResult = calculateQuizScore(quizData.id as any, answers);
+      score = quizResult.score;
+      interpretation = quizResult.interpretation;
+      severity = quizResult.severity;
       answers.forEach((answer, index) => {
         const question = quizData.questions[answer.questionIndex];
         detailedAnswers[`q${index}`] = {
@@ -346,22 +345,45 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
           score: answer.answerIndex
         };
       });
-      setResult({ ...quizResult, detailedAnswers });
+      const newResult = {
+        score,
+        interpretation,
+        severity,
+        summary: interpretation,
+        detailedAnswers
+      };    
+      setResult(newResult);
       score = quizResult.score;
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: `🎉 Congratulations! You've completed the ${quizData.title}. Thank you ${userInfo.name || ''}!\n\nYour Results:\n\nScore: ${newResult.score}/${quizData.maxScore}\nSeverity: ${newResult.severity.charAt(0).toUpperCase() + newResult.severity.slice(1)}\n\nInterpretation: ${newResult.interpretation}\n\nA healthcare provider will review your results and may contact you for follow-up care if needed.`
+        },
+        {
+          role: 'assistant',
+          content: 'Please enter your full name:'
+        }
+      ]);
     }
-
-    setMessages(prev => [...prev, {
-      role: 'assistant',
-      content: `🎉 Congratulations! You've completed the ${quizData.title}.\n\nTo receive your detailed results and connect with our medical team, please provide your contact information below.`
-    }, {
-      role: 'assistant',
-      content: 'Please enter your full name:'
-    }]);
-
     setCollectingInfo(true);
     setInfoStep(0);
   };
-
+  const resultSetter = (
+    score: typeof result['score'],
+    interpretation: typeof result['interpretation'],
+    severity: typeof result['severity'],
+    detailedAnswers: typeof result['detailedAnswers']
+  ) => {
+    setResult({
+      score,
+      interpretation,
+      severity,
+      summary: interpretation,
+      detailedAnswers
+    });
+  };
+  
   // Update the handleInfoSubmit function
   const handleInfoSubmit = async () => {
     if (infoStep === 0) {
@@ -437,10 +459,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
       await submitLead();
       
       setTimeout(() => {
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: `Thank you ${userInfo.name}! Your assessment results have been saved.\n\nYour Results:\n\nScore: ${result.score}/${quizData.maxScore}\nSeverity: ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}\n\nInterpretation: ${result.interpretation}\n\nA healthcare provider will review your results and may contact you for follow-up care if needed.`
-        }, { 
+        setMessages(prev => [...prev, { 
           role: 'assistant', 
           content: 'If you have any questions or want to chat, type below! Or click Retake Quiz to start again.' 
         }]);
@@ -563,7 +582,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
     setCurrentQuestionIndex(0);
     setAnswers([]);
     setQuizCompleted(false);
-    setQuizStarted(false);
+    setQuizStarted(true);
     setResult(null);
     setUserInfo({ name: '', email: '', phone: '' });
     setCollectingInfo(false);
@@ -814,15 +833,6 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
           transition={{ duration: 0.4, ease: 'easeOut' }}
           className="p-4 sticky bottom-0 z-10 bg-white/90 backdrop-blur rounded-b-2xl border-t border-gray-200"
         >
-          {!quizStarted && !quizCompleted && (
-            <Button 
-              onClick={startQuiz} 
-              className="w-full rounded-xl text-lg font-semibold transition-all duration-150 shadow-md hover:shadow-lg text-white" 
-              style={{ backgroundColor: colors.primary, borderColor: colors.primary	 }}
-            >
-              Start Assessment
-            </Button>
-          )}
           
           {collectingInfo && (
             <div className="flex gap-2">
