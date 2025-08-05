@@ -106,6 +106,14 @@ export function ShareAssessmentsPage() {
         category: 'ENT'
       },
       {
+        id: 'snot12',
+        name: 'SNOT-12 Assessment',
+        description: 'Sino-Nasal Outcome Test',
+        shareUrl: `${baseUrl}/quiz/snot12?doctor=${doctorId}`,
+        embedCode: `<iframe src="${baseUrl}/embed/quiz?type=SNOT12&doctor=${doctorId}" width="100%" height="600px" frameborder="0"></iframe>`,
+        category: 'ENT'
+      },
+      {
         id: 'stop',
         name: 'STOP Assessment',
         description: 'Sleep Apnea Screening',
@@ -171,7 +179,7 @@ export function ShareAssessmentsPage() {
   const doctorId = doctorProfile?.id || 'demo';
   const noseLandingUrl = `${window.location.origin}/share/nose/${doctorId}`;
   const noseEditorUrl = `${window.location.origin}/nose-editor/${doctorId}`;
-
+  const doctorMail = doctorProfile?.email || 'your-email@example.com';
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">

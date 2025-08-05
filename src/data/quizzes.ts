@@ -360,6 +360,81 @@ export const quizzes: Record<string, Quiz> = {
       }
     ]
   },
+  
+  SNOT12: {
+    id: 'SNOT12',
+    title: 'SNOT-12 Assessment',
+    description: 'Short-form evaluation of sinus and nasal symptoms impact on quality of life',
+    maxScore: 60,
+    scoring: {
+      normal: 'Normal (0-12): Minimal symptoms with little impact',
+      mild: 'Mild (13-25): Mild symptoms affecting quality of life',
+      moderate: 'Moderate (26-40): Moderate symptoms requiring attention',
+      severe: 'Severe (41-60): Severe symptoms requiring immediate medical attention'
+    },
+    questions: [
+      {
+        id: '1',
+        text: 'Need to blow nose',
+        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+      },
+      {
+        id: '2',
+        text: 'Runny nose',
+        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+      },
+      {
+        id: '3',
+        text: 'Nasal blockage',
+        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+      },
+      {
+        id: '4',
+        text: 'Thick nasal discharge',
+        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+      },
+      {
+        id: '5',
+        text: 'Decreased sense of smell/taste',
+        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+      },
+      {
+        id: '6',
+        text: 'Post-nasal drip',
+        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+      },
+      {
+        id: '7',
+        text: 'Sneezing',
+        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+      },
+      {
+        id: '8',
+        text: 'Cough',
+        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+      },
+      {
+        id: '9',
+        text: 'Facial pressure/pain',
+        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+      },
+      {
+        id: '10',
+        text: 'Ear fullness',
+        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+      },
+      {
+        id: '11',
+        text: 'Difficulty falling asleep or staying asleep',
+        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+      },
+      {
+        id: '12',
+        text: 'Reduced productivity or quality of life',
+        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+      }
+    ]
+  },
 
   DHI: {
     id: 'DHI',

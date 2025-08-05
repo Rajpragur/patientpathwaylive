@@ -1,4 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
+import { useEffect, useState } from 'react';
+
 export interface Location {
   city: string;
   address: string;
@@ -8,40 +10,53 @@ export interface Location {
 export interface DoctorProfile {
   id: string;
   name: string;
-  first_name?: string;
-  last_name?: string;
   credentials: string;
-  specialty?: string;
-  locations: Location[];
-  clinic_name?: string;
+  website?: string;
   phone?: string;
-  testimonials: Array<{
-    text: string;
-    author: string;
-    location: string;
+  email?: string;
+  clinic_name?: string;
+  location?: Array<{
+    city: string;
+    address: string;
+    phone: string;
   }>;
-  website: string; // Make sure this is included
-  avatar_url?: string;
-  location?: string;
+  testimonials?: Array<{
+    text: string;
+    location: string;
+    author: string;
+  }>;
 }
 
-// Example API call to create/update doctor profile
-const updateDoctorProfile = async (doctorData: Partial<DoctorProfile>) => {
-  const { data, error } = await supabase
-    .from('doctor_profiles')
-    .upsert({
-      id: doctorData.id,
-      first_name: doctorData.first_name,
-      last_name: doctorData.last_name,
-      specialty: doctorData.specialty,
-      clinic_name: doctorData.clinic_name,
-      phone: doctorData.phone,
-      location: doctorData.location,
-      avatar_url: doctorData.avatar_url,
-      website: doctorData.website // Include website field
-    })
-    .select();
+// In EnhancedChatBot.tsx, update the doctor state
+const [doctor, setDoctor] = useState<DoctorProfile | null>(null);
 
-  if (error) throw error;
-  return data;
-};
+// Update doctor fetching effect
+useEffect(() => {
+  const fetchDoctorInfo = async () => {
+    if (!doctor.id) return;
+    
+    try {
+      console.log('🏥 Fetching doctor info:', doctor.id);
+      const { data, error } = await supabase
+        .from('doctor_profiles')
+        .select('id, name, credentials, website, phone, email, clinic_name')
+        .eq('id', doctor.id)
+        .single();
+        
+      if (error) throw error;
+      
+      if (data) {
+        console.log('✅ Doctor data found:', data);
+        setDoctor(data);
+      } else {
+        console.log('❌ No doctor data found');
+      }
+    } catch (error) {
+      console.error('Error fetching doctor:', error);
+    }
+  };
+
+  if (doctor.id) {
+    fetchDoctorInfo();
+  }
+}, [doctor.id]);

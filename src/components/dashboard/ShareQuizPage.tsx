@@ -656,15 +656,15 @@ const mailiframSrc = URL.createObjectURL(blob);
                     <CardContent className="space-y-4">
                       <div className="space-y-2">
                         <h4 className="font-medium">Send from</h4>
-                        <p className="text-sm text-gray-600">aerin-medical@involveme.com</p>
+                        <p className="text-sm text-gray-600">{doctorProfile ? (doctorProfile.email) : "your-email@exmaple.com"}</p>
                       </div>
                       <div className="space-y-2">
                         <h4 className="font-medium">Sender Name</h4>
-                        <p className="text-sm text-gray-600">Mehdi Arani</p>
+                        <p className="text-sm text-gray-600">{doctorProfile ? (doctorProfile.first_name) : "Your name" }</p>
                       </div>
                       <div className="space-y-2">
                         <h4 className="font-medium">Subject</h4>
-                        <p className="text-sm text-gray-600">Subject here</p>
+                        <p className="text-sm text-gray-600">Give {quizId} Assessment and get to know about your results instantly</p>
                       </div>
                     </CardContent>
                   </Card>

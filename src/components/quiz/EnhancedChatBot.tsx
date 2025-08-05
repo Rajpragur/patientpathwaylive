@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { QuizType } from '@/types/quiz';
@@ -459,6 +458,7 @@ export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                   <div className={`flex flex-col items-center gap-3 p-4 rounded-2xl border-2 ${getSeverityColor(quizResult.severity)}`}>
                     {getSeverityIcon(quizResult.severity)}
                     <div className="text-center">
@@ -480,7 +480,7 @@ export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
                     </div>
                   </div>
                 </div>
-                
+                </>
                 <div className="mb-6 p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200">
                   <h4 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
                     <Brain className="w-5 h-5 text-[#0E7C9D]" />

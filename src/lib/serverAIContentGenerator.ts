@@ -53,15 +53,15 @@ function createFallbackContent(doctor: DoctorProfile, colors: string[]): PageCon
         {
           text: "After years of poor sleep and breathing issues, the VivAer procedure completely changed my life. I can finally breathe clearly through my nose!",
           author: "Jennifer K.",
-          location: doctor.locations[0]?.city || "Local Patient"
+          location: doctor.location[0]?.city || "Local Patient"
         },
         {
           text: "Dr. Smith explained all my options clearly and the Latera procedure was quick and effective. Highly recommend for anyone struggling with nasal breathing.",
           author: "Michael R.",
-          location: doctor.locations[0]?.city || "Local Patient"
+          location: doctor.location[0]?.city || "Local Patient"
         }
       ],
-      contact: `Schedule your consultation with ${doctor.name} today. Call ${doctor.locations[0]?.phone || 'our office'} or visit our convenient locations in ${doctor.locations.map(l => l.city).join(' and ')}.`,
+      contact: `Schedule your consultation with ${doctor.name} today. Call ${doctor.location[0]?.phone || 'our office'} or visit our convenient locations in ${doctor.location.map(l => l.city).join(' and ')}.`,
       cta: "Take our quick 2-minute quiz to discover if you're a candidate for advanced nasal airway treatments and start breathing better today!",
       colors: {
         primary: colors[0] || '#2563eb',
@@ -122,7 +122,7 @@ You are a medical copywriter specializing in nasal airway obstruction treatments
 DOCTOR INFORMATION:
 - Name: ${doctor.name}
 - Credentials: ${doctor.credentials}
-- Locations: ${doctor.locations.map(l => `${l.city}: ${l.address} (${l.phone})`).join('; ')}
+- Locations: ${doctor.location.map(l => `${l.city}: ${l.address} (${l.phone})`).join('; ')}
 - Website: ${doctor.website || 'Not provided'}
 ${websiteData.title ? `- Website Title: ${websiteData.title}` : ''}
 ${websiteData.description ? `- Website Description: ${websiteData.description}` : ''}
