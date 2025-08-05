@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { EmbeddedChatBot } from '@/components/quiz/EmbeddedChatBot';
-import { quizzes } from '@/data/quizzes';
-import { supabase } from '@/integrations/supabase/client';
+import { EmbeddedChatBot } from '../../../src/components/quiz/EmbeddedChatBot';
+import { quizzes } from '../../../src/data/quizzes';
+import { supabase } from '../../../src/integrations/supabase/client';
 
 // Add these type definitions at the top of the file
 type QuizType = 'nose' | 'snot22' | 'tnss' | 'dhi' | 'epworth' | 'stop' | 'hhia' | string;

@@ -2,10 +2,10 @@
 // This file runs on the server (e.g., in a Next.js API route, or a dedicated Node.js server)
 
 // Import interfaces that are defined in contentGenerator.ts
-import { DoctorProfile } from '@/types/doctor';
-import { PageContent, Testimonial, TreatmentOption } from '@/types/content';
-import { ScrapedData, scrapeWebsiteData } from './serverScraper';
-import dotenv from 'dotenv';
+import { PageContent, DoctorProfile, Testimonial, TreatmentOption } from './contentGenerator'; 
+
+// Import ScrapedData specifically from serverScraper.ts, where it is defined
+import { ScrapedData, scrapeWebsiteData } from './serverScraper'; 
 
 // Fallback content generator - useful for server-side if AI fails
 function createFallbackContent(doctor: DoctorProfile, colors: string[]): PageContent {
@@ -71,16 +71,6 @@ function createFallbackContent(doctor: DoctorProfile, colors: string[]): PageCon
     };
   }
 
-// Add type guard functions at the top of the file
-function isValidColor(color: string): boolean {
-  return /^#[0-9A-Fa-f]{6}$/.test(color);
-}
-
-function getDefaultColors(): string[] {
-  return ['#2563eb', '#1e40af', '#3b82f6'];
-}
-
-// Update the generatePageContent function
 export async function generatePageContent(doctor: DoctorProfile, scrapedData?: ScrapedData): Promise<PageContent> {
   const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
@@ -89,34 +79,35 @@ export async function generatePageContent(doctor: DoctorProfile, scrapedData?: S
     throw new Error('AI service not configured.');
   }
 
-  try {
-    // Initialize websiteData with default values
-    let websiteData: ScrapedData = {
+  // Try to scrape website if URL exists and no scraped data provided
+  let websiteData = scrapedData;
+  if (!websiteData && doctor.website) {
+    try {
+      console.log('Attempting to scrape website:', doctor.website);
+      websiteData = await scrapeWebsiteData(doctor.website);
+      console.log('Successfully scraped website data');
+    } catch (error) {
+      console.error('Failed to scrape website:', error);
+      websiteData = {
+        content: '',
+        colors: ['#2563eb', '#1e40af', '#3b82f6'],
+        title: '',
+        description: ''
+      };
+    }
+  }
+
+  // If still no website data, use empty defaults
+  if (!websiteData) {
+    websiteData = {
       content: '',
-      colors: getDefaultColors(),
+      colors: ['#2563eb', '#1e40af', '#3b82f6'],
       title: '',
       description: ''
     };
+  }
 
-    // Try to use provided scrapedData or scrape website
-    if (scrapedData) {
-      websiteData = scrapedData;
-    } else if (doctor.website) {
-      try {
-        console.log('🌐 Attempting to scrape website:', doctor.website);
-        websiteData = await scrapeWebsiteData(doctor.website);
-        console.log('✅ Successfully scraped website data');
-      } catch (error) {
-        console.error('❌ Failed to scrape website:', error);
-      }
-    }
-
-    // Ensure colors are valid
-    websiteData.colors = websiteData.colors.map((color, index) => 
-      isValidColor(color) ? color : getDefaultColors()[index]
-    );
-
-    const prompt = `
+  const prompt = `
 You are a medical copywriter specializing in nasal airway obstruction treatments. Create comprehensive landing page content using the following information:
 
 DOCTOR INFORMATION:
@@ -212,26 +203,21 @@ REQUIREMENTS:
 - Prioritize content from the scraped website where it's directly relevant and high quality.
 `;
 
+  try {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`, // Securely use API key
         'Content-Type': 'application/json',
-        'HTTP-Referer': `${process.env.NEXT_PUBLIC_SITE_URL}`, // Required for OpenRouter
-        'X-Title': 'Nasal Treatment Landing Page Generator' // Optional but recommended
       },
       body: JSON.stringify({
-        model: 'mistralai/mistral-7b-instruct:free',
+        model: 'mistralai/mistral-7b-instruct:free', // Or another suitable model
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 2000,
         temperature: 0.7,
-        response_format: { type: "json_object" }
+        response_format: { type: "json_object" } // Request JSON output directly
       }),
     });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
 
     const data = await response.json();
 
@@ -246,15 +232,15 @@ REQUIREMENTS:
     try {
       const parsedContent = JSON.parse(content);
 
-      // Robust validation and default application
+      // Robust validation and default application on the server-side
       const validatedContent: PageContent = {
-        headline: parsedContent.headline || createFallbackContent(doctor, websiteData.colors).headline,
-        intro: parsedContent.intro || createFallbackContent(doctor, websiteData.colors).intro,
-        whatIsNAO: parsedContent.whatIsNAO || createFallbackContent(doctor, websiteData.colors).whatIsNAO,
+        headline: parsedContent.headline || createFallbackContent(doctor, scrapedData.colors).headline,
+        intro: parsedContent.intro || createFallbackContent(doctor, scrapedData.colors).intro,
+        whatIsNAO: parsedContent.whatIsNAO || createFallbackContent(doctor, scrapedData.colors).whatIsNAO,
         symptoms: Array.isArray(parsedContent.symptoms) && parsedContent.symptoms.length >= 9
           ? parsedContent.symptoms.slice(0, 9)
-          : createFallbackContent(doctor, websiteData.colors).symptoms,
-        treatments: parsedContent.treatments || createFallbackContent(doctor, websiteData.colors).treatments,
+          : createFallbackContent(doctor, scrapedData.colors).symptoms,
+        treatments: parsedContent.treatments || createFallbackContent(doctor, scrapedData.colors).treatments,
         treatmentOptions: Array.isArray(parsedContent.treatmentOptions) && parsedContent.treatmentOptions.length >= 3
           ? parsedContent.treatmentOptions.map((option: any) => ({
               name: option?.name || 'Treatment Option',
@@ -262,24 +248,24 @@ REQUIREMENTS:
               cons: option?.cons || 'Some limitations may apply',
               invasiveness: option?.invasiveness || 'Varies by procedure'
             }))
-          : createFallbackContent(doctor, websiteData.colors).treatmentOptions,
-        vivAerOverview: parsedContent.vivAerOverview || createFallbackContent(doctor, websiteData.colors).vivAerOverview,
-        lateraOverview: parsedContent.lateraOverview || createFallbackContent(doctor, websiteData.colors).lateraOverview,
-        surgicalProcedures: parsedContent.surgicalProcedures || createFallbackContent(doctor, websiteData.colors).surgicalProcedures,
-        whyChoose: parsedContent.whyChoose || createFallbackContent(doctor, websiteData.colors).whyChoose,
+          : createFallbackContent(doctor, scrapedData.colors).treatmentOptions,
+        vivAerOverview: parsedContent.vivAerOverview || createFallbackContent(doctor, scrapedData.colors).vivAerOverview,
+        lateraOverview: parsedContent.lateraOverview || createFallbackContent(doctor, scrapedData.colors).lateraOverview,
+        surgicalProcedures: parsedContent.surgicalProcedures || createFallbackContent(doctor, scrapedData.colors).surgicalProcedures,
+        whyChoose: parsedContent.whyChoose || createFallbackContent(doctor, scrapedData.colors).whyChoose,
         testimonials: Array.isArray(parsedContent.testimonials) && parsedContent.testimonials.length >= 2
           ? parsedContent.testimonials.map((t: any) => ({
               text: t?.text || 'Great experience.',
               author: t?.author || 'Patient',
               location: t?.location || 'Local'
             }))
-          : createFallbackContent(doctor, websiteData.colors).testimonials,
-        contact: parsedContent.contact || createFallbackContent(doctor, websiteData.colors).contact,
-        cta: parsedContent.cta || createFallbackContent(doctor, websiteData.colors).cta,
+          : createFallbackContent(doctor, scrapedData.colors).testimonials,
+        contact: parsedContent.contact || createFallbackContent(doctor, scrapedData.colors).contact,
+        cta: parsedContent.cta || createFallbackContent(doctor, scrapedData.colors).cta,
         colors: {
-          primary: isValidColor(parsedContent.colors?.primary) ? parsedContent.colors.primary : websiteData.colors[0],
-          secondary: isValidColor(parsedContent.colors?.secondary) ? parsedContent.colors.secondary : websiteData.colors[1],
-          accent: isValidColor(parsedContent.colors?.accent) ? parsedContent.colors.accent : websiteData.colors[2]
+          primary: parsedContent.colors?.primary || scrapedData.colors[0] || '#2563eb',
+          secondary: parsedContent.colors?.secondary || scrapedData.colors[1] || '#1e40af',
+          accent: parsedContent.colors?.accent || scrapedData.colors[2] || '#3b82f6'
         }
       };
 
@@ -287,11 +273,11 @@ REQUIREMENTS:
 
     } catch (parseError) {
       console.error('Server-side JSON parsing failed:', parseError);
-      return createFallbackContent(doctor, websiteData.colors);
+      return createFallbackContent(doctor, scrapedData.colors); // Fallback on parsing failure
     }
 
   } catch (error) {
-    console.error('❌ Server-side AI content generation failed:', error);
-    return createFallbackContent(doctor, getDefaultColors());
+    console.error('Server-side AI content generation failed:', error);
+    return createFallbackContent(doctor, scrapedData.colors); // Fallback on API call failure
   }
 }

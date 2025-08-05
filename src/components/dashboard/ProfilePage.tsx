@@ -16,7 +16,8 @@ import {
   Camera,
   Save,
   Upload,
-  CheckCircle
+  CheckCircle,
+  Globe
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -35,7 +36,8 @@ export function ProfilePage() {
     specialty: '',
     clinic_name: '',
     avatar_url: '',
-    doctor_id: ''
+    doctor_id: '',
+    website: ''
   });
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +82,8 @@ export function ProfilePage() {
           specialty: profile.specialty || '',
           clinic_name: profile.clinic_name || '',
           avatar_url: profile.avatar_url || '',
-          doctor_id: profile.doctor_id || ''
+          doctor_id: profile.doctor_id || '',
+          website: profile.website || ''
         });
       } else {
         console.log('No doctor profile found, creating one...');
@@ -115,7 +118,8 @@ export function ProfilePage() {
             specialty: newProfile[0].specialty || '',
             clinic_name: newProfile[0].clinic_name || '',
             avatar_url: newProfile[0].avatar_url || '',
-            doctor_id: newProfile[0].doctor_id || ''
+            doctor_id: newProfile[0].doctor_id || '',
+            website: newProfile[0].website || ''
           });
         } else {
           setError('Failed to create doctor profile');
@@ -239,21 +243,29 @@ export function ProfilePage() {
     }
   };
 
+  // Update the handleSave function to validate and format the website URL
   const handleSave = async () => {
     if (!user) return;
     
     setSaving(true);
     try {
-      // Check if a doctor profile already exists
-      const { data: existingProfiles, error: fetchError } = await supabase
-        .from('doctor_profiles')
-        .select('id')
-        .eq('user_id', user.id);
-      
-      if (fetchError) {
-        throw fetchError;
+      // Format website URL if provided
+      let formattedWebsite = formData.website;
+      if (formattedWebsite && !formattedWebsite.startsWith('http')) {
+        formattedWebsite = `https://${formattedWebsite}`;
       }
       
+      // Validate website URL
+      if (formattedWebsite) {
+        try {
+          new URL(formattedWebsite);
+        } catch (e) {
+          toast.error('Please enter a valid website URL');
+          setSaving(false);
+          return;
+        }
+      }
+
       const profileData = {
         user_id: user.id,
         first_name: formData.first_name,
@@ -264,8 +276,17 @@ export function ProfilePage() {
         clinic_name: formData.clinic_name,
         avatar_url: formData.avatar_url,
         doctor_id: formData.doctor_id || generateDoctorId(),
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        website: formattedWebsite // Add formatted website
       };
+
+      // Check if profile exists
+      const { data: existingProfiles, error: fetchError } = await supabase
+        .from('doctor_profiles')
+        .select('id')
+        .eq('user_id', user.id);
+      
+      if (fetchError) throw fetchError;
 
       if (existingProfiles && existingProfiles.length > 0) {
         // Update existing profile
@@ -288,13 +309,16 @@ export function ProfilePage() {
         }
       }
 
+      // Update form data with formatted website
+      setFormData(prev => ({ ...prev, website: formattedWebsite }));
+
       setSuccessMessage('Profile updated successfully! All changes have been saved.');
       toast.success('Profile updated successfully!');
       
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(null), 3000);
       
-      // Refresh doctor profile to ensure we have the latest data
+      // Refresh doctor profile
       await fetchDoctorProfile();
     } catch (error) {
       console.error('Error saving profile:', error);
@@ -440,6 +464,19 @@ export function ProfilePage() {
                   <span className="text-sm">{formData.clinic_name}</span>
                 </div>
               )}
+              {formData.website && (
+                <div className="flex items-center gap-3 text-gray-600">
+                  <Globe className="w-4 h-4" />
+                  <a 
+                    href={formData.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-600 hover:text-blue-800 hover:underline truncate max-w-[200px]"
+                  >
+                    {formData.website.replace(/^https?:\/\//, '')}
+                  </a>
+                </div>
+              )}
               <div className="flex items-center gap-3 text-gray-600">
                 <Calendar className="w-4 h-4" />
                 <span className="text-sm">Joined {new Date(doctorProfile?.created_at || Date.now()).toLocaleDateString()}</span>
@@ -511,10 +548,7 @@ export function ProfilePage() {
                   >
                     <option value="">Select Specialty</option>
                     <option value="ENT">ENT (Otolaryngology)</option>
-                    <option value="Pulmonology">Pulmonology</option>
                     <option value="Sleep Medicine">Sleep Medicine</option>
-                    <option value="Family Medicine">Family Medicine</option>
-                    <option value="Internal Medicine">Internal Medicine</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>
@@ -524,6 +558,17 @@ export function ProfilePage() {
                     id="clinic_name"
                     value={formData.clinic_name}
                     onChange={(e) => setFormData(prev => ({ ...prev, clinic_name: e.target.value }))}
+                    className="rounded-2xl"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label htmlFor="website">Website URL</Label>
+                  <Input
+                    id="website"
+                    type="url"
+                    placeholder="https://your-clinic-website.com"
+                    value={formData.website}
+                    onChange={(e) => setFormData(prev => ({ ...prev, website: e.target.value }))}
                     className="rounded-2xl"
                   />
                 </div>

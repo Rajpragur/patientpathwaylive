@@ -1,60 +1,28 @@
-export interface Quiz {
+export type QuizType = 'nose' | 'snot22' | 'tnss' | 'dhi' | 'epworth' | 'stop' | 'hhia' | string;
+
+export interface QuizQuestion {
+  text: string;
+  type: 'multiple_choice' | 'likert_scale';
+  options: Array<{
+    text: string;
+    value: number;
+  }>;
+}
+
+export interface QuizData {
   id: string;
   title: string;
   description: string;
-  questions: Question[];
+  questions: QuizQuestion[];
   maxScore: number;
-  scoring: ScoringCriteria;
-}
-
-export interface Question {
-  id: string;
-  text: string;
-  options: string[];
-}
-
-export interface ScoringCriteria {
-  normal: string;
-  mild: string;
-  moderate: string;
-  severe: string;
-}
-
-export interface QuizResult {
-  score: number;
-  maxScore: number;
-  severity: 'normal' | 'mild' | 'moderate' | 'severe';
-  interpretation: string;
-  summary: string;
-}
-
-export type QuizType = 'SYMPTOM_CHECKER'| 'SNOT22' | 'NOSE' | 'HHIA' | 'EPWORTH' | 'DHI' | 'STOP' | 'TNSS';
-
-export interface Lead {
-  id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  quiz_type: string;
-  quiz_name?: string;  // The human-readable name of the quiz/assessment
-  quiz_title?: string;
-  score: number;
-  created_at: string;
-  submitted_at: string;
-  lead_source?: string;
-  lead_status?: string;
-  incident_source?: string;
-  answers?: any;
-  doctor_id?: string;
-  share_key?: string;
-  scheduled_date?: string;
-  custom_quiz_id?: string;
-}
-
-export interface QuizIncident {
-  id: string;
-  name: string;
-  description?: string;
-  doctor_id: string;
-  created_at: string;
+  scoring?: {
+    mild_threshold: number;
+    moderate_threshold: number;
+    severe_threshold: number;
+  };
+  isCustom: boolean;
+  source: string;
+  medium: string;
+  campaign: string;
+  doctorId?: string;
 }

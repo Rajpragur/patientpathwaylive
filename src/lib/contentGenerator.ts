@@ -1,74 +1,91 @@
-// src/lib/contentGenerator.ts
-// This file will contain interfaces and potentially the client-side API call to your backend.
+import { DoctorProfile } from '@/types/doctor';
+import { PageContent } from '@/types/content';
+import { defaultPageContent } from '@/data/defaults';
 
-export interface DoctorProfile {
-  id: string;
-  name: string;
-  credentials: string;
-  locations: { city: string; address: string; phone: string }[];
-  testimonials: { text: string; author: string; location: string }[];
-  website: string;
-  avatar_url?: string;
+// Add environment variable validation
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+// Add type guard for API response
+interface APIResponse {
+  success: boolean;
+  data?: PageContent;
+  error?: string;
 }
 
-export interface TreatmentOption {
-  name: string;
-  pros: string;
-  cons: string;
-  invasiveness: string;
-}
-
-export interface Testimonial {
-  text: string;
-  author: string;
-  location: string;
-}
-
-export interface PageContent {
-  headline: string;
-  intro: string;
-  whatIsNAO: string;
-  symptoms: string[];
-  treatments: string;
-  treatmentOptions: TreatmentOption[];
-  vivAerOverview: string;
-  lateraOverview: string;
-  surgicalProcedures: string;
-  whyChoose: string; // This remains a single string based on your component's current usage.
-  testimonials: Testimonial[];
-  contact: string;
-  cta: string;
-  colors: {
-    primary: string;
-    secondary: string;
-    accent: string;
-  };
-}
-
-// Function to call your backend API for content generation
-export async function fetchGeneratedPageContent(doctorId: string, userId: string, doctorWebsite: string): Promise<PageContent> {
-  // In a real application, you'd call your backend API here
-  // For demonstration, let's simulate a call to a backend endpoint
+export async function fetchGeneratedPageContent(
+  doctorId: string,
+  userId: string,
+  doctorWebsite: string,
+  doctorProfile: DoctorProfile
+): Promise<PageContent> {
   try {
-    const response = await fetch('/api/generate-nose-content', { // Your backend API endpoint
+    console.group('🌐 Content Generation');
+    console.log('Doctor:', doctorProfile.name);
+    console.log('Website:', doctorWebsite);
+
+    // Add URL validation
+    let websiteUrl = doctorWebsite;
+    if (websiteUrl && !websiteUrl.startsWith('http')) {
+      websiteUrl = `https://${websiteUrl}`;
+    }
+
+    const response = await fetch(`${API_URL}/api/generate-nose-content`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // Include authentication headers if necessary, e.g., 'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({ doctorId, userId, doctorWebsite }),
+      body: JSON.stringify({
+        doctorId,
+        userId,
+        doctorWebsite: websiteUrl,
+        doctorProfile
+      }),
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to generate content from backend.');
+      const errorText = await response.text();
+      console.error('API Error:', response.status, errorText);
+      throw new Error(`API error ${response.status}: ${errorText}`);
     }
 
-    const data = await response.json();
-    return data.content as PageContent; // Your backend should return the validated PageContent
-  } catch (error) {
-    console.error('Error fetching generated content from backend:', error);
-    // You can either re-throw or return a default fallback here
-    throw error; // Let the frontend handle the fallback
+    let apiResponse: APIResponse;
+    try {
+      apiResponse = await response.json();
+    } catch (e) {
+      console.error('JSON Parse Error:', e);
+      throw new Error('Invalid JSON response from server');
+    }
+
+    if (!apiResponse.success || !apiResponse.data) {
+      throw new Error(apiResponse.error || 'No content received from server');
+    }
+
+    const data = apiResponse.data;
+    console.log('✅ Content generated successfully');
+    console.groupEnd();
+    
+    // Validate and merge content with defaults
+    return {
+      ...defaultPageContent,
+      ...data,
+      headline: data.headline || `Advanced Nasal Treatment with ${doctorProfile.name}`,
+      intro: data.intro || `Welcome to ${doctorProfile.name}'s specialized nasal treatment center.`,
+      colors: {
+        primary: data.colors?.primary || defaultPageContent.colors.primary,
+        secondary: data.colors?.secondary || defaultPageContent.colors.secondary,
+        accent: data.colors?.accent || defaultPageContent.colors.accent
+      },
+      symptoms: Array.isArray(data.symptoms) ? data.symptoms : defaultPageContent.symptoms,
+      treatmentOptions: Array.isArray(data.treatmentOptions) ? data.treatmentOptions : defaultPageContent.treatmentOptions,
+      testimonials: Array.isArray(data.testimonials) ? data.testimonials : defaultPageContent.testimonials
+    };
+  } catch (error: any) {
+    console.error('❌ Content generation error:', error.message);
+    console.groupEnd();
+    return {
+      ...defaultPageContent,
+      headline: `Advanced Nasal Treatment with ${doctorProfile.name}`,
+      intro: `Welcome to ${doctorProfile.name}'s specialized nasal treatment center.`
+    };
   }
 }
