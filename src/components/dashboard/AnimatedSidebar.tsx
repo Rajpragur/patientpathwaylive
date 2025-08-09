@@ -49,40 +49,16 @@ const mainMenuItems = [
     description: 'Manage quizzes'
   },
   {
-    id: 'social-media',
-    label: 'Social Media Creator',
-    icon: <TestTube size={22} />,
-    description: 'Create social media posts'
-  },
-  {
-    id: 'schedule',
-    label: 'Schedule',
-    icon: <Calendar size={22} />,
-    description: 'Appointments'
-  },
-  {
     id: 'automation',
     label: 'Automation',
     icon: <Zap size={22} />,
     description: 'Automated workflows'
   },
   {
-    id: 'marketing',
-    label: 'Marketing',
-    icon: <Megaphone size={22} />,
-    description: 'Marketing recommendations'
-  },
-  {
     id: 'integrations',
     label: 'Integrations',
     icon: <Globe size={22} />,
     description: 'Connect services'
-  },
-  {
-    id: 'contacts',
-    label: 'Contacts',
-    icon: <Users size={22} />,
-    description: 'Manage contacts'
   }
 ];
 
@@ -202,15 +178,15 @@ export const AnimatedSidebar: React.FC<AnimatedSidebarProps> = ({ currentPage, o
           </button>
         </div>
       </motion.aside>
+      <div className="relative md:hidden h-14 bg-white dark:bg-neutral-900 border-b border-gray-200 dark:border-neutral-800 z-40">
+      <button 
+        onClick={() => setMobileOpen(true)} 
+        className="absolute top-1/2 left-2 -translate-y-1/2 p-1 rounded hover:bg-gray-100 dark:hover:bg-neutral-800"
+      >
+        <Menu size={28} />
+      </button>
+    </div>
 
-      {/* Mobile Sidebar */}
-      <div className="md:hidden flex items-center h-14 px-4 bg-white dark:bg-neutral-900 border-b border-gray-200 dark:border-neutral-800 z-40">
-        <button onClick={() => setMobileOpen(true)} className="mr-2">
-          <Menu size={28} />
-        </button>
-        <img src="/patient-pathway-logo.jpeg" alt="Patient Pathway Logo" className="w-8 h-8 object-contain mr-2" />
-        <span className="font-bold text-lg bg-gradient-to-r from-[#FF6B35] to-[#0E7C9D] bg-clip-text text-transparent">Patient Pathway</span>
-      </div>
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
@@ -220,11 +196,13 @@ export const AnimatedSidebar: React.FC<AnimatedSidebarProps> = ({ currentPage, o
             transition={{ duration: 0.3, ease: 'easeInOut' }}
             className="fixed inset-0 z-50 bg-white dark:bg-neutral-900 flex flex-col w-64 shadow-2xl"
           >
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-neutral-800">
-              <img src="/patient-pathway-logo.jpeg" alt="Patient Pathway Logo" className="w-8 h-8 object-contain" />
-              <button onClick={() => setMobileOpen(false)} className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-neutral-800">
+            <div className="flex flex-col-3 items-center justify-between p-4 border-b border-gray-200 dark:border-neutral-800">
+                <button onClick={() => setMobileOpen(false)} className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-neutral-800">
                 <ChevronLeft size={22} />
-              </button>
+                </button>
+              <img src="/patient-pathway-logo.jpeg" alt="Patient Pathway Logo" className="w-8 h-8 object-contain mr-2" /> 
+              <span className="font-bold text-lg bg-gradient-to-r from-[#FF6B35] to-[#0E7C9D] bg-clip-text text-transparent">Patient Pathway</span>
+
             </div>
             <div className="flex-1 overflow-y-auto py-4 px-3">{mainMenuItems.map(renderMenuItem)}</div>
             <div className="border-t border-gray-200 dark:border-neutral-800 py-2 px-3">{bottomMenuItems.map(renderMenuItem)}</div>

@@ -26,13 +26,11 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
     try {
       const { error } = await signIn(email, password);
       if (error) {
-        console.error('Login error:', error);
         toast.error(error.message || 'Login failed');
       } else {
         toast.success('Signed in successfully');
       }
     } catch (error: any) {
-      console.error('Login error:', error);
       toast.error('An unexpected error occurred');
     } finally {
       setLoading(false);
@@ -46,7 +44,6 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
       
       // Get the current origin for redirect
       const currentOrigin = window.location.origin;
-      console.log('Current origin:', currentOrigin);
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -66,12 +63,8 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
         } else {
           toast.error('Google sign-in failed. Please try again or use email/password login.');
         }
-      } else {
-        console.log('Google sign-in initiated successfully');
-        // Don't show success message here as the redirect will happen
       }
     } catch (error: any) {
-      console.error('Google sign-in error:', error);
       toast.error('Google sign-in temporarily unavailable. Please use email/password login.');
     } finally {
       setGoogleLoading(false);

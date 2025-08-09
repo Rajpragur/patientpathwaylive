@@ -10,6 +10,8 @@ export interface Location {
 export interface DoctorProfile {
   id: string;
   name: string;
+  first_name?: string;
+  last_name?: string;
   credentials: string;
   website?: string;
   phone?: string;
@@ -25,6 +27,8 @@ export interface DoctorProfile {
     location: string;
     author: string;
   }>;
+  specialty?: string;
+  avatar_url?: string;
 }
 
 // In EnhancedChatBot.tsx, update the doctor state

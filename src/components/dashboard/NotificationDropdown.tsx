@@ -76,10 +76,8 @@ export function NotificationDropdown() {
       
       // Use the first profile if multiple exist
       if (profiles && profiles.length > 0) {
-        console.log('Found doctor profile:', profiles[0].id);
         setDoctorId(profiles[0].id);
       } else {
-        console.log('No doctor profile found, creating one...');
         
         // Create a doctor profile if none exists
         const { data: newProfile, error: createError } = await supabase

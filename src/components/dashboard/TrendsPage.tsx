@@ -374,23 +374,23 @@ export function TrendsPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {trendsData.map((week, index) => (
-              <div key={week.period} className="flex items-center justify-between p-4 border rounded-lg">
+          {trendsData.map((week, index) => (
+              <div key={week.period} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-4">
                 <div className="flex-1">
-                  <h3 className="font-medium">{week.period}</h3>
-                  <div className="flex gap-4 mt-2">
-                    <Badge variant="outline" className="text-blue-600">
+                  <h3 className="font-medium mb-3">{week.period}</h3>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline" className="text-blue-600 border-blue-200">
                       New: {week.newLeads}
                     </Badge>
-                    <Badge variant="outline" className="text-yellow-600">
+                    <Badge variant="outline" className="text-yellow-600 border-yellow-200">
                       Contacted: {week.contacted}
                     </Badge>
-                    <Badge variant="outline" className="text-green-600">
+                    <Badge variant="outline" className="text-green-600 border-green-200">
                       Scheduled: {week.scheduled}
                     </Badge>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-right sm:text-right text-left shrink-0">
                   <div className="text-lg font-bold">{week.total}</div>
                   <div className="text-sm text-gray-500">total leads</div>
                 </div>

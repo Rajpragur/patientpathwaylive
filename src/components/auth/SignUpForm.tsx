@@ -24,7 +24,6 @@ export function SignUpForm({ onToggleMode, onSignUpSuccess }: SignUpFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     try {
       const { error } = await signUp(email, password, {
         first_name: firstName,

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { nanoid } from 'nanoid';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Copy, 
@@ -169,18 +170,16 @@ export function ShareQuizPage() {
   const generateShortUrl = async () => {
     setIsGeneratingShortUrl(true);
     try {
-      const longUrl = getQuizUrl();
-      
-      // Call the ulvis.net API to shorten the URL
-      const response = await fetch(`https://ulvis.net/api.php?url=${encodeURIComponent(longUrl)}`);
-      const data = await response.json();
-      
-      if (data && data.success && data.data && data.data.url) {
-        setShortUrl(data.data.url);
-        toast.success('Short URL generated successfully!');
-      } else {
-        throw new Error('Failed to generate short URL');
-      }
+      const doctorId = doctorProfile.id;
+      const shortId = nanoid(6);
+      const { error } = await supabase.from('link_mappings').insert({
+        short_id: shortId,
+        doctor_id: doctorId
+      });
+      if (error) throw error;
+      const shortUrl = `${window.location.origin}/s/${shortId}`;
+      setShortUrl(shortUrl);
+      toast.success('Short URL generated successfully!');
     } catch (error) {
       console.error('Error generating short URL:', error);
       toast.error('Failed to generate short URL. Please try again.');
@@ -192,29 +191,26 @@ export function ShareQuizPage() {
   const handleSocialShare = (platform: string) => {
     if (!shareUrl) return;
 
-    // Add source parameter to the URL for tracking
     const urlWithSource = new URL(shareUrl);
     urlWithSource.searchParams.set('source', platform);
     const finalUrl = urlWithSource.toString();
+    const trackedUrl = `${finalUrl}?utm_source=${platform}&utm_medium=social&utm_campaign=share`;
 
     let socialUrl = '';
     const message = encodeURIComponent(`Take this ${quizId} assessment to evaluate your health.`);
 
     switch (platform) {
       case 'facebook':
-        socialUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(finalUrl)}`;
+        socialUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(trackedUrl)}`;
         break;
       case 'twitter':
-        socialUrl = `https://twitter.com/intent/tweet?text=${message}&url=${encodeURIComponent(finalUrl)}`;
-        break;
-      case 'linkedin':
-        socialUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(finalUrl)}`;
+        socialUrl = `https://twitter.com/intent/tweet?text=${message}&url=${encodeURIComponent(trackedUrl)}`;
         break;
       case 'whatsapp':
-        socialUrl = `https://wa.me/?text=${message}%20${encodeURIComponent(finalUrl)}`;
+        socialUrl = `https://wa.me/?text=${message}%20${encodeURIComponent(trackedUrl)}`;
         break;
       case 'telegram':
-        socialUrl = `https://t.me/share/url?url=${encodeURIComponent(finalUrl)}&text=${message}`;
+        socialUrl = `https://t.me/share/url?url=${encodeURIComponent(trackedUrl)}&text=${message}`;
         break;
       default:
         return;
@@ -240,9 +236,9 @@ export function ShareQuizPage() {
     setShowQrCode(true);
   };
 
+  const embedUrl = `${baseUrl}/embed/quiz/${quizId}`;
+
   const shareUrl = getQuizUrl();
-  const doctorLandingUrl = doctorProfile?.id ? `${baseUrl}/share/nose/${doctorProfile.id}` : `${baseUrl}/share/nose/demo`;
-  const doctorEditingUrl = doctorProfile?.id ? `${baseUrl}/nose-editor/${doctorProfile.id}` : `${baseUrl}/share/nose/demo`;
   const handleShareWithContactList = () => {
     if (!selectedList) {
       toast.error('Please select a contact list');
@@ -365,6 +361,9 @@ const mailiframSrc = URL.createObjectURL(blob);
     linkedinMessage: `Share this ${quizId || 'assessment'} with your patients to evaluate their symptoms.`
   };
 
+  
+  const doctorLandingUrl = doctorProfile?.id ? `${baseUrl}/share/${quizId}/${doctorProfile.id}` : `${baseUrl}/share/${quizId}/demo`;
+  const doctorEditingUrl = doctorProfile?.id ? `${baseUrl}/${quizId}-editor/${doctorProfile.id}` : `${baseUrl}/share/${quizId}/demo`;
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white border-b">
@@ -398,7 +397,7 @@ const mailiframSrc = URL.createObjectURL(blob);
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="full-page" className="flex items-center gap-2">
               <Maximize className="w-4 h-4" />
               Full Page
@@ -406,10 +405,6 @@ const mailiframSrc = URL.createObjectURL(blob);
             <TabsTrigger value="embed" className="flex items-center gap-2">
               <Globe className="w-4 h-4" />
               Embed
-            </TabsTrigger>
-            <TabsTrigger value="contact-lists" className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Contact Lists
             </TabsTrigger>
           </TabsList>
 
@@ -428,22 +423,6 @@ const mailiframSrc = URL.createObjectURL(blob);
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Web Source (for direct links)
-                    </label>
-                    <select 
-                      value={webSource} 
-                      onChange={(e) => setWebSource(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-md"
-                    >
-                      <option value="website">Website</option>
-                      <option value="blog">Blog</option>
-                      <option value="newsletter">Newsletter</option>
-                      <option value="print">Print Materials</option>
-                      <option value="direct">Direct Link</option>
-                    </select>
-                  </div>
                   
                   <div className="flex gap-2">
                     <Input
@@ -467,7 +446,7 @@ const mailiframSrc = URL.createObjectURL(blob);
                         </>
                       )}
                     </Button>
-                    {(quizId && quizId.toUpperCase() === 'NOSE') && (
+                    {
                       <>
                       <Button
                         variant="outline"
@@ -486,16 +465,7 @@ const mailiframSrc = URL.createObjectURL(blob);
                         Open Editing Page
                       </Button>
                       </>
-                    )}
-                    {(!quizId || quizId.toUpperCase() !== 'NOSE') && (
-                      <Button
-                        variant="outline"
-                        onClick={() => window.open(shareUrl, '_blank')}
-                      >
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        Preview
-                      </Button>
-                    )}
+                      }
                   </div>
 
                   {/* Short URL Generator */}
@@ -719,7 +689,7 @@ const mailiframSrc = URL.createObjectURL(blob);
                     <CardContent>
                       <div className="aspect-video bg-white border rounded-lg flex items-center justify-center">
                         <iframe
-                          src={shareUrl}
+                          src="/quiz"
                           className="w-full h-full rounded-lg"
                           title={`${quizInfo.title} Preview`}
                         />
@@ -746,89 +716,6 @@ const mailiframSrc = URL.createObjectURL(blob);
                       </div>
                     </CardContent>
                   </Card>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="contact-lists" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Share with Contact Lists</CardTitle>
-                <CardDescription>
-                  Send this assessment to your existing patient lists
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Select Contact List
-                    </label>
-                    <select 
-                      value={selectedList} 
-                      onChange={(e) => setSelectedList(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-md"
-                    >
-                      <option value="">-- Select a list --</option>
-                      {contactLists.map(list => (
-                        <option key={list.id} value={list.id}>
-                          {list.name} ({list.count} contacts)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Communication Method
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button variant="outline" className="justify-start">
-                        <Mail className="w-4 h-4 mr-2" />
-                        Email
-                      </Button>
-                      <Button variant="outline" className="justify-start">
-                        <MessageSquare className="w-4 h-4 mr-2" />
-                        SMS
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Message Template
-                    </label>
-                    <textarea 
-                      className="w-full p-2 border border-gray-300 rounded-md min-h-[100px]"
-                      defaultValue={`Hello,\n\nI'd like to invite you to take our ${quizInfo.title}. This assessment will help us better understand your symptoms.\n\n${shareUrl}\n\nThank you,\nDr. ${doctorProfile?.first_name || ''} ${doctorProfile?.last_name || ''}`}
-                    ></textarea>
-                  </div>
-                  
-                  <Button 
-                    onClick={handleShareWithContactList}
-                    className="w-full"
-                    disabled={!selectedList}
-                  >
-                    <Share2 className="w-4 h-4 mr-2" />
-                    Share with Selected List
-                  </Button>
-                </div>
-                
-                <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-                  <h3 className="font-medium text-blue-800 mb-2">Contact List Management</h3>
-                  <p className="text-sm text-blue-700 mb-3">
-                    You can manage your contact lists in the Integrations section. Import contacts from your existing patient database or create new lists.
-                  </p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="text-blue-700 border-blue-200 hover:bg-blue-100"
-                    onClick={() => navigate('/portal?tab=integrations')}
-                  >
-                    <Users className="w-3.5 h-3.5 mr-1.5" />
-                    Manage Contact Lists
-                  </Button>
                 </div>
               </CardContent>
             </Card>

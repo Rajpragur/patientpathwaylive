@@ -50,7 +50,6 @@ export function LeadsPage() {
   useEffect(() => {
     if (doctorId) {
       fetchLeads();
-      fetchMarketingEvents();
     }
   }, [doctorId, currentWeek]);
 
@@ -58,7 +57,6 @@ export function LeadsPage() {
     if (!user) return;
     
     try {
-      console.log('Fetching doctor profile for user:', user.id);
       
       // First try to get all doctor profiles for this user
       const { data: doctorProfiles, error: profileError } = await supabase
@@ -75,7 +73,6 @@ export function LeadsPage() {
       }
 
       if (!doctorProfiles || doctorProfiles.length === 0) {
-        console.log('No doctor profiles found, creating one...');
         
         // Create a doctor profile if none exists
         const { data: newProfile, error: createError } = await supabase
@@ -107,7 +104,6 @@ export function LeadsPage() {
         }
       } else {
         // Use the first doctor profile
-        console.log('Found doctor profiles:', doctorProfiles.length);
         setDoctorId(doctorProfiles[0].id);
       }
     } catch (error) {
@@ -122,7 +118,6 @@ export function LeadsPage() {
     if (!doctorId) return;
 
     try {
-      console.log('Fetching leads for doctor ID:', doctorId);
       
       // Fetch leads with explicit error handling
       const { data: leadsData, error: leadsError } = await supabase
@@ -148,8 +143,6 @@ export function LeadsPage() {
         lead_status: lead.lead_status || 'NEW',
         submitted_at: new Date(lead.submitted_at).toISOString()
       }));
-
-      console.log('Fetched leads:', transformedLeads.length);
       setLeads(transformedLeads);
     } catch (error) {
       console.error('Unexpected error:', error);
@@ -160,39 +153,6 @@ export function LeadsPage() {
     }
   };
 
-  const fetchMarketingEvents = async () => {
-    if (!doctorId) return;
-
-    setEventsLoading(true);
-    try {
-      const weekStart = startOfWeek(currentWeek, { weekStartsOn: 0 }); // Sunday
-      const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 0 }); // Saturday
-
-      console.log('Fetching marketing events for week:', format(weekStart, 'yyyy-MM-dd'), 'to', format(weekEnd, 'yyyy-MM-dd'));
-
-      const { data: eventsData, error: eventsError } = await supabase
-        .from('marketing_events')
-        .select('*')
-        .eq('doctor_id', doctorId)
-        .gte('event_date', format(weekStart, 'yyyy-MM-dd'))
-        .lte('event_date', format(weekEnd, 'yyyy-MM-dd'))
-        .order('event_date', { ascending: true });
-
-      if (eventsError) {
-        console.error('Events fetch error:', eventsError);
-        toast.error('Could not fetch marketing events');
-        return;
-      }
-
-      console.log('Fetched marketing events:', eventsData?.length || 0);
-      setMarketingEvents(eventsData || []);
-    } catch (error) {
-      console.error('Unexpected error fetching events:', error);
-      toast.error('An unexpected error occurred while fetching events');
-    } finally {
-      setEventsLoading(false);
-    }
-  };
 
   const getWeekDays = () => {
     const weekStart = startOfWeek(currentWeek, { weekStartsOn: 0 }); // Sunday

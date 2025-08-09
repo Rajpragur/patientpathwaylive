@@ -66,42 +66,14 @@ export function QuizManagementPage() {
     }
   };
 
-  const handleCopyQuiz = (quizId: string) => {
-    setSelectedBaseQuiz(quizId);
-    setActiveTab('custom');
-  };
-
-  const handleEditCustomQuiz = (quizId: string) => {
-    navigate(`/portal/edit-quiz/${quizId}`);
-  };
-
-  const handleDeleteCustomQuiz = async (quizId: string) => {
-    if (!window.confirm('Are you sure you want to delete this custom quiz? This action cannot be undone.')) return;
-    try {
-      const { error } = await supabase
-        .from('custom_quizzes')
-        .delete()
-        .eq('id', quizId);
-      if (error) throw error;
-      // Refresh list
-      fetchDoctorProfileAndQuizzes();
-    } catch (err) {
-      alert('Failed to delete quiz.');
-      console.error(err);
-    }
-  };
   const predefinedQuizzes = Object.values(quizzes).filter(quiz => quiz && quiz.id);
   const categorizedQuizzes = {
-    Nasal: ['NOSE', 'SNOT22', 'TNSS','SNOT12'],
-    Sleep: ['DHI', 'EPWORTH', 'STOP'],
-    Hearing: ['HHIA'],
-    Universal: [],
+    Nasal: ['NOSE', 'SNOT22', 'TNSS','SNOT12']
   };
   const categorizedPredefined = Object.entries(categorizedQuizzes).map(([category, ids]) => ({
     category,
     quizzes: predefinedQuizzes.filter(q => ids.includes(q.id))
-  }));  
-
+  }));
 
   return (
     <div className="p-6 space-y-6">
@@ -111,17 +83,6 @@ export function QuizManagementPage() {
           <p className="text-gray-600 mt-2">Create, edit, and share your medical assessments</p>
         </div>
       </div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="existing">Existing Quizzes</TabsTrigger>
-          <TabsTrigger value="custom">
-            <Bot className="w-4 h-4 mr-2" />
-            Custom Creator
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="existing" className="space-y-6">
           <div className="space-y-10">
             {categorizedPredefined.map(({ category, quizzes }) => (
               <div key={category}>
@@ -147,10 +108,6 @@ export function QuizManagementPage() {
                             <Share2 className="w-4 h-4 mr-2" />
                             Share
                           </Button>
-                          <Button variant="outline" size="sm" onClick={() => handleCopyQuiz(quiz.id)}>
-                            <Copy className="w-4 h-4 mr-2" />
-                            Copy & Edit
-                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -159,59 +116,7 @@ export function QuizManagementPage() {
               </div>
             ))}
 
-            {/* Custom Quizzes */}
-            {loadingCustom ? (
-              <div className="text-center py-8">Loading your custom quizzes...</div>
-            ) : customQuizzes.length > 0 && (
-              <div>
-                <h2 className="text-2xl font-semibold text-gray-800 mb-4">Your Custom Quizzes</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {customQuizzes.map((quiz) => (
-                    <Card key={quiz.id} className="hover:shadow-md transition-shadow border-blue-200">
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-lg flex items-center gap-2">
-                            {quiz.title}
-                            <Badge variant="outline" className="ml-2 bg-blue-100 text-blue-700 border-blue-300">Custom</Badge>
-                          </CardTitle>
-                          <Badge variant="secondary">{quiz.id}</Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <p className="text-sm text-gray-600">{quiz.description}</p>
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                          <span>{quiz.questions?.length || 0} Questions</span>
-                          <span>•</span>
-                          <span>Max Score: {quiz.max_score || 0}</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button size="sm" onClick={() => handleShareQuiz(quiz.id, true)} className="flex-1">
-                            <Share2 className="w-4 h-4 mr-2" />
-                            Share
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => handleEditCustomQuiz(quiz.id)}>
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit
-                          </Button>
-                          <Button variant="destructive" size="sm" onClick={() => handleDeleteCustomQuiz(quiz.id)}>
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
-        </TabsContent>
-
-        <TabsContent value="custom">
-          <CustomQuizCreator baseQuizId={selectedBaseQuiz} onQuizCreated={() => { setActiveTab('existing'); fetchDoctorProfileAndQuizzes(); }} />
-        </TabsContent>
-      </Tabs>
-      <GuidedSymptomChecker />
     </div>
   );
 }

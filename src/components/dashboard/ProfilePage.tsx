@@ -53,7 +53,6 @@ export function ProfilePage() {
     
     try {
       setLoading(true);
-      console.log('Fetching doctor profile for user:', user.id);
       
       // Get all doctor profiles for this user
       const { data: profiles, error } = await supabase
@@ -71,8 +70,6 @@ export function ProfilePage() {
       // Use the first profile if multiple exist
       if (profiles && profiles.length > 0) {
         const profile = profiles[0];
-        console.log('Found doctor profile:', profile.id);
-        console.log('Avatar URL:', profile.avatar_url);
         setDoctorProfile(profile);
         setFormData({
           first_name: profile.first_name || '',
@@ -86,7 +83,6 @@ export function ProfilePage() {
           website: profile.website || ''
         });
       } else {
-        console.log('No doctor profile found, creating one...');
         
         // Create a doctor profile if none exists
         const { data: newProfile, error: createError } = await supabase
@@ -108,7 +104,6 @@ export function ProfilePage() {
         }
 
         if (newProfile && newProfile.length > 0) {
-          console.log('Created new doctor profile:', newProfile[0].id);
           setDoctorProfile(newProfile[0]);
           setFormData({
             first_name: newProfile[0].first_name || '',
@@ -150,7 +145,6 @@ export function ProfilePage() {
 
     setUploading(true);
     try {
-      console.log('Starting avatar upload process');
       
       // Create a unique file name
       const fileExt = file.name.split('.').pop();
@@ -163,18 +157,13 @@ export function ProfilePage() {
           const urlParts = formData.avatar_url.split('/');
           const oldFileName = urlParts[urlParts.length - 1];
           if (oldFileName && oldFileName.includes('avatar-')) {
-            console.log('Attempting to delete old file:', `avatars/${oldFileName}`);
             await supabase.storage
               .from('profiles')
               .remove([`avatars/${oldFileName}`]);
           }
         } catch (error) {
-          console.log('Could not delete old avatar:', error);
         }
       }
-
-      console.log('Uploading new avatar to path:', filePath);
-      
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('profiles')
@@ -188,14 +177,12 @@ export function ProfilePage() {
         throw uploadError;
       }
 
-      console.log('Upload successful:', uploadData);
 
       // Get the public URL
       const { data: urlData } = supabase.storage
         .from('profiles')
         .getPublicUrl(filePath);
 
-      console.log('Public URL:', urlData.publicUrl);
 
       // Update the form data with the new URL
       setFormData(prev => ({ ...prev, avatar_url: urlData.publicUrl }));

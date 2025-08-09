@@ -14,7 +14,6 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Lead } from '@/types/quiz';
 import { useNavigate } from 'react-router-dom';
-import { TimeSelector } from './TimeSelector';
 
 interface EnhancedLeadsTableProps {
   leads: Lead[];
@@ -550,15 +549,6 @@ export function EnhancedLeadsTable({ leads, onLeadUpdate }: EnhancedLeadsTablePr
                 onSelect={(date) => setSelectedDate(date as Date)}
                 className="rounded-md border p-3 pointer-events-auto w-full"
                 disabled={(date) => date < new Date()}
-              />
-            </div>
-            
-            {/* Time Selector Section */}
-            <div className="flex-1">
-              <h3 className="font-medium mb-3">Select Time</h3>
-              <TimeSelector
-                selectedTime={selectedTime}
-                onTimeSelect={setSelectedTime}
               />
             </div>
           </div>

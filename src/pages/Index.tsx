@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { motion, useScroll, useMotionValueEvent } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import ShadowOverlay from "@/components/ui/shadowOverlay";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -172,7 +173,6 @@ const Index = () => {
           />
           <div className="absolute inset-0 bg-gradient-to-b from-white/90 to-white/50" />
         </div>
-        
         <div className="relative z-10 max-w-5xl mx-auto px-6 py-32 text-center">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}

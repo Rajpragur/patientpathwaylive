@@ -1,4 +1,3 @@
-// Example: src/pages/share/NOSELandingPage.tsx (Key changes in useEffect)
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { EmbeddedChatBot } from '@/components/quiz/EmbeddedChatBot';
@@ -17,7 +16,7 @@ const defaultDoctor: DoctorProfile = {
   last_name: 'Smith',
   credentials: 'MD',
   specialty: 'MD',
-  locations: [{
+  location: [{
     city: 'Main Office',
     address: 'Please contact for address',
     phone: 'Please contact for phone'
@@ -33,7 +32,6 @@ const defaultDoctor: DoctorProfile = {
   ],
   website: '',
   avatar_url: '/lovable-uploads/default-doctor-avatar.png',
-  location: 'Main Office'
 };
 
 // Add default page content
@@ -195,7 +193,6 @@ const EditableSection: React.FC<EditableSectionProps> = ({ editable, children })
     </div>
   );
 };
-
 // Add WebsiteEditor component
 const WebsiteEditor: React.FC<{ doctor: DoctorProfile }> = ({ doctor }) => {
   const [website, setWebsite] = useState(doctor.website || '');
@@ -335,13 +332,12 @@ const NOSELandingPage: React.FC = () => {
             last_name: data.last_name,
             credentials: data.specialty || 'MD',
             specialty: data.specialty,
-            locations: formatLocations(data),
+            location: formatLocations(data),
             clinic_name: data.clinic_name,
             phone: data.phone,
             testimonials: defaultDoctor.testimonials,
             website: data.website || '', // Add website handling
-            avatar_url: data.avatar_url || defaultDoctor.avatar_url,
-            location: data.location
+            avatar_url: data.avatar_url || defaultDoctor.avatar_url
           };
 
           console.log('Doctor website:', formattedDoctor.website); // Debug log
@@ -364,7 +360,7 @@ const NOSELandingPage: React.FC = () => {
           phone: data.phone || 'Please contact for phone'
         }];
       }
-      return defaultDoctor.locations;
+      return defaultDoctor.location;
     };
 
     fetchDoctorData();
@@ -402,7 +398,205 @@ const NOSELandingPage: React.FC = () => {
     };
     fetchChatbotColors();
   }, [doctor, user]);
+// Add this function to save generated content to Supabase
+const saveGeneratedContent = async (content: PageContent, doctorId: string, userId: string) => {
+  try {
+    // Save to ai_landing_pages table
+    const { data, error } = await supabase
+      .from('ai_landing_pages')
+      .upsert({
+        user_id: userId,
+        doctor_id: doctorId,
+        content: content,
+        chatbot_colors: chatbotColors,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_id,doctor_id'
+      });
 
+    if (error) throw error;
+    console.log('✅ Content saved to database');
+    return data;
+  } catch (error) {
+    console.error('❌ Error saving content:', error);
+    throw error;
+  }
+};
+
+// Add this function to fetch existing content from database
+const fetchExistingContent = async (doctorId: string, userId: string): Promise<PageContent | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('ai_landing_pages')
+      .select('content, chatbot_colors, updated_at')
+      .eq('user_id', userId)
+      .eq('doctor_id', doctorId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No existing content found
+        console.log('📝 No existing content found, will generate new');
+        return null;
+      }
+      throw error;
+    }
+
+    if (data?.content) {
+      console.log('✅ Found existing content from:', data.updated_at);
+      
+      // Update chatbot colors if available
+      if (data.chatbot_colors) {
+        setChatbotColors(data.chatbot_colors as ChatbotColors);
+      }
+      
+      return data.content as PageContent;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('❌ Error fetching existing content:', error);
+    return null;
+  }
+};
+
+// Modified loadAIContent function
+const loadAIContent = async () => {
+  if (!doctor?.id || !user?.id || generateAttempted.current) return;
+
+  console.group('🏥 Doctor Website Content Loading');
+  console.log('Doctor:', {
+    name: doctor.name,
+    website: doctor.website,
+    specialty: doctor.specialty
+  });
+
+  setLoadingAI(true);
+  setGenerationError(null);
+  generateAttempted.current = true;
+
+  try {
+    // First, try to fetch existing content from database
+    const existingContent = await fetchExistingContent(doctor.id, user.id);
+    
+    if (existingContent) {
+      console.log('🎯 Using existing content from database');
+      setAIContent(existingContent);
+      setLoadingAI(false);
+      console.groupEnd();
+      return;
+    }
+
+    // No existing content, generate new
+    console.log('🤖 Generating new content...');
+    
+    let websiteUrl = doctor.website || '';
+    if (websiteUrl && !websiteUrl.startsWith('http')) {
+      websiteUrl = `https://${websiteUrl}`;
+    }
+
+    console.log('🌐 Attempting to fetch content for website:', websiteUrl);
+
+    const generatedContent = await fetchGeneratedPageContent(
+      doctor.id,
+      user.id,
+      websiteUrl,
+      doctor
+    );
+
+    if (!generatedContent) {
+      throw new Error('No content generated');
+    }
+
+    console.group('🎯 Generated Content');
+    console.log('Headlines:', generatedContent.headline);
+    console.log('Intro:', generatedContent.intro);
+    console.log('Treatment Options:', generatedContent.treatmentOptions);
+    console.log('Theme Colors:', generatedContent.colors);
+    console.groupEnd();
+
+    // Save the generated content to database
+    await saveGeneratedContent(generatedContent, doctor.id, user.id);
+
+    setAIContent(generatedContent);
+    
+    if (generatedContent.colors) {
+      const newChatbotColors: ChatbotColors = {
+        primary: generatedContent.colors.primary,
+        background: '#ffffff',
+        text: '#ffffff',
+        userBubble: generatedContent.colors.primary,
+        botBubble: '#f1f5f9',
+        userText: '#ffffff',
+        botText: '#334155'
+      };
+      console.log('🤖 Chatbot Theme:', newChatbotColors);
+      setChatbotColors(newChatbotColors);
+    }
+
+  } catch (error: any) {
+    console.error('❌ Content Generation Error:', error);
+    const errorMessage = error.message || 'Unknown error';
+    setGenerationError(
+      `Failed to generate content: ${errorMessage}. Using default content.`
+    );
+    // Use doctor-specific default content
+    setAIContent({
+      ...defaultPageContent,
+      headline: `Advanced Nasal Treatment with ${doctor.name}`,
+      intro: `Welcome to ${doctor.name}'s specialized nasal treatment center.`
+    });
+  } finally {
+    setLoadingAI(false);
+    console.groupEnd();
+  }
+};
+
+// Optional: Add a regenerate content function
+const regenerateContent = async () => {
+  if (!doctor?.id || !user?.id) return;
+  
+  setLoadingAI(true);
+  setGenerationError(null);
+  
+  try {
+    let websiteUrl = doctor.website || '';
+    if (websiteUrl && !websiteUrl.startsWith('http')) {
+      websiteUrl = `https://${websiteUrl}`;
+    }
+
+    const generatedContent = await fetchGeneratedPageContent(
+      doctor.id,
+      user.id,
+      websiteUrl,
+      doctor
+    );
+
+    if (generatedContent) {
+      await saveGeneratedContent(generatedContent, doctor.id, user.id);
+      setAIContent(generatedContent);
+      
+      if (generatedContent.colors) {
+        const newChatbotColors: ChatbotColors = {
+          primary: generatedContent.colors.primary,
+          background: '#ffffff',
+          text: '#ffffff',
+          userBubble: generatedContent.colors.primary,
+          botBubble: '#f1f5f9',
+          userText: '#ffffff',
+          botText: '#334155'
+        };
+        setChatbotColors(newChatbotColors);
+      }
+    }
+  } catch (error) {
+    console.error('Error regenerating content:', error);
+    setGenerationError('Failed to regenerate content');
+  } finally {
+    setLoadingAI(false);
+  }
+};
   useEffect(() => {
     const loadAIContent = async () => {
       if (!doctor?.id || !user?.id || generateAttempted.current) return;
@@ -617,7 +811,7 @@ const NOSELandingPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-8 text-center">
           <div className="mb-12">
             <div className="w-20 rounded-2xl flex items-center justify-center mx-auto mb-8">
-              <img src={doctorAvatarUrl} alt="Practice Logo" className="w-20 rounded-xl object-cover" />
+              <img src={doctorAvatarUrl} alt="Clinic's Logo" className="w-20 rounded-xl object-cover" />
             </div>
             <h1 className="text-5xl font-bold text-slate-900 mb-8 leading-tight max-w-6xl mx-auto">
               {aiContent.headline}

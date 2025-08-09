@@ -5,12 +5,10 @@ import { AnimatedSidebar } from '@/components/dashboard/AnimatedSidebar';
 import { QuizManagementPage } from '@/components/dashboard/QuizManagementPage';
 import { TrendsPage } from '@/components/dashboard/TrendsPage';
 import { LeadsPage } from '@/components/dashboard/LeadsPage';
-import { SchedulePage } from '@/components/dashboard/SchedulePage';
 import { ProfilePage } from '@/components/dashboard/ProfilePage';
 import { ConfigurationPage } from '@/components/dashboard/ConfigurationPage';
 import { SettingsPage } from '@/components/dashboard/SettingsPage';
 import { SupportPage } from '@/components/dashboard/SupportPage';
-import { AIChatAgent } from '@/components/dashboard/AIChatAgent';
 import { SocialIntegrationsPage } from '@/components/dashboard/SocialIntegrationsPage';
 import { AutomationPage } from '@/components/dashboard/AutomationPage';
 import { MarketingRecommendations } from '@/components/dashboard/MarketingRecommendations';
@@ -20,7 +18,6 @@ import { toast } from 'sonner';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ContactsPage } from '@/components/dashboard/ContactsPage';
 import SocialMediaCreator from '@/components/dashboard/SocialMediaCreator';
 
 export default function PortalPage() {
@@ -81,7 +78,6 @@ export default function PortalPage() {
     return <PageLoader loading={true} />;
   }
 
-  // Don't render anything if no user (will redirect)
   if (!user) {
     return null;
   }
@@ -96,20 +92,8 @@ export default function PortalPage() {
         return <TrendsPage />;
       case 'quizzes':
         return <QuizManagementPage />;
-      case 'share':
-        return <SocialIntegrationsPage />;
-      case 'social-media':
-        return <SocialMediaCreator />;
-      case 'schedule':
-        return <SchedulePage />;
-      case 'social':
-        return <SocialIntegrationsPage />;
       case 'automation':
         return <AutomationPage />;
-      case 'marketing':
-        return <MarketingRecommendations />;
-      case 'symptom-checker':
-        return <SymptomChecker />;
       case 'integrations':
         return <IntegrationsPage />;
       case 'profile':
@@ -120,8 +104,6 @@ export default function PortalPage() {
         return <SettingsPage />;
       case 'support':
         return <SupportPage />;
-      case 'contacts':
-        return <ContactsPage />;
       default:
         return <LeadsPage />;
     }
@@ -191,9 +173,6 @@ export default function PortalPage() {
             </motion.div>
           </AnimatePresence>
         </div>
-        
-        {/* AI Chat Agent */}
-        <AIChatAgent />
       </main>
     </div>
   );

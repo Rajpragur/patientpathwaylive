@@ -69,10 +69,8 @@ export function QuizLeadsTable({ leads, onStatusChange }: QuizLeadsTableProps) {
       lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       lead.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       lead.phone?.toLowerCase().includes(searchQuery.toLowerCase());
-
     const matchesStatus = statusFilter === 'ALL' || lead.lead_status === statusFilter;
     const matchesQuizType = quizTypeFilter === 'ALL' || lead.quiz_type === quizTypeFilter;
-
     return matchesSearch && matchesStatus && matchesQuizType;
   });
 

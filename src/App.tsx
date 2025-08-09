@@ -24,6 +24,7 @@ import NOSELandingPage from './pages/share/NOSELandingPage';
 import { AuthProvider } from '@/hooks/useAuth';
 import NoseEditorPage from './pages/NoseEditorPage';
 import ShareQuizPage from './pages/ShareQuizPage';
+import ShortLinkRedirect from './pages/ShortLinkRedirect';
 
 const queryClient = new QueryClient();
 
@@ -56,6 +57,7 @@ function App() {
               <Route path="/embed/quiz" element={<EmbeddedQuiz />} />
               <Route path="/social-accounts" element={<SocialAccountsPage />} />
               <Route path="/nose-editor/:doctorId" element={<NoseEditorPage />} />
+              <Route path="/s/:shortId" element={<ShortLinkRedirect />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>

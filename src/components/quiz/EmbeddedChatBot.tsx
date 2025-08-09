@@ -10,7 +10,6 @@ import { calculateQuizScore } from '@/utils/quizScoring';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
-import { ImprovedAIAssistant } from './ImprovedAIAssistant';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
@@ -881,17 +880,6 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
           )}
         </motion.div>
       </div>
-
-      {showAIAssistant && result && (
-        <ImprovedAIAssistant
-          quizTitle={quizData.title}
-          score={result.score}
-          maxScore={quizData.maxScore}
-          severity={result.severity}
-          interpretation={result.interpretation}
-          onClose={() => setShowAIAssistant(false)}
-        />
-      )}
     </div>
   );
 }

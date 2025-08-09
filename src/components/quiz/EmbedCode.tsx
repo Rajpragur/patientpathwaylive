@@ -7,17 +7,18 @@ import { Copy, Check } from 'lucide-react';
 interface EmbedCodeProps {
   quizType: string;
   shareKey?: string;
+  width?: number;
+  height?: number;
 }
 
-export function EmbedCode({ quizType, shareKey }: EmbedCodeProps) {
+export function EmbedCode({ quizType, shareKey, width, height }: EmbedCodeProps) {
   const [copied, setCopied] = useState(false);
   const baseUrl = window.location.origin;
   const embedUrl = `${baseUrl}/embed/quiz/${quizType}${shareKey ? `?key=${shareKey}` : ''}`;
-  
   const embedCode = `<iframe
   src="${embedUrl}"
-  width="400"
-  height="600"
+  width=${width}
+  height=${height}
   frameborder="0"
   style="border: none; border-radius: 16px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);"
 ></iframe>`;
