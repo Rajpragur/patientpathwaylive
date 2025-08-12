@@ -25,6 +25,8 @@ import { AuthProvider } from '@/hooks/useAuth';
 import NoseEditorPage from './pages/NoseEditorPage';
 import ShareQuizPage from './pages/ShareQuizPage';
 import ShortLinkRedirect from './pages/ShortLinkRedirect';
+import EmbeddedChatbotPage from './pages/EmbeddedChatbotPage';
+import Embed from './pages/Embed';
 
 const queryClient = new QueryClient();
 
@@ -58,6 +60,8 @@ function App() {
               <Route path="/social-accounts" element={<SocialAccountsPage />} />
               <Route path="/nose-editor/:doctorId" element={<NoseEditorPage />} />
               <Route path="/s/:shortId" element={<ShortLinkRedirect />} />
+              <Route path="/embed/chatbot/:quizId" element={<EmbeddedChatbotPage />} />
+              <Route path="/embed/:quizId" element={<Embed />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>

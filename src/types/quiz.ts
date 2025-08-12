@@ -12,6 +12,7 @@ export interface Quiz {
   description: string;
   questions: QuizQuestion[];
   maxScore: number;
+  scoring: Object;
 }
 
 export interface QuizResult {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,28 +63,42 @@ export function ShareQuizPage() {
   const [customMessage, setCustomMessage] = useState('');
   const baseUrl = window.location.origin;
 
+  const doctorIdFromUrl = searchParams.get('doctor');
+  const heightFromUrl = searchParams.get('height');
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        if (user) {
-          // Get all doctor profiles for this user
+        
+        if (doctorIdFromUrl) {
+          const { data: profile, error: profileError } = await supabase
+            .from('doctor_profiles')
+            .select('*')
+            .eq('id', doctorIdFromUrl)
+            .single();
+
+          if (profileError) {
+            console.error('Error fetching doctor profile from URL:', profileError);
+            setError('Could not fetch doctor profile');
+          } else if (profile) {
+            setDoctorProfile(profile);
+          }
+        } else if (user) {
           const { data: profiles, error: profileError } = await supabase
             .from('doctor_profiles')
             .select('*')
             .eq('user_id', user.id);
-          
+
           if (profileError) {
             console.error('Error fetching doctor profile:', profileError);
             setError('Could not fetch doctor profile');
           } else if (profiles && profiles.length > 0) {
-            // Use the first profile if multiple exist
             setDoctorProfile(profiles[0]);
           } else {
-            // Create a new profile if none exists
             const { data: newProfile, error: createError } = await supabase
               .from('doctor_profiles')
-              .insert([{ 
+              .insert([{
                 user_id: user.id,
                 first_name: 'Doctor',
                 last_name: 'User',
@@ -118,18 +132,18 @@ export function ShareQuizPage() {
           }
         }
       } catch (error) {
-        console.error('Error fetching quiz:', error);
-        setError('Failed to load quiz data');
+        console.error('Error fetching data:', error);
+        setError('Failed to load page data');
       } finally {
         setLoading(false);
       }
     };
  
     fetchData();
-  }, [customQuizId]);
+  }, [customQuizId, user, doctorIdFromUrl]);
  
-  const getQuizUrl = (source?: string) => {
-    const baseQuizUrl = customQuizId 
+  const getQuizUrl = useCallback((source?: string) => {
+    const baseQuizUrl = customQuizId
       ? `${baseUrl}/custom-quiz/${customQuizId}`
       : `${baseUrl}/quiz/${quizId?.toLowerCase()}`;
     
@@ -148,14 +162,16 @@ export function ShareQuizPage() {
     trackingParams.set('utm_campaign', 'quiz_share');
 
     return `${baseQuizUrl}?${trackingParams.toString()}`;
-  };
+  }, [customQuizId, quizId, doctorProfile, webSource, baseUrl]);
 
   const getSourceMedium = (source: string) => {
     switch (source) {
       case 'facebook':
+        return 'facebook';
       case 'linkedin':
+        return 'linkedin';
       case 'twitter':
-        return 'social';
+        return 'twitter';
       case 'email':
         return 'email';
       case 'text':
@@ -189,34 +205,30 @@ export function ShareQuizPage() {
   };
 
   const handleSocialShare = (platform: string) => {
-    if (!shareUrl) return;
-
-    const urlWithSource = new URL(shareUrl);
-    urlWithSource.searchParams.set('source', platform);
-    const finalUrl = urlWithSource.toString();
-    const trackedUrl = `${finalUrl}?utm_source=${platform}&utm_medium=social&utm_campaign=share`;
-
+    const url = getQuizUrl(platform);
+    const message = encodeURIComponent(quizInfo.shareMessage);
     let socialUrl = '';
-    const message = encodeURIComponent(`Take this ${quizId} assessment to evaluate your health.`);
 
     switch (platform) {
       case 'facebook':
-        socialUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(trackedUrl)}`;
+        socialUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${message}`;
         break;
       case 'twitter':
-        socialUrl = `https://twitter.com/intent/tweet?text=${message}&url=${encodeURIComponent(trackedUrl)}`;
+        socialUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${message}`;
         break;
-      case 'whatsapp':
-        socialUrl = `https://wa.me/?text=${message}%20${encodeURIComponent(trackedUrl)}`;
+      case 'linkedin':
+        socialUrl = `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent(quizInfo.title)}&summary=${message}`;
         break;
-      case 'telegram':
-        socialUrl = `https://t.me/share/url?url=${encodeURIComponent(trackedUrl)}&text=${message}`;
+      case 'email':
+        socialUrl = `mailto:?subject=${encodeURIComponent(quizInfo.title)}&body=${message}%0A%0A${encodeURIComponent(url)}`;
+        break;
+      case 'text':
+        socialUrl = `sms:?&body=${message}%0A%0A${encodeURIComponent(url)}`;
         break;
       default:
         return;
     }
-
-    window.open(socialUrl, '_blank', 'width=600,height=400');
+    window.open(socialUrl, '_blank', 'width=600,height=400,noopener,noreferrer');
   };
 
   const copyToClipboard = () => {
@@ -236,9 +248,17 @@ export function ShareQuizPage() {
     setShowQrCode(true);
   };
 
-  const embedUrl = `${baseUrl}/embed/quiz/${quizId}`;
+  // Fixed: Calculate embedUrl with useMemo
+  const embedUrl = useMemo(() => {
+    const url = new URL(`${baseUrl}/embed/chatbot/${customQuizId || quizId}`);
+    if (doctorProfile?.id) {
+      url.searchParams.set('doctor', doctorProfile.id);
+    }
+    return url.toString();
+  }, [baseUrl, customQuizId, quizId, doctorProfile?.id]);
 
-  const shareUrl = getQuizUrl();
+  const shareUrl = useMemo(() => getQuizUrl(), [getQuizUrl]);
+  
   const handleShareWithContactList = () => {
     if (!selectedList) {
       toast.error('Please select a contact list');
@@ -258,30 +278,141 @@ export function ShareQuizPage() {
     }
   };
 
-  const mailHtml = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html dir="ltr" xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en" style="padding:0;Margin:0"><head><meta charset="UTF-8"><meta content="width=device-width, initial-scale=1" name="viewport"><meta name="x-apple-disable-message-reformatting"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta content="telephone=no" name="format-detection"><title>E</title> <!--[if (mso 16)]><style type="text/css"> a {text-decoration: none;}  </style><![endif]--><!--[if gte mso 9]><style>sup { font-size: 100% !important; }</style><![endif]--><!--[if gte mso 9]><noscript> <xml> <o:OfficeDocumentSettings> <o:AllowPNG></o:AllowPNG> <o:PixelsPerInch>96</o:PixelsPerInch> </o:OfficeDocumentSettings> </xml> </noscript>
+  const mailHtmlNOSE = useMemo(() => {
+    const noseUrl = `${baseUrl}/nose/${doctorProfile?.id || 'demo'}?utm_source=email`;
+    const websiteLink = doctorProfile?.website
+      ? `<a target="_blank" href="${doctorProfile.website}" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px"><img src="${doctorProfile?.avatar_url || 'Your Website Image'}" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47"></a>`
+      : `<img src="https://cdn.prod.website-files.com/6213b8b7ae0610f9484d627a/63d85029011f18f6bfabf2f3_Exhale_Sinus_Horizontal_logo-p-800.png" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47">`;
+
+    const amIACandidateButton = `<span class="x" style="border-style:solid;border-color:#2CB543;background:#6fa8dc;border-width:0px 0px 2px 0px;display:inline-block;border-radius:5px;width:auto"><a href="${noseUrl}" class="b b-1619632113981" target="_blank" style="mso-style-priority:100 !important;text-decoration:none;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;color:#FFFFFF;font-size:14px;display:inline-block;background:#6fa8dc;border-radius:5px;font-family:arial, 'helvetica neue', helvetica, sans-serif;font-weight:normal;font-style:normal;line-height:16.8px;width:auto;text-align:center;padding:10px 20px;mso-padding-alt:0;mso-border-alt:10px solid #6fa8dc">Am I a Candidate?</a></span>`;
+
+    const takeTheNoseTestButton = `<span class="x" style="border-style:solid;border-color:#2CB543;background:#6fa8dc;border-width:0px 0px 2px 0px;display:inline-block;border-radius:5px;width:auto"><a href="${noseUrl}" class="b" target="_blank" style="mso-style-priority:100 !important;text-decoration:none;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;color:#FFFFFF;font-size:14px;display:inline-block;background:#6fa8dc;border-radius:5px;font-family:arial, 'helvetica neue', helvetica, sans-serif;font-weight:normal;font-style:normal;line-height:16.8px;width:auto;text-align:center;padding:10px 20px 10px 20px;mso-padding-alt:0;mso-border-alt:10px solid #6fa8dc">Take the NOSE Test</a></span>`;
+
+    return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html dir="ltr" xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en" style="padding:0;Margin:0"><head><meta charset="UTF-8"><meta content="width=device-width, initial-scale=1" name="viewport"><meta name="x-apple-disable-message-reformatting"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta content="telephone=no" name="format-detection"><title>E</title> <!--[if (mso 16)]><style type="text/css"> a {text-decoration: none;}  </style><![endif]--><!--[if gte mso 9]><style>sup { font-size: 100% !important; }</style><![endif]--><!--[if gte mso 9]><noscript> <xml> <o:OfficeDocumentSettings> <o:AllowPNG></o:AllowPNG> <o:PixelsPerInch>96</o:PixelsPerInch> </o:OfficeDocumentSettings> </xml> </noscript>
 <![endif]--><!--[if mso]><xml> <w:WordDocument xmlns:w="urn:schemas-microsoft-com:office:word"> <w:DontUseAdvancedTypographyReadingMail></w:DontUseAdvancedTypographyReadingMail> </w:WordDocument> </xml>
 <![endif]--><style type="text/css">#outlook a { padding:0;}.ExternalClass { width:100%;}.ExternalClass,.ExternalClass p,.ExternalClass span,.ExternalClass font,.ExternalClass td,.ExternalClass div { line-height:100%;}.b { mso-style-priority:100!important; text-decoration:none!important;}a[x-apple-data-detectors] { color:inherit!important; text-decoration:none!important; font-size:inherit!important; font-family:inherit!important; font-weight:inherit!important; line-height:inherit!important;}.a { display:none; float:left; overflow:hidden; width:0; max-height:0; line-height:0; mso-hide:all;}@media only screen and (max-width:600px) {p, ul li, ol li, a { line-height:150%!important } h1, h2, h3, h1 a, h2 a, h3 a { line-height:120%!important } h1 { font-size:30px!important; text-align:center } h2 { font-size:26px!important; text-align:center } h3 { font-size:20px!important; text-align:center }
  .bd p, .bd ul li, .bd ol li, .bd a { font-size:16px!important } *[class="gmail-fix"] { display:none!important } .x { display:block!important } .p table, .q table, .r table, .p, .r, .q { width:100%!important; max-width:600px!important } .adapt-img { width:100%!important; height:auto!important } a.b, button.b { font-size:20px!important; display:block!important; padding:10px 0px 10px 0px!important } }@media screen and (max-width:384px) {.mail-message-content { width:414px!important } }</style>
  </head> <body data-new-gr-c-s-loaded="14.1244.0" style="font-family:arial, 'helvetica neue', helvetica, sans-serif;width:100%;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;padding:0;Margin:0"><div dir="ltr" class="es-wrapper-color" lang="en" style="background-color:#F6F6F6"><!--[if gte mso 9]><v:background xmlns:v="urn:schemas-microsoft-com:vml" fill="t"> <v:fill type="tile" color="#f6f6f6"></v:fill> </v:background><![endif]--><table class="es-wrapper" width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;padding:0;Margin:0;width:100%;height:100%;background-repeat:repeat;background-position:center top;background-color:#F6F6F6"><tr style="border-collapse:collapse">
 <td valign="top" style="padding:0;Margin:0"><table class="p" cellspacing="0" cellpadding="0" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;table-layout:fixed !important;width:100%"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0"><table class="bd" cellspacing="0" cellpadding="0" bgcolor="#ffffff" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;background-color:#FFFFFF;width:600px"><tr style="border-collapse:collapse"><td align="left" style="Margin:0;padding-top:20px;padding-bottom:20px;padding-left:20px;padding-right:20px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse">
-<td valign="top" align="center" style="padding:0;Margin:0;width:560px"><table width="100%" cellspacing="0" cellpadding="0" role="presentation" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0;font-size:0px"><a target="_blank" href="http://nta.breatheeasy.life/relief-asi-pop-nose-medicare" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px"><img src="https://cdn.prod.website-files.com/6213b8b7ae0610f9484d627a/63d85029011f18f6bfabf2f3_Exhale_Sinus_Horizontal_logo-p-800.png" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47"></a> </td></tr><tr style="border-collapse:collapse">
-<td align="left" style="padding:0;Margin:0;padding-top:20px"><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">Hello {{contact.first_name}},<br><br>This is Dr. Vaughn, your ENT. Do you experience difficulty breathing through your nose and nothing seems to help? You may have nasal obstruction, a common condition that affects millions of Americans.<br><br>I am now offering non-invasive treatment options that can help you breathe better with lasting results. The non-invasive treatments may be performed right in our office, and patients may return to normal activities on the same day.<br><br>Are you a candidate? Click below to take a quick test and find out.</p></td></tr> <tr style="border-collapse:collapse">
-<td align="center" style="padding:10px;Margin:0"><span class="x" style="border-style:solid;border-color:#2CB543;background:#6fa8dc;border-width:0px 0px 2px 0px;display:inline-block;border-radius:5px;width:auto"><a href="http://nta.breatheeasy.life/relief-asi-pop-nose-medicare" class="b b-1619632113981" target="_blank" style="mso-style-priority:100 !important;text-decoration:none;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;color:#FFFFFF;font-size:14px;display:inline-block;background:#6fa8dc;border-radius:5px;font-family:arial, 'helvetica neue', helvetica, sans-serif;font-weight:normal;font-style:normal;line-height:16.8px;width:auto;text-align:center;padding:10px 20px;mso-padding-alt:0;mso-border-alt:10px solid #6fa8dc">Am I a Candidate?</a></span></td></tr> <tr style="border-collapse:collapse">
+<td valign="top" align="center" style="padding:0;Margin:0;width:560px"><table width="100%" cellspacing="0" cellpadding="0" role="presentation" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0;font-size:0px">${websiteLink}</td></tr><tr style="border-collapse:collapse">
+<td align="left" style="padding:0;Margin:0;padding-top:20px"><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">Hello {{contact.first_name}},<br><br>This is ${doctorProfile?.first_name || 'your ENT'}. Do you experience difficulty breathing through your nose and nothing seems to help? You may have nasal obstruction, a common condition that affects millions of Americans.<br><br>I am now offering non-invasive treatment options that can help you breathe better with lasting results. The non-invasive treatments may be performed right in our office, and patients may return to normal activities on the same day.<br><br>Are you a candidate? Click below to take a quick test and find out.</p></td></tr> <tr style="border-collapse:collapse">
+<td align="center" style="padding:10px;Margin:0">${amIACandidateButton}</td></tr> <tr style="border-collapse:collapse">
 <td align="left" style="padding:0;Margin:0;padding-top:20px"><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">If you experience difficulty breathing through your nose and nothing seems to help, we recommend taking the NOSE Test to measure your nasal blockage severity.<br><br>The <b>Nasal Obstruction Symptom Evaluation (NOSE)</b>&nbsp;Test is a short, 5-question survey. <span style="color:#333333">Each question is scored from 0 (not a problem) to 5 (severe problem). Your total score helps your provider understand how serious your symptoms are and what treatment options might be appropriate.</span></p>
  <p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#333333;font-size:14px"><br></p><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#333333;font-size:14px">It takes less than a minute to complete and is a simple first step toward breathing easier.</p></td></tr> <tr style="border-collapse:collapse">
-<td align="center" style="padding:10px;Margin:0"><span class="x" style="border-style:solid;border-color:#2CB543;background:#6fa8dc;border-width:0px 0px 2px 0px;display:inline-block;border-radius:5px;width:auto"><a href="http://nta.breatheeasy.life/relief-asi-pop-nose-medicare" class="b" target="_blank" style="mso-style-priority:100 !important;text-decoration:none;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;color:#FFFFFF;font-size:14px;display:inline-block;background:#6fa8dc;border-radius:5px;font-family:arial, 'helvetica neue', helvetica, sans-serif;font-weight:normal;font-style:normal;line-height:16.8px;width:auto;text-align:center;padding:10px 20px 10px 20px;mso-padding-alt:0;mso-border-alt:10px solid #6fa8dc">Take the NOSE Test</a></span></td></tr> <tr style="border-collapse:collapse">
-<td align="left" style="padding:0;Margin:0;padding-top:20px"><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">You may be eligible to use your Medicare or insurance benefits towards your treatment. If you have any questions or would like help checking your insurance coverage, please call us at <a target="_blank" href="tel:(630)513-1691" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px"></a><a href="tel:224-412-5949" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px">224-412-5949</a>.</p>
- <p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px"><br></p><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">Sincerely,</p><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">Ryan Vaughn, MD<br>Exhale Sinus&nbsp;</p></td></tr></table></td></tr></table></td></tr></table></td></tr></table>
+<td align="center" style="padding:10px;Margin:0">${takeTheNoseTestButton}</td></tr> <tr style="border-collapse:collapse">
+<td align="left" style="padding:0;Margin:0;padding-top:20px"><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">You may be eligible to use your Medicare or insurance benefits towards your treatment. If you have any questions or would like help checking your insurance coverage, please call us at <a target="_blank" href="tel:(630)513-1691" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px"></a><a href="tel:${doctorProfile?.phone || '224-412-5949'}" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px">224-412-5949</a>.</p>
+ <p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px"><br></p><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">Sincerely,</p><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">${doctorProfile?.first_name || 'Ryan'} ${doctorProfile?.last_name || 'Vaughn'}, MD<br>${doctorProfile?.clinic_name || 'Your Clinic Name'}&nbsp;</p></td></tr></table></td></tr></table></td></tr></table></td></tr></table>
  <table class="r" cellspacing="0" cellpadding="0" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;table-layout:fixed !important;width:100%;background-color:transparent;background-repeat:repeat;background-position:center top"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0"><table class="bc" cellspacing="0" cellpadding="0" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;background-color:transparent;width:600px"><tr style="border-collapse:collapse"><td align="left" style="Margin:0;padding-top:20px;padding-bottom:20px;padding-left:20px;padding-right:20px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse">
 <td valign="top" align="center" style="padding:0;Margin:0;width:560px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0;display:none"></td> </tr></table></td></tr></table></td></tr></table></td></tr></table> <table class="p" cellspacing="0" cellpadding="0" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;table-layout:fixed !important;width:100%"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0"><table class="bd" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;background-color:transparent;width:600px" cellspacing="0" cellpadding="0" align="center" role="none"><tr style="border-collapse:collapse">
 <td align="left" style="padding:0;Margin:0;padding-left:20px;padding-right:20px;padding-bottom:30px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td valign="top" align="center" style="padding:0;Margin:0;width:560px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0;display:none"></td> </tr></table></td></tr></table></td></tr></table></td></tr></table></td></tr></table></div></body></html>`;
+  }, [doctorProfile, baseUrl]);
 
-const blob = new Blob([mailHtml], { type: 'text/html' });
-const mailiframSrc = URL.createObjectURL(blob);
- const generateEmbedCode = (quizUrl: string) => {
-   const iframeCode = `<iframe src="${quizUrl}" width="100%" height="500px" frameBorder="0"></iframe>`;
-   setEmbedCode(iframeCode);
- };
+  const mailHtmlSNOT12 = useMemo(() => {
+    const snot12Url = `${baseUrl}/snot12/${doctorProfile?.id || 'demo'}?utm_source=email`;
+    const websiteLink = doctorProfile?.website
+      ? `<a target="_blank" href="${doctorProfile.website}" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px"><img src="${doctorProfile?.avatar_url || 'Your Website Image'}" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47"></a>`
+      : `<img src="https://cdn.prod.website-files.com/6213b8b7ae0610f9484d627a/63d85029011f18f6bfabf2f3_Exhale_Sinus_Horizontal_logo-p-800.png" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47">`;
+
+    const amIACandidateButton = `<span class="x" style="border-style:solid;border-color:#2CB543;background:#6fa8dc;border-width:0px 0px 2px 0px;display:inline-block;border-radius:5px;width:auto"><a href="${snot12Url}" class="b b-1619632113981" target="_blank" style="mso-style-priority:100 !important;text-decoration:none;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;color:#FFFFFF;font-size:14px;display:inline-block;background:#6fa8dc;border-radius:5px;font-family:arial, 'helvetica neue', helvetica, sans-serif;font-weight:normal;font-style:normal;line-height:16.8px;width:auto;text-align:center;padding:10px 20px;mso-padding-alt:0;mso-border-alt:10px solid #6fa8dc">Am I a Candidate?</a></span>`;
+
+    const takeTheSNOT12TestButton = `<span class="x" style="border-style:solid;border-color:#2CB543;background:#6fa8dc;border-width:0px 0px 2px 0px;display:inline-block;border-radius:5px;width:auto"><a href="${snot12Url}" class="b" target="_blank" style="mso-style-priority:100 !important;text-decoration:none;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;color:#FFFFFF;font-size:14px;display:inline-block;background:#6fa8dc;border-radius:5px;font-family:arial, 'helvetica neue', helvetica, sans-serif;font-weight:normal;font-style:normal;line-height:16.8px;width:auto;text-align:center;padding:10px 20px 10px 20px;mso-padding-alt:0;mso-border-alt:10px solid #6fa8dc">Take the SNOT12 Test</a></span>`;
+    return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html dir="ltr" xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en" style="padding:0;Margin:0"><head><meta charset="UTF-8"><meta content="width=device-width, initial-scale=1" name="viewport"><meta name="x-apple-disable-message-reformatting"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta content="telephone=no" name="format-detection"><title>E</title> <!--[if (mso 16)]><style type="text/css"> a {text-decoration: none;}  </style><![endif]--><!--[if gte mso 9]><style>sup { font-size: 100% !important; }</style><![endif]--><!--[if gte mso 9]><noscript> <xml> <o:OfficeDocumentSettings> <o:AllowPNG></o:AllowPNG> <o:PixelsPerInch>96</o:PixelsPerInch> </o:OfficeDocumentSettings> </xml> </noscript>
+<![endif]--><!--[if mso]><xml> <w:WordDocument xmlns:w="urn:schemas-microsoft-com:office:word"> <w:DontUseAdvancedTypographyReadingMail></w:DontUseAdvancedTypographyReadingMail> </w:WordDocument> </xml>
+<![endif]--><style type="text/css">#outlook a { padding:0;}.ExternalClass { width:100%;}.ExternalClass,.ExternalClass p,.ExternalClass span,.ExternalClass font,.ExternalClass td,.ExternalClass div { line-height:100%;}.b { mso-style-priority:100!important; text-decoration:none!important;}a[x-apple-data-detectors] { color:inherit!important; text-decoration:none!important; font-size:inherit!important; font-family:inherit!important; font-weight:inherit!important; line-height:inherit!important;}.a { display:none; float:left; overflow:hidden; width:0; max-height:0; line-height:0; mso-hide:all;}@media only screen and (max-width:600px) {p, ul li, ol li, a { line-height:150%!important } h1, h2, h3, h1 a, h2 a, h3 a { line-height:120%!important } h1 { font-size:30px!important; text-align:center } h2 { font-size:26px!important; text-align:center } h3 { font-size:20px!important; text-align:center }
+ .bd p, .bd ul li, .bd ol li, .bd a { font-size:16px!important } *[class="gmail-fix"] { display:none!important } .x { display:block!important } .p table, .q table, .r table, .p, .r, .q { width:100%!important; max-width:600px!important } .adapt-img { width:100%!important; height:auto!important } a.b, button.b { font-size:20px!important; display:block!important; padding:10px 0px 10px 0px!important } }@media screen and (max-width:384px) {.mail-message-content { width:414px!important } }</style>
+ </head> <body data-new-gr-c-s-loaded="14.1244.0" style="font-family:arial, 'helvetica neue', helvetica, sans-serif;width:100%;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;padding:0;Margin:0"><div dir="ltr" class="es-wrapper-color" lang="en" style="background-color:#F6F6F6"><!--[if gte mso 9]><v:background xmlns:v="urn:schemas-microsoft-com:vml" fill="t"> <v:fill type="tile" color="#f6f6f6"></v:fill> </v:background><![endif]--><table class="es-wrapper" width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;padding:0;Margin:0;width:100%;height:100%;background-repeat:repeat;background-position:center top;background-color:#F6F6F6"><tr style="border-collapse:collapse">
+<td valign="top" style="padding:0;Margin:0"><table class="p" cellspacing="0" cellpadding="0" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;table-layout:fixed !important;width:100%"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0"><table class="bd" cellspacing="0" cellpadding="0" bgcolor="#ffffff" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;background-color:#FFFFFF;width:600px"><tr style="border-collapse:collapse"><td align="left" style="Margin:0;padding-top:20px;padding-bottom:20px;padding-left:20px;padding-right:20px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse">
+<td valign="top" align="center" style="padding:0;Margin:0;width:560px"><table width="100%" cellspacing="0" cellpadding="0" role="presentation" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0;font-size:0px">${websiteLink}</td></tr><tr style="border-collapse:collapse">
+<td align="left" style="padding:0;Margin:0;padding-top:20px"><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">Hello {{contact.first_name}},<br><br>This is ${doctorProfile?.first_name || 'your ENT'}. Do you experience difficulty breathing through your nose and nothing seems to help? You may have nasal obstruction, a common condition that affects millions of Americans.<br><br>I am now offering non-invasive treatment options that can help you breathe better with lasting results. The non-invasive treatments may be performed right in our office, and patients may return to normal activities on the same day.<br><br>Are you a candidate? Click below to take a quick test and find out.</p></td></tr> <tr style="border-collapse:collapse">
+<td align="center" style="padding:10px;Margin:0">${amIACandidateButton}</td></tr> <tr style="border-collapse:collapse">
+<td align="left" style="padding:0;Margin:0;padding-top:20px"><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">If you experience difficulty breathing through your nose and nothing seems to help, we recommend taking the SNOT12 Test to evaluate your nasal and sinus symptoms and their impact on your quality of life.<br><br>The <b>Sino-Nasal Outcome Test (SNOT)</b>&nbsp;Test is a short, 12-question survey. <span style="color:#333333">Each question is scored from 0 (not a problem) to 5 (severe problem). Your total score helps your provider understand how serious your symptoms are and what treatment options might be appropriate.</span></p>
+ <p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#333333;font-size:14px"><br></p><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#333333;font-size:14px">It takes less than a minute to complete and is a simple first step toward breathing easier.</p></td></tr> <tr style="border-collapse:collapse">
+<td align="center" style="padding:10px;Margin:0">${takeTheSNOT12TestButton}</td></tr> <tr style="border-collapse:collapse">
+<td align="left" style="padding:0;Margin:0;padding-top:20px"><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">You may be eligible to use your Medicare or insurance benefits towards your treatment. If you have any questions or would like help checking your insurance coverage, please call us at <a target="_blank" href="tel:(630)513-1691" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px"></a><a href="tel:${doctorProfile?.phone || '224-412-5949'}" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px">224-412-5949</a>.</p>
+ <p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px"><br></p><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">Sincerely,</p><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">${doctorProfile?.first_name || 'Ryan'} ${doctorProfile?.last_name || 'Vaughn'}, MD<br>${doctorProfile?.clinic_name || 'Your Clinic Name'}&nbsp;</p></td></tr></table></td></tr></table></td></tr></table></td></tr></table>
+ <table class="r" cellspacing="0" cellpadding="0" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;table-layout:fixed !important;width:100%;background-color:transparent;background-repeat:repeat;background-position:center top"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0"><table class="bc" cellspacing="0" cellpadding="0" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;background-color:transparent;width:600px"><tr style="border-collapse:collapse"><td align="left" style="Margin:0;padding-top:20px;padding-bottom:20px;padding-left:20px;padding-right:20px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse">
+<td valign="top" align="center" style="padding:0;Margin:0;width:560px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0;display:none"></td> </tr></table></td></tr></table></td></tr></table></td></tr></table> <table class="p" cellspacing="0" cellpadding="0" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;table-layout:fixed !important;width:100%"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0"><table class="bd" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;background-color:transparent;width:600px" cellspacing="0" cellpadding="0" align="center" role="none"><tr style="border-collapse:collapse">
+<td align="left" style="padding:0;Margin:0;padding-left:20px;padding-right:20px;padding-bottom:30px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td valign="top" align="center" style="padding:0;Margin:0;width:560px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0;display:none"></td> </tr></table></td></tr></table></td></tr></table></td></tr></table></td></tr></table></div></body></html>`;
+  }, [doctorProfile, baseUrl]);
+
+const mailHtmlSNOT22 = useMemo(() => {
+      const snot22Url = `${baseUrl}/snot22/${doctorProfile?.id || 'demo'}?utm_source=email`;
+    const websiteLink = doctorProfile?.website
+      ? `<a target="_blank" href="${doctorProfile.website}" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px"><img src="${doctorProfile?.avatar_url || 'Your Website Image'}" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47"></a>`
+      : `<img src="https://cdn.prod.website-files.com/6213b8b7ae0610f9484d627a/63d85029011f18f6bfabf2f3_Exhale_Sinus_Horizontal_logo-p-800.png" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47">`;
+
+    const amIACandidateButton = `<span class="x" style="border-style:solid;border-color:#2CB543;background:#6fa8dc;border-width:0px 0px 2px 0px;display:inline-block;border-radius:5px;width:auto"><a href="${snot22Url}" class="b b-1619632113981" target="_blank" style="mso-style-priority:100 !important;text-decoration:none;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;color:#FFFFFF;font-size:14px;display:inline-block;background:#6fa8dc;border-radius:5px;font-family:arial, 'helvetica neue', helvetica, sans-serif;font-weight:normal;font-style:normal;line-height:16.8px;width:auto;text-align:center;padding:10px 20px;mso-padding-alt:0;mso-border-alt:10px solid #6fa8dc">Am I a Candidate?</a></span>`;
+
+    const takeTheSNOT22TestButton = `<span class="x" style="border-style:solid;border-color:#2CB543;background:#6fa8dc;border-width:0px 0px 2px 0px;display:inline-block;border-radius:5px;width:auto"><a href="${snot22Url}" class="b" target="_blank" style="mso-style-priority:100 !important;text-decoration:none;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;color:#FFFFFF;font-size:14px;display:inline-block;background:#6fa8dc;border-radius:5px;font-family:arial, 'helvetica neue', helvetica, sans-serif;font-weight:normal;font-style:normal;line-height:16.8px;width:auto;text-align:center;padding:10px 20px 10px 20px;mso-padding-alt:0;mso-border-alt:10px solid #6fa8dc">Take the SNOT22 Test</a></span>`;
+    return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html dir="ltr" xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en" style="padding:0;Margin:0"><head><meta charset="UTF-8"><meta content="width=device-width, initial-scale=1" name="viewport"><meta name="x-apple-disable-message-reformatting"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta content="telephone=no" name="format-detection"><title>E</title> <!--[if (mso 16)]><style type="text/css"> a {text-decoration: none;}  </style><![endif]--><!--[if gte mso 9]><style>sup { font-size: 100% !important; }</style><![endif]--><!--[if gte mso 9]><noscript> <xml> <o:OfficeDocumentSettings> <o:AllowPNG></o:AllowPNG> <o:PixelsPerInch>96</o:PixelsPerInch> </o:OfficeDocumentSettings> </xml> </noscript>
+<![endif]--><!--[if mso]><xml> <w:WordDocument xmlns:w="urn:schemas-microsoft-com:office:word"> <w:DontUseAdvancedTypographyReadingMail></w:DontUseAdvancedTypographyReadingMail> </w:WordDocument> </xml>
+<![endif]--><style type="text/css">#outlook a { padding:0;}.ExternalClass { width:100%;}.ExternalClass,.ExternalClass p,.ExternalClass span,.ExternalClass font,.ExternalClass td,.ExternalClass div { line-height:100%;}.b { mso-style-priority:100!important; text-decoration:none!important;}a[x-apple-data-detectors] { color:inherit!important; text-decoration:none!important; font-size:inherit!important; font-family:inherit!important; font-weight:inherit!important; line-height:inherit!important;}.a { display:none; float:left; overflow:hidden; width:0; max-height:0; line-height:0; mso-hide:all;}@media only screen and (max-width:600px) {p, ul li, ol li, a { line-height:150%!important } h1, h2, h3, h1 a, h2 a, h3 a { line-height:120%!important } h1 { font-size:30px!important; text-align:center } h2 { font-size:26px!important; text-align:center } h3 { font-size:20px!important; text-align:center }
+ .bd p, .bd ul li, .bd ol li, .bd a { font-size:16px!important } *[class="gmail-fix"] { display:none!important } .x { display:block!important } .p table, .q table, .r table, .p, .r, .q { width:100%!important; max-width:600px!important } .adapt-img { width:100%!important; height:auto!important } a.b, button.b { font-size:20px!important; display:block!important; padding:10px 0px 10px 0px!important } }@media screen and (max-width:384px) {.mail-message-content { width:414px!important } }</style>
+ </head> <body data-new-gr-c-s-loaded="14.1244.0" style="font-family:arial, 'helvetica neue', helvetica, sans-serif;width:100%;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;padding:0;Margin:0"><div dir="ltr" class="es-wrapper-color" lang="en" style="background-color:#F6F6F6"><!--[if gte mso 9]><v:background xmlns:v="urn:schemas-microsoft-com:vml" fill="t"> <v:fill type="tile" color="#f6f6f6"></v:fill> </v:background><![endif]--><table class="es-wrapper" width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;padding:0;Margin:0;width:100%;height:100%;background-repeat:repeat;background-position:center top;background-color:#F6F6F6"><tr style="border-collapse:collapse">
+<td valign="top" style="padding:0;Margin:0"><table class="p" cellspacing="0" cellpadding="0" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;table-layout:fixed !important;width:100%"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0"><table class="bd" cellspacing="0" cellpadding="0" bgcolor="#ffffff" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;background-color:#FFFFFF;width:600px"><tr style="border-collapse:collapse"><td align="left" style="Margin:0;padding-top:20px;padding-bottom:20px;padding-left:20px;padding-right:20px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse">
+<td valign="top" align="center" style="padding:0;Margin:0;width:560px"><table width="100%" cellspacing="0" cellpadding="0" role="presentation" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0;font-size:0px">${websiteLink}</td></tr><tr style="border-collapse:collapse">
+<td align="left" style="padding:0;Margin:0;padding-top:20px"><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">Hello {{contact.first_name}},<br><br>This is ${doctorProfile?.first_name || 'your ENT'}. Do you experience difficulty breathing through your nose and nothing seems to help? You may have nasal obstruction, a common condition that affects millions of Americans.<br><br>I am now offering non-invasive treatment options that can help you breathe better with lasting results. The non-invasive treatments may be performed right in our office, and patients may return to normal activities on the same day.<br><br>Are you a candidate? Click below to take a quick test and find out.</p></td></tr> <tr style="border-collapse:collapse">
+<td align="center" style="padding:10px;Margin:0">${amIACandidateButton}</td></tr> <tr style="border-collapse:collapse">
+<td align="left" style="padding:0;Margin:0;padding-top:20px"><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">If you experience difficulty breathing through your nose and nothing seems to help, we recommend taking the SNOT22 Test to evaluate your nasal and sinus symptoms and their impact on your quality of life.<br><br>The <b>Sino-Nasal Outcome Test (SNOT)</b>&nbsp;Test is a short, 22-question survey. <span style="color:#333333">Each question is scored from 0 (not a problem) to 5 (severe problem). Your total score helps your provider understand how serious your symptoms are and what treatment options might be appropriate.</span></p>
+ <p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#333333;font-size:14px"><br></p><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#333333;font-size:14px">It takes less than a minute to complete and is a simple first step toward breathing easier.</p></td></tr> <tr style="border-collapse:collapse">
+<td align="center" style="padding:10px;Margin:0">${takeTheSNOT22TestButton}</td></tr> <tr style="border-collapse:collapse">
+<td align="left" style="padding:0;Margin:0;padding-top:20px"><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">You may be eligible to use your Medicare or insurance benefits towards your treatment. If you have any questions or would like help checking your insurance coverage, please call us at <a target="_blank" href="tel:(630)513-1691" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px"></a><a href="tel:${doctorProfile?.phone || '224-412-5949'}" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px">224-412-5949</a>.</p>
+ <p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px"><br></p><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">Sincerely,</p><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">${doctorProfile?.first_name || 'Ryan'} ${doctorProfile?.last_name || 'Vaughn'}, MD<br>${doctorProfile?.clinic_name || 'Your Clinic Name'}&nbsp;</p></td></tr></table></td></tr></table></td></tr></table></td></tr></table>
+ <table class="r" cellspacing="0" cellpadding="0" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;table-layout:fixed !important;width:100%;background-color:transparent;background-repeat:repeat;background-position:center top"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0"><table class="bc" cellspacing="0" cellpadding="0" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;background-color:transparent;width:600px"><tr style="border-collapse:collapse"><td align="left" style="Margin:0;padding-top:20px;padding-bottom:20px;padding-left:20px;padding-right:20px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse">
+<td valign="top" align="center" style="padding:0;Margin:0;width:560px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0;display:none"></td> </tr></table></td></tr></table></td></tr></table></td></tr></table> <table class="p" cellspacing="0" cellpadding="0" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;table-layout:fixed !important;width:100%"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0"><table class="bd" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;background-color:transparent;width:600px" cellspacing="0" cellpadding="0" align="center" role="none"><tr style="border-collapse:collapse">
+<td align="left" style="padding:0;Margin:0;padding-left:20px;padding-right:20px;padding-bottom:30px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td valign="top" align="center" style="padding:0;Margin:0;width:560px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0;display:none"></td> </tr></table></td></tr></table></td></tr></table></td></tr></table></td></tr></table></div></body></html>`;
+  }, [doctorProfile, baseUrl]);
+const mailHtmlTNSS = useMemo(() => {
+      const tnssUrl = `${baseUrl}/tnss/${doctorProfile?.id || 'demo'}?utm_source=email`;
+    const websiteLink = doctorProfile?.website
+      ? `<a target="_blank" href="${doctorProfile.website}" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px"><img src="${doctorProfile?.avatar_url || 'Your Website Image'}" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47"></a>`
+      : `<img src="https://cdn.prod.website-files.com/6213b8b7ae0610f9484d627a/63d85029011f18f6bfabf2f3_Exhale_Sinus_Horizontal_logo-p-800.png" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47">`;
+
+    const amIACandidateButton = `<span class="x" style="border-style:solid;border-color:#2CB543;background:#6fa8dc;border-width:0px 0px 2px 0px;display:inline-block;border-radius:5px;width:auto"><a href="${tnssUrl}" class="b b-1619632113981" target="_blank" style="mso-style-priority:100 !important;text-decoration:none;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;color:#FFFFFF;font-size:14px;display:inline-block;background:#6fa8dc;border-radius:5px;font-family:arial, 'helvetica neue', helvetica, sans-serif;font-weight:normal;font-style:normal;line-height:16.8px;width:auto;text-align:center;padding:10px 20px;mso-padding-alt:0;mso-border-alt:10px solid #6fa8dc">Am I a Candidate?</a></span>`;
+
+    const takeTheTNSSTestButton = `<span class="x" style="border-style:solid;border-color:#2CB543;background:#6fa8dc;border-width:0px 0px 2px 0px;display:inline-block;border-radius:5px;width:auto"><a href="${tnssUrl}" class="b" target="_blank" style="mso-style-priority:100 !important;text-decoration:none;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;color:#FFFFFF;font-size:14px;display:inline-block;background:#6fa8dc;border-radius:5px;font-family:arial, 'helvetica neue', helvetica, sans-serif;font-weight:normal;font-style:normal;line-height:16.8px;width:auto;text-align:center;padding:10px 20px 10px 20px;mso-padding-alt:0;mso-border-alt:10px solid #6fa8dc">Take the TNSS Test</a></span>`;
+    return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html dir="ltr" xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en" style="padding:0;Margin:0"><head><meta charset="UTF-8"><meta content="width=device-width, initial-scale=1" name="viewport"><meta name="x-apple-disable-message-reformatting"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta content="telephone=no" name="format-detection"><title>E</title> <!--[if (mso 16)]><style type="text/css"> a {text-decoration: none;}  </style><![endif]--><!--[if gte mso 9]><style>sup { font-size: 100% !important; }</style><![endif]--><!--[if gte mso 9]><noscript> <xml> <o:OfficeDocumentSettings> <o:AllowPNG></o:AllowPNG> <o:PixelsPerInch>96</o:PixelsPerInch> </o:OfficeDocumentSettings> </xml> </noscript>
+<![endif]--><!--[if mso]><xml> <w:WordDocument xmlns:w="urn:schemas-microsoft-com:office:word"> <w:DontUseAdvancedTypographyReadingMail></w:DontUseAdvancedTypographyReadingMail> </w:WordDocument> </xml>
+<![endif]--><style type="text/css">#outlook a { padding:0;}.ExternalClass { width:100%;}.ExternalClass,.ExternalClass p,.ExternalClass span,.ExternalClass font,.ExternalClass td,.ExternalClass div { line-height:100%;}.b { mso-style-priority:100!important; text-decoration:none!important;}a[x-apple-data-detectors] { color:inherit!important; text-decoration:none!important; font-size:inherit!important; font-family:inherit!important; font-weight:inherit!important; line-height:inherit!important;}.a { display:none; float:left; overflow:hidden; width:0; max-height:0; line-height:0; mso-hide:all;}@media only screen and (max-width:600px) {p, ul li, ol li, a { line-height:150%!important } h1, h2, h3, h1 a, h2 a, h3 a { line-height:120%!important } h1 { font-size:30px!important; text-align:center } h2 { font-size:26px!important; text-align:center } h3 { font-size:20px!important; text-align:center }
+ .bd p, .bd ul li, .bd ol li, .bd a { font-size:16px!important } *[class="gmail-fix"] { display:none!important } .x { display:block!important } .p table, .q table, .r table, .p, .r, .q { width:100%!important; max-width:600px!important } .adapt-img { width:100%!important; height:auto!important } a.b, button.b { font-size:20px!important; display:block!important; padding:10px 0px 10px 0px!important } }@media screen and (max-width:384px) {.mail-message-content { width:414px!important } }</style>
+ </head> <body data-new-gr-c-s-loaded="14.1244.0" style="font-family:arial, 'helvetica neue', helvetica, sans-serif;width:100%;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;padding:0;Margin:0"><div dir="ltr" class="es-wrapper-color" lang="en" style="background-color:#F6F6F6"><!--[if gte mso 9]><v:background xmlns:v="urn:schemas-microsoft-com:vml" fill="t"> <v:fill type="tile" color="#f6f6f6"></v:fill> </v:background><![endif]--><table class="es-wrapper" width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;padding:0;Margin:0;width:100%;height:100%;background-repeat:repeat;background-position:center top;background-color:#F6F6F6"><tr style="border-collapse:collapse">
+<td valign="top" style="padding:0;Margin:0"><table class="p" cellspacing="0" cellpadding="0" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;table-layout:fixed !important;width:100%"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0"><table class="bd" cellspacing="0" cellpadding="0" bgcolor="#ffffff" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;background-color:#FFFFFF;width:600px"><tr style="border-collapse:collapse"><td align="left" style="Margin:0;padding-top:20px;padding-bottom:20px;padding-left:20px;padding-right:20px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse">
+<td valign="top" align="center" style="padding:0;Margin:0;width:560px"><table width="100%" cellspacing="0" cellpadding="0" role="presentation" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0;font-size:0px">${websiteLink}</td></tr><tr style="border-collapse:collapse">
+<td align="left" style="padding:0;Margin:0;padding-top:20px"><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">Hello {{contact.first_name}},<br><br>This is ${doctorProfile?.first_name || 'your ENT'}. Do you experience difficulty breathing through your nose and nothing seems to help? You may have nasal obstruction, a common condition that affects millions of Americans.<br><br>I am now offering non-invasive treatment options that can help you breathe better with lasting results. The non-invasive treatments may be performed right in our office, and patients may return to normal activities on the same day.<br><br>Are you a candidate? Click below to take a quick test and find out.</p></td></tr> <tr style="border-collapse:collapse">
+<td align="center" style="padding:10px;Margin:0">${amIACandidateButton}</td></tr> <tr style="border-collapse:collapse">
+<td align="left" style="padding:0;Margin:0;padding-top:20px"><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">If you experience difficulty breathing through your nose and nothing seems to help, we recommend taking the TNSS Test to evaluate your nasal and sinus symptoms and their impact on your quality of life.<br><br>The <b>Total Nasal Symptom Score (TNSS)</b>&nbsp;Test is a short, 22-question survey. <span style="color:#333333">Each question is scored from 0 (not a problem) to 5 (severe problem). Your total score helps your provider understand how serious your symptoms are and what treatment options might be appropriate.</span></p>
+ <p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#333333;font-size:14px"><br></p><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#333333;font-size:14px">It takes less than a minute to complete and is a simple first step toward breathing easier.</p></td></tr> <tr style="border-collapse:collapse">
+<td align="center" style="padding:10px;Margin:0">${takeTheTNSSTestButton}</td></tr> <tr style="border-collapse:collapse">
+<td align="left" style="padding:0;Margin:0;padding-top:20px"><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">You may be eligible to use your Medicare or insurance benefits towards your treatment. If you have any questions or would like help checking your insurance coverage, please call us at <a target="_blank" href="tel:(630)513-1691" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px"></a><a href="tel:${doctorProfile?.phone || '224-412-5949'}" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px">224-412-5949</a>.</p>
+ <p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px"><br></p><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">Sincerely,</p><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;color:#000000;font-size:14px">${doctorProfile?.first_name || 'Ryan'} ${doctorProfile?.last_name || 'Vaughn'}, MD<br>${doctorProfile?.clinic_name || 'Your Clinic Name'}&nbsp;</p></td></tr></table></td></tr></table></td></tr></table></td></tr></table>
+ <table class="r" cellspacing="0" cellpadding="0" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;table-layout:fixed !important;width:100%;background-color:transparent;background-repeat:repeat;background-position:center top"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0"><table class="bc" cellspacing="0" cellpadding="0" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;background-color:transparent;width:600px"><tr style="border-collapse:collapse"><td align="left" style="Margin:0;padding-top:20px;padding-bottom:20px;padding-left:20px;padding-right:20px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse">
+<td valign="top" align="center" style="padding:0;Margin:0;width:560px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0;display:none"></td> </tr></table></td></tr></table></td></tr></table></td></tr></table> <table class="p" cellspacing="0" cellpadding="0" align="center" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;table-layout:fixed !important;width:100%"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0"><table class="bd" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;background-color:transparent;width:600px" cellspacing="0" cellpadding="0" align="center" role="none"><tr style="border-collapse:collapse">
+<td align="left" style="padding:0;Margin:0;padding-left:20px;padding-right:20px;padding-bottom:30px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td valign="top" align="center" style="padding:0;Margin:0;width:560px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0;display:none"></td> </tr></table></td></tr></table></td></tr></table></td></tr></table></td></tr></table></div></body></html>`;
+  }, [doctorProfile, baseUrl]);
+
+  const activeMailHtml = useMemo(() => {
+    if (quizId?.toLowerCase() === 'snot12') {
+      return mailHtmlSNOT12;
+    }
+    if (quizId?.toLowerCase() === 'snot22') {
+      return mailHtmlSNOT22;
+    }
+    if(quizId?.toLowerCase() === 'tnss') {
+      return mailHtmlTNSS;
+    }
+    return mailHtmlNOSE;
+  }, [quizId, mailHtmlNOSE, mailHtmlSNOT12, mailHtmlSNOT22,mailHtmlTNSS]);
+
+  const blob = useMemo(() => new Blob([activeMailHtml], { type: 'text/html' }), [activeMailHtml]);
+  const mailiframSrc = useMemo(() => URL.createObjectURL(blob), [blob]);
+
+ useEffect(() => {
+   if (embedUrl) {
+     const height = heightFromUrl || '500px';
+     const iframeCode = `<iframe src="${embedUrl}" width="100%" height="${height}" frameBorder="0"></iframe>`;
+     setEmbedCode(iframeCode);
+   }
+ }, [embedUrl, heightFromUrl]);
 
  const handleCopy = (text: string, successMessage: string) => {
    navigator.clipboard.writeText(text)
@@ -293,12 +424,6 @@ const mailiframSrc = URL.createObjectURL(blob);
        toast.error('Failed to copy to clipboard.');
      });
  };
-
- useEffect(() => {
-   if (shareUrl) {
-     generateEmbedCode(shareUrl);
-   }
- }, [shareUrl]);
 
  if (loading) {
     return (
@@ -367,37 +492,37 @@ const mailiframSrc = URL.createObjectURL(blob);
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 onClick={() => navigate('/portal')}
-                className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+                className="p-2 sm:p-2 sm:flex sm:items-center sm:gap-2 text-gray-600 hover:text-gray-900"
               >
-                <ArrowLeft className="w-4 h-4" />
-                Back to Dashboard
+                <ArrowLeft className="w-5 h-5" />
+                <span className="hidden sm:inline">Back to Dashboard</span>
               </Button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Share Assessment</h1>
-                <p className="text-gray-600">{quizInfo.title}</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Share Assessment</h1>
+                <p className="text-sm sm:text-base text-gray-600">{quizInfo.title}</p>
                 {doctorProfile && (
-                  <p className="text-sm text-gray-500">
-                    Doctor ID: {doctorProfile.id} | {doctorProfile.first_name} {doctorProfile.last_name}
+                  <p className="text-xs sm:text-sm text-gray-500">
+                    Dr. {doctorProfile.first_name} {doctorProfile.last_name} (ID: {doctorProfile.id})
                   </p>
                 )}
               </div>
             </div>
-            <Badge className="bg-gradient-to-r from-[#f7904f] to-[#04748f] text-white px-4 py-2">
+            <Badge className="bg-gradient-to-r from-[#f7904f] to-[#04748f] text-white px-3 py-1.5 text-sm self-end sm:self-center">
               {customQuiz ? 'Custom Quiz' : 'Standard Quiz'}
             </Badge>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2">
             <TabsTrigger value="full-page" className="flex items-center gap-2">
               <Maximize className="w-4 h-4" />
               Full Page
@@ -424,52 +549,50 @@ const mailiframSrc = URL.createObjectURL(blob);
               <CardContent className="space-y-6">
                 <div className="space-y-4">
                   
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Input
-                      value={shareUrl} 
+                      value={shareUrl}
                       readOnly
                       className="flex-1 font-mono text-sm"
                     />
-                    <Button
-                      onClick={() => copyToClipboard()}
-                      className="min-w-[100px]"
-                    >
-                      {copied ? (
-                        <>
-                          <CheckCircle2 className="w-4 h-4 mr-2" />
-                          Copied
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-4 h-4 mr-2" />
-                          Copy
-                        </>
-                      )}
-                    </Button>
-                    {
-                      <>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => copyToClipboard()}
+                        className="flex-1 sm:flex-none sm:min-w-[100px]"
+                      >
+                        {copied ? (
+                          <>
+                            <CheckCircle2 className="w-4 h-4 mr-2" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4 mr-2" />
+                            Copy
+                          </>
+                        )}
+                      </Button>
                       <Button
                         variant="outline"
                         onClick={() => window.open(doctorLandingUrl, '_blank')}
-                        className="border-[#0E7C9D] text-[#0E7C9D] font-bold hover:bg-blue-50"
+                        className="border-[#0E7C9D] text-[#0E7C9D] font-bold hover:bg-blue-50 flex-1 sm:flex-none"
                       >
                         <ExternalLink className="w-4 h-4 mr-2" />
-                        Open Landing Page
+                        <span className="hidden sm:inline">Landing Page</span>
                       </Button>
                       <Button
                         variant="outline"
                         onClick={() => window.open(doctorEditingUrl, '_blank')}
-                        className="border-[#0E7C9D] text-[#0E7C9D] font-bold hover:bg-blue-50"
+                        className="border-[#0E7C9D] text-[#0E7C9D] font-bold hover:bg-blue-50 flex-1 sm:flex-none"
                       >
                         <Pencil className="w-4 h-4 mr-2" />
-                        Open Editing Page
+                        <span className="hidden sm:inline">Edit Page</span>
                       </Button>
-                      </>
-                      }
+                    </div>
                   </div>
 
                   {/* Short URL Generator */}
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Input
                       value={shortUrl || "Generate a short URL for easier sharing"}
                       readOnly
@@ -505,74 +628,58 @@ const mailiframSrc = URL.createObjectURL(blob);
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-lg">Social Media Sharing</CardTitle>
                       <CardDescription>Each platform gets tracked separately</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                         <Button
                           variant="outline"
                           onClick={() => handleSocialShare('facebook')}
-                          className="hover:bg-blue-50 hover:text-blue-600"
+                          className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
                         >
                           <Facebook className="w-4 h-4 mr-2" />
                           Facebook
                         </Button>
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           onClick={() => handleSocialShare('linkedin')}
-                          className="hover:bg-blue-50 hover:text-blue-600"
+                          className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
                         >
                           <Linkedin className="w-4 h-4 mr-2" />
                           LinkedIn
                         </Button>
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           onClick={() => handleSocialShare('twitter')}
-                          className="hover:bg-blue-50 hover:text-blue-600"
+                          className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
                         >
                           <Twitter className="w-4 h-4 mr-2" />
                           Twitter
                         </Button>
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           onClick={() => handleSocialShare('email')}
-                          className="hover:bg-blue-50 hover:text-blue-600"
+                          className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
                         >
                           <Mail className="w-4 h-4 mr-2" />
                           Email
                         </Button>
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           onClick={() => handleSocialShare('text')}
-                          className="hover:bg-blue-50 hover:text-blue-600"
+                          className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
                         >
                           <Smartphone className="w-4 h-4 mr-2" />
                           Text/SMS
                         </Button>
-                        <Button 
-                          variant="outline" 
-                          onClick={() => window.open(shareUrl, '_blank')}
-                          className="hover:bg-blue-50 hover:text-blue-600"
-                        >
-                          <Monitor className="w-4 h-4 mr-2" />
-                          Open
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          onClick={() => window.print()}
-                          className="hover:bg-blue-50 hover:text-blue-600"
-                        >
-                          <Printer className="w-4 h-4 mr-2" />
-                          Print Page
-                        </Button>
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           onClick={() => handleCopyShortUrl()}
-                          className="hover:bg-blue-50 hover:text-blue-600"
+                          className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
                         >
                           <Link2 className="w-4 h-4 mr-2" />
                           Copy Link
@@ -603,16 +710,16 @@ const mailiframSrc = URL.createObjectURL(blob);
                     </CardContent>
                   </Card>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Card className="h-[500px]">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <Card>
                     <CardHeader>
-                      <CardTitle className="text-xl text-center">Mail</CardTitle>
+                      <CardTitle className="text-xl text-center">Mail Preview</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="aspect-video h-[400px] w-[520px] bg-white border rounded-lg flex items-center justify-center">
+                      <div className="w-full aspect-[4/3] bg-white border rounded-lg overflow-hidden">
                         <iframe
                           src={mailiframSrc}
-                          className="w-full h-full rounded-lg"
+                          className="w-full h-full"
                           title={`Mail Preview`}
                         />
                       </div>
@@ -657,10 +764,10 @@ const mailiframSrc = URL.createObjectURL(blob);
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="flex gap-2">
-                  <Input 
-                    value={embedCode} 
-                    readOnly 
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    value={embedCode}
+                    readOnly
                     className="flex-1 font-mono text-sm"
                   />
                   <Button
@@ -681,16 +788,17 @@ const mailiframSrc = URL.createObjectURL(blob);
                   </Button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-lg">Preview</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="aspect-video bg-white border rounded-lg flex items-center justify-center">
+                      <div className="w-full aspect-video bg-white border rounded-lg overflow-hidden">
                         <iframe
-                          src="/quiz"
-                          className="w-full h-full rounded-lg"
+                          src={embedUrl}
+                          className="w-full h-full"
+                          style={{ minHeight: '400px' }}
                           title={`${quizInfo.title} Preview`}
                         />
                       </div>
@@ -711,7 +819,16 @@ const mailiframSrc = URL.createObjectURL(blob);
                         <p className="text-sm text-gray-600">Paste the code into your website's HTML where you want the assessment to appear.</p>
                       </div>
                       <div className="space-y-2">
-                        <h4 className="font-medium">3. Source tracking included</h4>
+                        <h4 className="font-medium">3. Customize Appearance (Optional)</h4>
+                        <p className="text-sm text-gray-600">You can customize the chatbot's appearance by adding parameters to the URL in the <code>src</code> attribute of the iframe.</p>
+                        <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1">
+                          <li><b>Size:</b> Add <code>&width=...</code> and <code>&height=...</code> (e.g., <code>&width=400px&height=600px</code>).</li>
+                          <li><b>Colors:</b> Add parameters like <code>&primary=2563eb</code> for colors (use hex codes without '#').</li>
+                        </ul>
+                        <p className="text-sm text-gray-500 mt-2">Example: <code>src="{embedUrl}?primary=007bff&userBubble=007bff&userText=ffffff"</code></p>
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="font-medium">4. Source tracking included</h4>
                         <p className="text-sm text-gray-600">All leads will be tracked with "website" as the source automatically.</p>
                       </div>
                     </CardContent>

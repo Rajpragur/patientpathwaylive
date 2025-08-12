@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
@@ -19,36 +19,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
 
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.email);
-        if (session !== session) {
-          setSession(session);
-        }
-       setUser(session?.user ?? null);
-       setLoading(false);
+        setSession(prevSession => {
+          if (JSON.stringify(prevSession) !== JSON.stringify(session)) {
+            return session;
+          }
+          return prevSession;
+        });
+        setUser(prevUser => {
+          const newUser = session?.user ?? null;
+          if (JSON.stringify(prevUser) !== JSON.stringify(newUser)) {
+            return newUser;
+          }
+          return prevUser;
+        });
+        setLoading(false);
 
         if (event === 'SIGNED_IN') {
           // Check if email is verified
           if (session?.user && !session.user.email_confirmed_at) {
-            navigate('/verify-email');
+            navigateRef.current('/verify-email');
           } else if (window.location.pathname === '/auth') {
             // Only redirect to portal if we're on the auth page
-            navigate('/portal');
+            navigateRef.current('/portal');
           }
         } else if (event === 'USER_UPDATED') {
           // Handle email verification
           if (session?.user?.email_confirmed_at && window.location.pathname === '/verify-email') {
-            navigate('/portal');
+            navigateRef.current('/portal');
           }
         } else if (event === 'SIGNED_OUT') {
           console.log('User signed out, redirecting to auth page');
           setUser(null);
           setSession(null);
-          navigate('/auth');
+          navigateRef.current('/auth');
         }
       }
     );
@@ -65,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Only redirect if we're on the auth page and user is not verified
         if (session?.user && !session.user.email_confirmed_at && window.location.pathname === '/auth') {
-          navigate('/verify-email');
+          navigateRef.current('/verify-email');
         }
       } catch (error) {
         console.error('Error in getInitialSession:', error);
@@ -77,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     getInitialSession();
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, []);
 
   const signIn = async (email: string, password: string) => {
     try {

@@ -1,21 +1,41 @@
 import { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { QuizType } from '@/types/quiz';
-import { quizzes } from '@/data/quizzes';
-import { calculateQuizScore } from '@/utils/quizScoring';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, AlertTriangle, Info, TrendingUp, Award, Target, Users, Brain, Clock, Shield } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Send, RotateCcw, CheckCircle, AlertCircle, Info, ArrowLeft, Bot, Loader2, UserCircle } from 'lucide-react';
+import { quizzes } from '@/data/quizzes';
+import { calculateQuizScore } from '@/utils/quizScoring';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useSearchParams } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { QuizType } from '@/types/quiz';
+
+const defaultChatbotColors = {
+  primary: '#2563eb',
+  background: '#ffffff',
+  text: '#ffffff',
+  userBubble: '#2563eb',
+  botBubble: '#f1f5f9',
+  userText: '#ffffff',
+  botText: '#334155'
+};
 
 interface Message {
-  id: string;
-  type: 'bot' | 'user';
+  role: 'assistant' | 'user';
   content: string;
+  isQuestion?: boolean;
+  questionIndex?: number;
   options?: string[];
+}
+
+interface QuizAnswer {
+  questionIndex: number;
+  answer: string;
+  answerIndex: number;
 }
 
 interface EnhancedChatBotProps {
@@ -26,498 +46,612 @@ interface EnhancedChatBotProps {
 export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
   const [searchParams] = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(-1);
-  const [answers, setAnswers] = useState<any[]>([]);
+  const [input, setInput] = useState('');
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [answers, setAnswers] = useState<QuizAnswer[]>([]);
+  const [quizCompleted, setQuizCompleted] = useState(false);
+  const [quizStarted, setQuizStarted] = useState(false);
+  const [result, setResult] = useState<any>(null);
   const [userInfo, setUserInfo] = useState({ name: '', email: '', phone: '' });
-  const [phase, setPhase] = useState<'greeting' | 'quiz' | 'userInfo' | 'results'>('greeting');
-  const [isTyping, setIsTyping] = useState(false);
-  const [quizResult, setQuizResult] = useState<any>(null);
-  const [showResult, setShowResult] = useState(false);
-  const [doctorId, setDoctorId] = useState<string | null>(null);
+  const [collectingInfo, setCollectingInfo] = useState(false);
+  const [infoStep, setInfoStep] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const quiz = quizzes[quizType];
-  const doctorShareKey = shareKey || searchParams.get('key');
+  const [showTyping, setShowTyping] = useState(false);
+  const [isSubmittingLead, setIsSubmittingLead] = useState(false);
+  const [finalDoctorId, setFinalDoctorId] = useState<string | null>(null);
+  const [doctorProfile, setDoctorProfile] = useState<any>(null);
+  const [chatbotColors, setChatbotColors] = useState(defaultChatbotColors);
+  const [dimensions, setDimensions] = useState({ width: '100%', height: '100%' });
 
   useEffect(() => {
-    if (doctorShareKey) {
+    const primary = searchParams.get('primary');
+    const background = searchParams.get('background');
+    const text = searchParams.get('text');
+    const userBubble = searchParams.get('userBubble');
+    const botBubble = searchParams.get('botBubble');
+    const userText = searchParams.get('userText');
+    const botText = searchParams.get('botText');
+
+    const newColors = { ...defaultChatbotColors };
+    if (primary) newColors.primary = `#${primary}`;
+    if (background) newColors.background = `#${background}`;
+    if (text) newColors.text = `#${text}`;
+    if (userBubble) newColors.userBubble = `#${userBubble}`;
+    if (botBubble) newColors.botBubble = `#${botBubble}`;
+    if (userText) newColors.userText = `#${userText}`;
+    if (botText) newColors.botText = `#${botText}`;
+    setChatbotColors(newColors);
+
+    const width = searchParams.get('width');
+    const height = searchParams.get('height');
+    if (width) setDimensions(prev => ({ ...prev, width }));
+    if (height) setDimensions(prev => ({ ...prev, height }));
+
+  }, [searchParams]);
+
+  const quizData = quizzes[quizType];
+
+  const isValidEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const isValidPhone = (phone: string) => {
+    const phoneRegex = /^\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/;
+    return phoneRegex.test(phone);
+  };
+
+  const askNextQuestion = (questionIndex: number) => {
+    if (questionIndex < quizData.questions.length) {
+      setShowTyping(true);
+      setTimeout(() => {
+        setShowTyping(false);
+        const question = quizData.questions[questionIndex];
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `Question ${questionIndex + 1} of ${quizData.questions.length}:\n\n${question.text}`,
+          isQuestion: true,
+          questionIndex,
+          options: question.options
+        }]);
+        setCurrentQuestionIndex(questionIndex);
+      }, 700);
+    } else {
+      setTimeout(() => completeQuiz(answers), 700);
+    }
+  };
+
+  useEffect(() => {
+    if (quizData && !quizStarted) {
+      setLoading(false);
+      setMessages([
+        {
+          role: 'assistant',
+          content: `Hello! Welcome to the ${quizData.title}. ${quizData.description}\n\nThis assessment will help evaluate your symptoms. Let's get started.`
+        }
+      ]);
+      // Automatically start the quiz
+      setQuizStarted(true);
+      askNextQuestion(0);
+    }
+  }, [quizData, quizStarted]);
+
+  useEffect(() => {
+    const urlDoctorId = searchParams.get('doctor');
+    if (urlDoctorId) {
+      setFinalDoctorId(urlDoctorId);
+    } else if (shareKey) {
       findDoctorByShareKey();
+    } else {
+      findFirstDoctor();
     }
-    
-    if (messages.length === 0) {
-      addBotMessage(
-        `Welcome to the ${quiz.title} Assessment! 🏥\n\nI'm your AI health assistant. This scientifically-validated questionnaire will help evaluate your symptoms and provide personalized insights.\n\n✅ Takes 5-10 minutes\n✅ Instant results\n✅ Confidential & secure\n\nReady to begin your assessment?`,
-        ['Yes, let\'s start!', 'Tell me more about this assessment']
-      );
-    }
-  }, [quiz.title, doctorShareKey]);
+  }, [shareKey, searchParams]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-
-  useEffect(() => {
-    if (phase === 'results') {
-      setShowResult(false);
-      const timer = setTimeout(() => setShowResult(true), 800);
-      return () => clearTimeout(timer);
-    }
-  }, [phase]);
-
-  const findDoctorByShareKey = async () => {
-    if (!doctorShareKey) return;
-    
-    try {
-      const { data: existingLeads } = await supabase
-        .from('quiz_leads')
-        .select('doctor_id')
-        .eq('share_key', doctorShareKey)
-        .limit(1);
-      
-      if (existingLeads && existingLeads.length > 0) {
-        setDoctorId(existingLeads[0].doctor_id);
-      } else {
-        const doctorParam = searchParams.get('doctor');
-        if (doctorParam) {
-          setDoctorId(doctorParam);
-        }
-      }
-    } catch (error) {
-      console.error('Error finding doctor:', error);
-    }
-  };
-
-  const addBotMessage = (content: string, options?: string[]) => {
-    setIsTyping(true);
-    setTimeout(() => {
-      setMessages(prev => [...prev, {
-        id: Date.now().toString(),
-        type: 'bot',
-        content,
-        options
-      }]);
-      setIsTyping(false);
-    }, 1200);
-  };
-
-  const addUserMessage = (content: string) => {
-    setMessages(prev => [...prev, {
-      id: Date.now().toString(),
-      type: 'user',
-      content
-    }]);
-  };
-
-  const handleOptionClick = (option: string) => {
-    addUserMessage(option);
-
-    if (phase === 'greeting') {
-      if (option === "Yes, let's start!") {
-        setPhase('quiz');
-        setCurrentQuestionIndex(0);
-        setTimeout(() => {
-          addBotMessage(
-            `Excellent! Let's begin your ${quiz.title} assessment.\n\n📋 Question 1 of ${quiz.questions.length}\n\n${quiz.questions[0].text}`,
-            quiz.questions[0].options
-          );
-        }, 600);
-      } else if (option === 'Tell me more about this assessment') {
-        addBotMessage(
-          `The ${quiz.title} is a clinically validated assessment tool used by healthcare professionals worldwide.\n\n🔬 **Scientifically Proven**: Based on peer-reviewed research\n🎯 **Personalized Results**: Tailored insights for your symptoms\n🔒 **Completely Confidential**: Your privacy is our priority\n⚡ **Instant Analysis**: Get results immediately\n\nReady to start?`,
-          ["Yes, I'm ready!", 'I need more time']
-        );
-      } else if (option === "Yes, I'm ready!") {
-        setPhase('quiz');
-        setCurrentQuestionIndex(0);
-        setTimeout(() => {
-          addBotMessage(
-            `Perfect! Let's begin your comprehensive assessment.\n\n📋 Question 1 of ${quiz.questions.length}\n\n${quiz.questions[0].text}`,
-            quiz.questions[0].options
-          );
-        }, 600);
-      } else {
-        addBotMessage(
-          "No worries at all! Take your time to consider. When you're ready to proceed with your health assessment, just return here. Your wellbeing is worth the wait! 💙",
-          []
-        );
-      }
-    } else if (phase === 'quiz') {
-      if (currentQuestionIndex >= 0 && currentQuestionIndex < quiz.questions.length) {
-        const currentQuestion = quiz.questions[currentQuestionIndex];
+  
+  const fetchDoctorProfile = async () => {
+    if (finalDoctorId) {
+      try {
+        const { data, error } = await supabase
+          .from('doctor_profiles')
+          .select('*')
+          .eq('id', finalDoctorId)
+          .single();
         
-        if (!currentQuestion.options.includes(option)) {
-          addBotMessage(
-            "⚠️ Please select one of the provided options for this question to continue. Choose from the options shown above.",
-            currentQuestion.options
-          );
+        if (error) {
+          console.error('Error fetching doctor profile:', error);
           return;
         }
-
-        const newAnswers = [...answers, {
-          questionId: currentQuestion.id,
-          answer: option
-        }];
-        setAnswers(newAnswers);
-
-        if (currentQuestionIndex < quiz.questions.length - 1) {
-          const nextIndex = currentQuestionIndex + 1;
-          setCurrentQuestionIndex(nextIndex);
-          setTimeout(() => {
-            const progress = Math.round(((nextIndex + 1) / quiz.questions.length) * 100);
-            addBotMessage(
-              `Great answer! 📊 Progress: ${progress}%\n\n📋 Question ${nextIndex + 1} of ${quiz.questions.length}\n\n${quiz.questions[nextIndex].text}`,
-              quiz.questions[nextIndex].options
-            );
-          }, 700);
+        
+        if (data) {
+          setDoctorProfile(data);
         } else {
-          setPhase('userInfo');
-          setTimeout(() => {
-            addBotMessage(
-              "🎉 **Assessment Complete!** \n\nYou've successfully completed all questions. Now I need some contact information to provide you with your personalized health insights and recommendations.\n\n📧 This helps us deliver your detailed results securely."
-            );
-          }, 800);
+          console.warn('No doctor profile found for ID:', finalDoctorId);
         }
+      } catch (error) {
+        console.error('Error fetching doctor profile:', error);
       }
     }
   };
 
-  const handleUserInfoSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!userInfo.name || !userInfo.email) {
-      toast.error('Please fill in your name and email to receive results');
+  useEffect(() => {
+    fetchDoctorProfile();
+  }, [finalDoctorId]);
+
+  const findDoctorByShareKey = async () => {
+    try {
+      const { data: leadData, error: leadError } = await supabase
+        .from('quiz_leads')
+        .select('doctor_id')
+        .eq('share_key', shareKey)
+        .maybeSingle();
+
+      if (leadData && !leadError) {
+        setFinalDoctorId(leadData.doctor_id);
+        return;
+      }
+
+      const { data: customData, error: customError } = await supabase
+        .from('custom_quizzes')
+        .select('doctor_id')
+        .eq('share_key', shareKey)
+        .maybeSingle();
+
+      if (customData && !customError) {
+        setFinalDoctorId(customData.doctor_id);
+        return;
+      }
+
+      findFirstDoctor();
+    } catch (error) {
+      console.error('Error finding doctor by share key:', error);
+      findFirstDoctor();
+    }
+  };
+
+  const findFirstDoctor = async () => {
+    try {
+      const { data: doctorProfiles } = await supabase
+        .from('doctor_profiles')
+        .select('id')
+        .limit(1);
+      
+      if (doctorProfiles && doctorProfiles.length > 0) {
+        setFinalDoctorId(doctorProfiles[0].id);
+      }
+    } catch (error) {
+      console.error('Error finding first doctor:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen" style={{ background: chatbotColors.background }}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: chatbotColors.primary }}></div>
+          <p className="text-lg text-gray-600">Loading assessment...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (notFound || !quizData) {
+    return (
+      <div className="flex items-center justify-center h-screen" style={{ background: chatbotColors.background }}>
+        <div className="text-center max-w-md mx-auto p-6">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Assessment Not Found</h1>
+          <p className="text-gray-600 mb-4">The requested assessment could not be found or is no longer available.</p>
+          <Button onClick={() => window.location.href = '/'} style={{ backgroundColor: chatbotColors.primary, borderColor: chatbotColors.primary }}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Return to Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const handleStartQuiz = () => {
+    // This function is now empty as the quiz starts automatically.
+    // It's kept to avoid breaking other parts of the code that might reference it.
+  };
+
+  const handleAnswer = (answerText: string, answerIndex: number) => {
+    const newAnswer: QuizAnswer = {
+      questionIndex: currentQuestionIndex,
+      answer: answerText,
+      answerIndex
+    };
+
+    const updatedAnswers = [...answers, newAnswer];
+    setAnswers(updatedAnswers);
+
+    setMessages(prev => [...prev, {
+      role: 'user',
+      content: answerText
+    }]);
+
+    const nextQuestionIndex = currentQuestionIndex + 1;
+    if (nextQuestionIndex < quizData.questions.length) {
+      setShowTyping(true);
+      setTimeout(() => {
+        setShowTyping(false);
+        askNextQuestion(nextQuestionIndex);
+      }, 700);
+    } else {
+      setShowTyping(true);
+      setTimeout(() => {
+        setShowTyping(false);
+        completeQuiz(updatedAnswers);
+      }, 700);
+    }
+  };
+
+  const completeQuiz = (finalAnswers: QuizAnswer[]) => {
+    setQuizCompleted(true);
+    
+    const quizResult = calculateQuizScore(quizType, finalAnswers);
+    setResult(quizResult);
+
+    setMessages(prev => [
+      ...prev,
+      {
+        role: 'assistant',
+        content: `🎉 Congratulations! You've completed the ${quizData.title}. Here are your results. Proceed with submitting details ahead.`
+      }
+    ]);
+  };
+  
+  const handleInfoSubmit = async () => {
+    if (infoStep === 0) {
+      if (!userInfo.name.trim() || userInfo.name.trim().length < 2) {
+        toast.error('Please enter a valid name (at least 2 characters)');
+        return;
+      }
+      setInfoStep(1);
+      setMessages(prev => [...prev, 
+        { role: 'user', content: userInfo.name },
+        { role: 'assistant', content: 'Thank you! Please provide your email address:' }
+      ]);
+      setInput('');
       return;
     }
 
-    console.log('Submitting user info with answers:', answers);
-    const result = calculateQuizScore(quizType, answers);
-    console.log('Calculated result:', result);
-    setQuizResult(result);
-    setPhase('results');
+    if (infoStep === 1) {
+      if (!isValidEmail(userInfo.email)) {
+        toast.error('Invalid email format');
+        setMessages(prev => [...prev, 
+          { role: 'user', content: userInfo.email },
+          { role: 'assistant', content: `"${userInfo.email}" doesn't seem to be a valid email address. Please enter a valid email address (e.g., name@example.com)` }
+        ]);
+        setInput('');
+        return;
+      }
+      setInfoStep(2);
+      setMessages(prev => [...prev, 
+        { role: 'user', content: userInfo.email },
+        { role: 'assistant', content: 'Great! Finally, please provide your phone number:' }
+      ]);
+      setInput('');
+      return;
+    }
 
-    try {
-      const leadSource = doctorShareKey ? 'shared_link' : 'website';
+    if (infoStep === 2) {
+      if (!isValidPhone(userInfo.phone)) {
+        toast.error('Invalid phone format');
+        setMessages(prev => [...prev, 
+          { role: 'user', content: userInfo.phone },
+          { role: 'assistant', content: `"${userInfo.phone}" doesn't seem to be a valid phone number. Please enter a number in the format: 123-456-7890 or (123) 456-7890` }
+        ]);
+        setInput('');
+        return;
+      }
+      setMessages(prev => [...prev, 
+        { role: 'user', content: userInfo.phone }
+      ]);
+      setCollectingInfo(false);
+      setInput('');
       
+      await submitLead();
+    }
+  };
+
+  const submitLead = async () => {
+    if (!finalDoctorId) {
+      toast.error('Unable to save results - no doctor associated with this quiz');
+      return;
+    }
+
+    setIsSubmittingLead(true);
+    
+    try {
       const leadData = {
-        doctor_id: doctorId,
         name: userInfo.name,
         email: userInfo.email,
         phone: userInfo.phone,
         quiz_type: quizType,
         score: result.score,
         answers: answers,
-        lead_source: leadSource,
-        share_key: doctorShareKey,
-        lead_status: 'NEW'
+        lead_source: searchParams.get('utm_source') || (shareKey ? 'shared_link' : 'website'),
+        lead_status: 'NEW',
+        doctor_id: finalDoctorId,
+        share_key: shareKey || null,
       };
-
-      console.log('Saving lead data:', leadData);
 
       const { error } = await supabase.from('quiz_leads').insert(leadData);
 
       if (error) {
-        console.error('Error saving lead:', error);
-        toast.error('Error saving results. Please try again.');
-        return;
+        throw error;
       }
       
-      toast.success('✅ Assessment completed! Results saved securely.');
-    } catch (error) {
-      console.error('Error saving assessment:', error);
-      toast.error('Error saving results. Please try again.');
-      return;
-    }
+      toast.success('Results saved successfully! You will receive a follow-up soon.');
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: 'Thank you! Your results are now displayed. A team member will get back to you soon.' 
+      }]);
 
-    addBotMessage(
-      `Thank you, ${userInfo.name}! 🎯 Your ${quiz.title} assessment has been completed and analyzed. Here are your comprehensive results:`
-    );
+    } catch (error) {
+      console.error('Error submitting lead:', error);
+      toast.error('Failed to save results. Please try again.');
+    } finally {
+      setIsSubmittingLead(false);
+    }
   };
 
-  const getSeverityIcon = (severity: string) => {
-    switch (severity) {
-      case 'normal': return <CheckCircle className="w-16 h-16 text-green-500" />;
-      case 'mild': return <Info className="w-16 h-16 text-blue-500" />;
-      case 'moderate': return <AlertTriangle className="w-16 h-16 text-yellow-500" />;
-      case 'severe': return <TrendingUp className="w-16 h-16 text-red-500" />;
-      default: return <Info className="w-16 h-16 text-gray-500" />;
+  const handleInputChange = (value: string) => {
+    setInput(value);
+
+    if (collectingInfo) {
+      if (infoStep === 0) {
+        setUserInfo(prev => ({ ...prev, name: value }));
+      } else if (infoStep === 1) {
+        setUserInfo(prev => ({ ...prev, email: value }));
+      } else if (infoStep === 2) {
+        setUserInfo(prev => ({ ...prev, phone: value }));
+      }
     }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (collectingInfo) {
+        handleInfoSubmit();
+      }
+    }
+  };
+
+  const resetQuiz = () => {
+    setMessages([]);
+    setCurrentQuestionIndex(0);
+    setAnswers([]);
+    setQuizCompleted(false);
+    setQuizStarted(false);
+    setResult(null);
+    setUserInfo({ name: '', email: '', phone: '' });
+    setCollectingInfo(false);
+    setInfoStep(0);
+    setInput('');
+    setTimeout(() => {
+      setMessages([{
+        role: 'assistant',
+        content: `Hello! Welcome to the ${quizData.title}. ${quizData.description}\n\nThis assessment will help evaluate your symptoms. Click "Start Assessment" when you're ready to begin.`
+      }]);
+    }, 100);
   };
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'normal': return 'border-green-400 bg-gradient-to-br from-green-50 to-green-100';
-      case 'mild': return 'border-blue-400 bg-gradient-to-br from-blue-50 to-blue-100';
-      case 'moderate': return 'border-yellow-400 bg-gradient-to-br from-yellow-50 to-yellow-100';
-      case 'severe': return 'border-red-400 bg-gradient-to-br from-red-50 to-red-100';
-      default: return 'border-gray-400 bg-gradient-to-br from-gray-50 to-gray-100';
+      case 'severe': return 'text-red-600 bg-red-50 border-red-200';
+      case 'moderate': return 'text-orange-600 bg-orange-50 border-orange-200';
+      case 'mild': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+      default: return 'text-teal-600 bg-teal-50 border-teal-200';
     }
   };
 
-  const getMaxScore = () => {
-    switch (quizType) {
-      case 'SNOT22': return 110;
-      case 'NOSE': return 20;
-      case 'HHIA': return 100;
-      case 'EPWORTH': return 24;
-      case 'DHI': return 100;
-      case 'STOP': return 8;
-      case 'TNSS': return 12;
-      default: return 100;
+  const getSeverityIcon = (severity: string) => {
+    switch (severity) {
+      case 'severe': return <AlertCircle className="w-4 h-4" />;
+      case 'moderate': return <AlertCircle className="w-4 h-4" />;
+      case 'mild': return <Info className="w-4 h-4" />;
+      default: return <CheckCircle className="w-4 h-4" />;
     }
   };
+
+  const renderAnswerOption = (option: any, index: number) => (
+    <motion.button
+      key={`option-${index}`}
+      whileHover={{ scale: 1.01 }}
+      whileTap={{ scale: 0.99 }}
+      onClick={() => handleAnswer(option.text || option, index)}
+      className="w-full p-4 text-left rounded-xl border border-gray-200 
+        bg-white hover:border-primary/30 hover:bg-gray-50
+        transition-all duration-200 shadow-sm hover:shadow
+        flex items-center gap-3"
+      style={{ '--tw-border-opacity': 0.5, color: chatbotColors.primary } as React.CSSProperties}
+    >
+      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-100
+        flex items-center justify-center text-gray-600 text-sm font-medium">
+        {String.fromCharCode(65 + index)}
+      </span>
+      <span className="flex-1 text-gray-700 font-medium">
+        {option.text || option}
+      </span>
+    </motion.button>
+  );
 
   return (
-    <div className="w-full h-full bg-gradient-to-br from-blue-50 via-white to-indigo-50 overflow-hidden flex flex-col max-w-4xl mx-auto rounded-3xl shadow-xl">
-      <div className="bg-white border-b border-slate-200 text-slate-800 p-4 shadow-lg rounded-t-3xl">
-        <div className="max-w-3xl mx-auto">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] rounded-2xl flex items-center justify-center shadow-lg">
-              <Brain className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] bg-clip-text text-transparent">
-                {quizType} Assessment
-              </h2>
-              <p className="text-slate-600 text-sm">{quiz.title}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 text-slate-500">
-            <div className="flex items-center gap-1 bg-slate-100 px-2 py-1 rounded-xl">
-              <Users className="w-3 h-3" />
-              <span className="font-medium text-xs">{quiz.questions.length} Questions</span>
-            </div>
-            <div className="flex items-center gap-1 bg-slate-100 px-2 py-1 rounded-xl">
-              <Clock className="w-3 h-3" />
-              <span className="font-medium text-xs">5-10 Min</span>
-            </div>
-            <div className="flex items-center gap-1 bg-slate-100 px-2 py-1 rounded-xl">
-              <Shield className="w-3 h-3" />
-              <span className="font-medium text-xs">Validated</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 max-w-3xl mx-auto w-full">
-        {messages.map((message, index) => (
-          <div
-            key={message.id}
-            className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} transition-all duration-500 ease-out transform`}
-            style={{
-              animation: `fadeInSlide 0.6s ease-out ${index * 0.1}s both`
-            }}
-          >
-            <div className={`flex items-end gap-2 max-w-xl`}>
-              {message.type === 'bot' && (
-                <div className="w-8 h-8 rounded-2xl bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] flex items-center justify-center text-white font-bold shadow-lg text-xs">
-                  🤖
-                </div>
-              )}
-              <div
-                className={`px-3 py-2 rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl ${
-                  message.type === 'user'
-                    ? 'bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] text-white ml-auto'
-                    : 'bg-white text-slate-800 border border-slate-200'
-                }`}
+    <div className="flex flex-col h-full max-h-full" style={{ background: chatbotColors.background, width: dimensions.width, height: dimensions.height }}>
+      <div className="flex-1 overflow-hidden flex flex-col max-w-4xl mx-auto w-full rounded-2xl shadow-lg" style={{ minHeight: 400 }}>
+        <div className="flex-1 overflow-y-auto p-6 space-y-4" style={{ maxHeight: '100%', minHeight: 0 }}>
+          <AnimatePresence initial={false}>
+            {messages.map((message, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -24 }}
+                transition={{ duration: 0.35, ease: 'easeInOut' }}
+                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <p className="text-sm whitespace-pre-line leading-relaxed font-medium">{message.content}</p>
-                {message.options && (
-                  <div className="mt-3 space-y-1">
-                    {message.options.map((option, index) => (
-                      <Button
-                        key={index}
-                        variant="outline"
-                        size="sm"
-                        className="w-full text-left justify-start bg-slate-50 border border-slate-300 hover:border-[#0E7C9D] hover:bg-blue-50 transition-all duration-300 hover:scale-[1.02] text-slate-700 hover:text-[#0E7C9D] py-2 px-3 rounded-xl font-medium shadow-sm hover:shadow-md text-xs"
-                        onClick={() => handleOptionClick(option)}
-                      >
-                        {option}
-                      </Button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {message.type === 'user' && (
-                <div className="w-8 h-8 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 flex items-center justify-center text-white font-bold shadow-lg text-xs">
-                  👤
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-
-        {isTyping && (
-          <div className="flex justify-start">
-            <div className="flex items-end gap-2">
-              <div className="w-8 h-8 rounded-2xl bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] flex items-center justify-center text-white font-bold shadow-lg text-xs">
-                🤖
-              </div>
-              <div className="bg-white text-slate-800 px-3 py-2 rounded-2xl shadow-lg border border-slate-200 flex items-center gap-2">
-                <div className="flex gap-1">
-                  <div className="w-1.5 h-1.5 bg-[#0E7C9D] rounded-full animate-bounce"></div>
-                  <div className="w-1.5 h-1.5 bg-[#0E7C9D] rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-1.5 h-1.5 bg-[#0E7C9D] rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                </div>
-                <span className="text-xs font-medium text-slate-600">Analyzing...</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {phase === 'userInfo' && (
-        <div className="p-4 border-t bg-gradient-to-r from-blue-50 to-indigo-50 rounded-b-3xl">
-          <form onSubmit={handleUserInfoSubmit} className="space-y-3 max-w-md mx-auto">
-            <div className="text-center mb-4">
-              <div className="w-12 h-12 bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] rounded-2xl flex items-center justify-center mx-auto mb-3">
-                <Target className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-800 mb-2">Almost There! 🎯</h3>
-              <p className="text-slate-600 text-sm leading-relaxed">Enter your details to receive your personalized health assessment results.</p>
-            </div>
-            <Input
-              className="py-3 px-4 rounded-2xl border-2 border-slate-300 focus:border-[#0E7C9D] transition-all duration-200"
-              placeholder="Your Full Name *"
-              value={userInfo.name}
-              onChange={(e) => setUserInfo(prev => ({ ...prev, name: e.target.value }))}
-              required
-            />
-            <Input
-              className="py-3 px-4 rounded-2xl border-2 border-slate-300 focus:border-[#0E7C9D] transition-all duration-200"
-              type="email"
-              placeholder="Your Email Address *"
-              value={userInfo.email}
-              onChange={(e) => setUserInfo(prev => ({ ...prev, email: e.target.value }))}
-              required
-            />
-            <Input
-              className="py-3 px-4 rounded-2xl border-2 border-slate-300 focus:border-[#0E7C9D] transition-all duration-200"
-              type="tel"
-              placeholder="Your Phone Number (Optional)"
-              value={userInfo.phone}
-              onChange={(e) => setUserInfo(prev => ({ ...prev, phone: e.target.value }))}
-            />
-            <Button 
-              type="submit" 
-              className="w-full py-3 bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] hover:from-[#0E7C9D]/90 hover:to-[#FD904B]/90 transition-all duration-300 hover:scale-[1.02] rounded-2xl shadow-lg hover:shadow-xl font-semibold"
-            >
-              Get My Assessment Results 🎉
-            </Button>
-          </form>
-        </div>
-      )}
-
-      {phase === 'results' && quizResult && (
-        <div className="p-4 flex justify-center items-center bg-gradient-to-br from-slate-50 to-blue-50 min-h-[400px] rounded-b-3xl">
-          <div
-            className={`transition-all duration-1000 ease-out transform ${
-              showResult ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'
-            } w-full max-w-2xl`}
-          >
-            <Card className="w-full shadow-2xl rounded-3xl border-0 overflow-hidden bg-white">
-              <div className="bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] px-6 py-6 text-white">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="text-4xl">🎉</div>
-                    <div>
-                      <CardTitle className="text-white text-2xl font-bold mb-1">
-                        Assessment Complete!
-                      </CardTitle>
-                      <div className="text-blue-100">{quiz.title}</div>
-                      <div className="text-blue-200 text-xs mt-1">
-                        Completed on {new Date().toLocaleDateString()}
+                <div className="flex items-end gap-2 max-w-4xl">
+                  {message.role === 'assistant' && (
+                    <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="flex-shrink-0">
+                      <Avatar className="h-8 w-8 border border-gray-200 shadow">
+                        <AvatarImage 
+                          src={doctorProfile?.avatar_url || "/placeholder-doctor.jpg"}
+                          alt={`Dr. ${doctorProfile?.first_name || ''} ${doctorProfile?.last_name || ''}`}
+                        />
+                        <AvatarFallback className="bg-white">
+                          <Bot className="w-4 h-4" style={{ color: chatbotColors.text }} />
+                        </AvatarFallback>
+                      </Avatar>
+                    </motion.div>
+                  )}
+                  <div
+                    className={`rounded-2xl px-5 py-3 max-w-full shadow-md transition-all duration-200 ${
+                      message.role === 'user'
+                        ? 'text-gray-900 hover:shadow-lg'
+                        : 'bg-white border border-gray-200 text-gray-700 hover:shadow-lg'
+                    }`}
+                    style={message.role === 'user' ? { backgroundColor: chatbotColors.userBubble, color: chatbotColors.userText , borderColor: chatbotColors.primary } : {backgroundColor: chatbotColors.botBubble, color: chatbotColors.botText , borderColor: chatbotColors.primary}}
+                  >
+                    <span className="whitespace-pre-wrap text-base leading-relaxed">{message.content}</span>
+                    {message.isQuestion && message.options && !quizCompleted && (
+                      <div className="mt-4 space-y-2 w-full">
+                        {Array.isArray(message.options) && message.options.map((option: any, optionIndex: number) =>
+                          renderAnswerOption(option, optionIndex)
+                        )}
                       </div>
+                    )}
+                  </div>
+                  {message.role === 'user' && (
+                    <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="flex-shrink-0">
+                      <UserCircle className="w-7 h-7 bg-white rounded-full border border-gray-200 shadow p-1" style={{ color: chatbotColors.primary }} />
+                    </motion.div>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+            
+            {showTyping && (
+              <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="flex-shrink-0">
+                <Avatar className="h-8 w-8 border border-gray-200 shadow">
+                  <AvatarImage 
+                    src={doctorProfile?.avatar_url || "/placeholder-doctor.jpg"}
+                    alt={`Dr. ${doctorProfile?.first_name || ''} ${doctorProfile?.last_name || ''}`}
+                  />
+                  <AvatarFallback className="bg-white">
+                    <Bot className="w-4 h-4" style={{ color: chatbotColors.primary}} />
+                  </AvatarFallback>
+                </Avatar>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          
+          {result && quizCompleted && !collectingInfo && (
+            <div className="overflow-y-auto">
+              <Card className="rounded-2xl mt-6 border" style={{ borderColor: chatbotColors.primary }}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2" style={{ color: chatbotColors.primary }}>
+                    <CheckCircle className="w-5 h-5" />
+                    Assessment Complete
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center p-4 rounded-lg bg-gray-50">
+                      <p className="text-sm" style={{ color: chatbotColors.primary }}>Your Score</p>
+                      <p className="text-2xl font-bold" style={{ color: chatbotColors.primary }}>{result.score}/{quizData.maxScore}</p>
+                    </div>
+                    <div className={`text-center p-4 rounded-lg border ${getSeverityColor(result.severity)}`}>
+                      <div className="flex items-center justify-center gap-2 mb-1">
+                        {getSeverityIcon(result.severity)}
+                        <p className="text-sm font-medium">Severity Level</p>
+                      </div>
+                      <p className="font-bold capitalize">{result.severity}</p>
+                    </div>
+                    <div className="text-center p-4 rounded-lg bg-gray-50">
+                      <p className="text-sm" style={{ color: chatbotColors.primary }}>Questions</p>
+                      <p className="text-2xl font-bold" style={{ color: chatbotColors.primary }}>{quizData.questions.length}</p>
                     </div>
                   </div>
-                </div>
-              </div>
-              
-              <CardContent className="bg-white px-6 py-6">
-                <div className="mb-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-slate-700 font-bold text-lg">Your Assessment Score</span>
-                    <span className="text-[#0E7C9D] font-bold text-2xl">{quizResult.score} / {getMaxScore()}</span>
+                  <div className="p-4 rounded-lg bg-gray-50">
+                    <h4 className="font-semibold mb-2" style={{ color: chatbotColors.primary }}>Results Summary:</h4>
+                    <p style={{ color: chatbotColors.primary }}>{result.interpretation}</p>
                   </div>
-                  <div className="w-full bg-slate-200 rounded-full h-4 overflow-hidden">
-                    <div
-                      className={`h-4 rounded-full transition-all duration-1500 ${
-                        quizResult.severity === 'normal' && 'bg-gradient-to-r from-green-400 to-green-500'
-                      } ${
-                        quizResult.severity === 'mild' && 'bg-gradient-to-r from-blue-400 to-blue-500'
-                      } ${
-                        quizResult.severity === 'moderate' && 'bg-gradient-to-r from-yellow-400 to-yellow-500'
-                      } ${
-                        quizResult.severity === 'severe' && 'bg-gradient-to-r from-red-400 to-red-500'
-                      }`}
-                      style={{
-                        width: `${Math.min(100, Math.round((quizResult.score / getMaxScore()) * 100))}%`
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                  <div className={`flex flex-col items-center gap-3 p-4 rounded-2xl border-2 ${getSeverityColor(quizResult.severity)}`}>
-                    {getSeverityIcon(quizResult.severity)}
-                    <div className="text-center">
-                      <span className="text-lg font-bold capitalize mb-1 block">
-                        {quizResult.severity} Level
-                      </span>
-                      <p className="text-xs text-slate-600">Severity Assessment</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-col justify-center items-center text-center bg-gradient-to-br from-slate-50 to-slate-100 p-4 rounded-2xl">
-                    <div className="text-3xl font-bold text-slate-800 mb-1">
-                      {Math.round((quizResult.score / getMaxScore()) * 100)}%
-                    </div>
-                    <p className="text-slate-600 font-medium text-sm">Score Percentage</p>
-                    <div className="mt-2 flex items-center gap-1 text-xs text-slate-500">
-                      <Award className="w-3 h-3" />
-                      <span>Clinically Validated</span>
-                    </div>
-                  </div>
-                </div>
-                </>
-                <div className="mb-6 p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200">
-                  <h4 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
-                    <Brain className="w-5 h-5 text-[#0E7C9D]" />
-                    Your Personalized Analysis
-                  </h4>
-                  <p className="text-slate-700 leading-relaxed text-sm">{quizResult.interpretation}</p>
-                </div>
-
-                <div className="flex flex-wrap justify-between items-center gap-3">
-                  <Badge className="px-3 py-1 bg-blue-50 text-[#0E7C9D] border-blue-200 rounded-2xl font-medium" variant="outline">
-                    {quiz.title}
-                  </Badge>
-                  <div className="flex items-center gap-1 text-xs text-slate-500">
-                    <Shield className="w-3 h-3" />
-                    <span>Results saved securely</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                  <Button 
+                    onClick={resetQuiz} 
+                    className="w-full rounded-xl text-white"
+                    style={{ backgroundColor: chatbotColors.primary, borderColor: chatbotColors.primary }}
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    Retake Quiz
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
         </div>
-      )}
 
-      <style>
-        {`
-          @keyframes fadeInSlide {
-            from {
-              opacity: 0;
-              transform: translateY(20px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-        `}
-      </style>
+        <motion.div
+          initial={{ opacity: 0, y: 32 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 32 }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
+          className="p-4 sticky bottom-0 z-10 bg-white/90 backdrop-blur rounded-b-2xl border-t border-gray-200"
+        >
+          {result && quizCompleted && !collectingInfo && (
+            <Button
+              onClick={() => {
+                setCollectingInfo(true);
+                setMessages(prev => [
+                  ...prev,
+                  {
+                    role: 'assistant',
+                    content: 'To save your results, please enter your full name:'
+                  }
+                ]);
+              }}
+              className="w-full rounded-xl text-white"
+              style={{ backgroundColor: chatbotColors.primary, borderColor: chatbotColors.primary }}
+            >
+              Save My Results
+            </Button>
+          )}
+          {collectingInfo && (
+            <div className="flex gap-2">
+              <Input
+                value={input}
+                onChange={(e) => handleInputChange(e.target.value)}
+                placeholder={
+                  infoStep === 0 ? "Enter your full name..." :
+                  infoStep === 1 ? "Enter your email (e.g., name@example.com)..." :
+                  "Enter your phone (e.g., 123-456-7890)..."
+                }
+                onKeyDown={handleKeyDown}
+                className="flex-1 rounded-xl border border-gray-200 px-4 py-2 text-base bg-white shadow focus:ring-2 focus:outline-none transition-all duration-150"
+                disabled={isSubmittingLead}
+                required
+                type={infoStep === 1 ? "email" : infoStep === 2 ? "tel" : "text"}
+              />
+              <Button 
+                onClick={handleInfoSubmit} 
+                className="rounded-xl shadow text-white"
+                style={{ backgroundColor: chatbotColors.primary, borderColor: chatbotColors.primary }}
+                disabled={isSubmittingLead}
+              >
+                {isSubmittingLead ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              </Button>
+            </div>
+          )}
+        </motion.div>
+      </div>
     </div>
   );
 }

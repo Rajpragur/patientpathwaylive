@@ -492,7 +492,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
         custom_quiz_id: quizData.isCustom ? quizData.id : null,
         score: result.score,
         answers: result.detailedAnswers,
-        lead_source: shareKey ? 'shared_link' : 'website',
+        lead_source: searchParams.get('utm_source') || (shareKey ? 'shared_link' : 'website'),
         lead_status: 'NEW',
         doctor_id: finalDoctorId,
         share_key: shareKey || null,
