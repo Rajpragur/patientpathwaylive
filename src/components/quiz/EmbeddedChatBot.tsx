@@ -135,7 +135,6 @@ export function EmbeddedChatBot({ quizType, doctorId, customQuiz, quizData, doct
     // Get doctor ID from props or URL parameters
     const urlDoctorId = doctorId || searchParams.get('doctor');
     if (urlDoctorId) {
-      console.log('Found doctor ID:', urlDoctorId);
       setFinalDoctorId(urlDoctorId);
     } else {
       // Fallback to first available doctor

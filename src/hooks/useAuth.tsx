@@ -26,7 +26,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
         setSession(prevSession => {
           if (JSON.stringify(prevSession) !== JSON.stringify(session)) {
             return session;
@@ -105,10 +104,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             message: 'Please verify your email before signing in. Check your inbox for the verification link.' 
           } 
         };
-      }
-      
-      if (!error) {
-        console.log('Sign in successful');
       }
       
       return { error };
