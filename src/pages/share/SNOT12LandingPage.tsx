@@ -31,7 +31,7 @@ const defaultChatbotColors = {
   botText: '#334155'
 };
 
-const NOSELandingPage: React.FC = () => {
+const SNOTLandingPage: React.FC = () => {
   const { doctorId } = useParams<{ doctorId: string }>();
   const [utmSource, setUtmSource] = useState<string | null>(null);
   const [doctor, setDoctor] = useState<DoctorProfile | null>(null);
@@ -699,4 +699,4 @@ const NOSELandingPage: React.FC = () => {
   );
 };
 
-export default NOSELandingPage;
+export default SNOTLandingPage;

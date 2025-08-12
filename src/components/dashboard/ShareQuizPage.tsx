@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { nanoid } from 'nanoid';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FaTiktok } from 'react-icons/fa';
 import { 
   Copy, 
   QrCode, 
@@ -28,7 +29,9 @@ import {
   Loader2,
   Users,
   Edit,
-  Pencil
+  Pencil,
+  UserRound,
+  MessageCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -145,7 +148,7 @@ export function ShareQuizPage() {
   const getQuizUrl = useCallback((source?: string) => {
     const baseQuizUrl = customQuizId
       ? `${baseUrl}/custom-quiz/${customQuizId}`
-      : `${baseUrl}/quiz/${quizId?.toLowerCase()}`;
+      : `${baseUrl}/share/${quizId?.toLowerCase()}`;
     
     const trackingParams = new URLSearchParams();
     
@@ -172,6 +175,8 @@ export function ShareQuizPage() {
         return 'linkedin';
       case 'twitter':
         return 'twitter';
+      case 'tiktok':
+        return 'tiktok';
       case 'email':
         return 'email';
       case 'text':
@@ -183,74 +188,359 @@ export function ShareQuizPage() {
     }
   };
 
-  const generateShortUrl = async () => {
-    setIsGeneratingShortUrl(true);
-    try {
-      const doctorId = doctorProfile.id;
-      const shortId = nanoid(6);
-      const { error } = await supabase.from('link_mappings').insert({
-        short_id: shortId,
-        doctor_id: doctorId
-      });
-      if (error) throw error;
-      const shortUrl = `${window.location.origin}/s/${shortId}`;
-      setShortUrl(shortUrl);
-      toast.success('Short URL generated successfully!');
-    } catch (error) {
-      console.error('Error generating short URL:', error);
-      toast.error('Failed to generate short URL. Please try again.');
-    } finally {
-      setIsGeneratingShortUrl(false);
-    }
-  };
+const generateShortUrl = async (source?: string) => {
+  setIsGeneratingShortUrl(true);
+  try {
+    const longUrl = getQuizUrl(source || 'website');
+    
+    console.log('Generating short URL for:', longUrl);
+    
+    const { data, error } = await supabase.functions.invoke('generate-short-url', {
+      body: { long_url: longUrl },
+    });
 
-  const handleSocialShare = (platform: string) => {
-    const url = getQuizUrl(platform);
+    if (error) {
+      console.error('Supabase function error:', error);
+      throw new Error(error.message || 'Failed to generate short URL');
+    }
+
+    if (!data || !data.short_id) {
+      console.error('Invalid response from function:', data);
+      throw new Error('Invalid response: missing short_id');
+    }
+    
+    const fullShortUrl = `${window.location.origin}/s/${data.short_id}`;
+    console.log('Generated short URL:', fullShortUrl);
+    
+    if (!source) {
+      setShortUrl(fullShortUrl);
+      toast.success('Short URL generated successfully!');
+    }
+    
+    return fullShortUrl;
+  } catch (error) {
+    console.error('Error generating short URL:', error);
+    
+    // More specific error messages
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    toast.error(`Failed to generate short URL: ${errorMessage}`);
+    
+    return null;
+  } finally {
+    setIsGeneratingShortUrl(false);
+  }
+};
+
+const generateShortUrlWithRetry = async (source?: string, retries = 3) => {
+  setIsGeneratingShortUrl(true);
+  
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const longUrl = getQuizUrl(source || 'website');
+      
+      console.log(`Attempt ${attempt}: Generating short URL for:`, longUrl);
+      
+      const { data, error } = await supabase.functions.invoke('generate-short-url', {
+        body: { long_url: longUrl },
+      });
+
+      if (error) {
+        console.error(`Attempt ${attempt} - Supabase function error:`, error);
+        if (attempt === retries) {
+          throw new Error(error.message || 'Failed to generate short URL after multiple attempts');
+        }
+        continue; // Try again
+      }
+
+      if (!data || !data.short_id) {
+        console.error(`Attempt ${attempt} - Invalid response:`, data);
+        if (attempt === retries) {
+          throw new Error('Invalid response: missing short_id');
+        }
+        continue; // Try again
+      }
+      
+      const fullShortUrl = `${window.location.origin}/s/${data.short_id}`;
+      console.log(`Success on attempt ${attempt}:`, fullShortUrl);
+      
+      if (!source) {
+        setShortUrl(fullShortUrl);
+        toast.success('Short URL generated successfully!');
+      }
+      
+      setIsGeneratingShortUrl(false);
+      return fullShortUrl;
+      
+    } catch (error) {
+      console.error(`Attempt ${attempt} error:`, error);
+      if (attempt === retries) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        toast.error(`Failed to generate short URL: ${errorMessage}`);
+        setIsGeneratingShortUrl(false);
+        return null;
+      }
+      // Wait a bit before retrying
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+  
+  setIsGeneratingShortUrl(false);
+  return null;
+};
+
+const handleSocialShare = async (platform: string) => {
+  try {
+    // Get the direct link with source tracking
+    const directLink = getQuizUrl(platform);
+    
+    console.log(`Sharing on ${platform}:`, directLink);
+    
     const message = encodeURIComponent(quizInfo.shareMessage);
     let socialUrl = '';
 
     switch (platform) {
       case 'facebook':
-        socialUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${message}`;
+        socialUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(directLink)}&quote=${message}`;
         break;
       case 'twitter':
-        socialUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${message}`;
+        socialUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(directLink)}&text=${message}`;
         break;
       case 'linkedin':
-        socialUrl = `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent(quizInfo.title)}&summary=${message}`;
+        socialUrl = `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(directLink)}&title=${encodeURIComponent(quizInfo.title)}&summary=${message}`;
         break;
+      case 'tiktok':
+        try {
+          await navigator.clipboard.writeText(directLink);
+          toast.info('Link copied to clipboard. Please paste it in TikTok to share.');
+          window.open('https://www.tiktok.com/', '_blank', 'width=600,height=400,noopener,noreferrer');
+        } catch (clipboardError) {
+          console.error("Could not copy text: ", clipboardError);
+          toast.error('Could not copy link. Please copy it manually.');
+        }
+        return;
       case 'email':
-        socialUrl = `mailto:?subject=${encodeURIComponent(quizInfo.title)}&body=${message}%0A%0A${encodeURIComponent(url)}`;
+        socialUrl = `mailto:?subject=${encodeURIComponent(quizInfo.title)}&body=${message}%0A%0A${encodeURIComponent(directLink)}`;
         break;
       case 'text':
-        socialUrl = `sms:?&body=${message}%0A%0A${encodeURIComponent(url)}`;
+        socialUrl = `sms:?&body=${message}%0A%0A${encodeURIComponent(directLink)}`;
         break;
       default:
+        toast.error('Unsupported platform');
         return;
     }
-    window.open(socialUrl, '_blank', 'width=600,height=400,noopener,noreferrer');
-  };
+    
+    if (socialUrl) {
+      window.open(socialUrl, '_blank', 'width=600,height=400,noopener,noreferrer');
+    }
+  } catch (error) {
+    console.error('Error in handleSocialShare:', error);
+    toast.error('Failed to share. Please try again.');
+  }
+};
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(shareUrl)
-      .then(() => {
-        setCopied(true);
-        toast.success('Link copied to clipboard!');
-        setTimeout(() => setCopied(false), 2000);
-      })
-      .catch(err => {
-        console.error("Could not copy text: ", err);
-        toast.error('Failed to copy link to clipboard.');
-      });
-  };
+const copyToClipboard = async () => {
+  try {
+    await navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    toast.success('Link copied to clipboard!');
+    setTimeout(() => setCopied(false), 2000);
+  } catch (err) {
+    console.error("Could not copy text: ", err);
+    toast.error('Failed to copy link to clipboard.');
+  }
+};
 
+const DirectLinkSection = () => (
+  <div className="space-y-4">
+    <div className="flex flex-col sm:flex-row gap-2">
+      <Input
+        value={shareUrl}
+        readOnly
+        className="flex-1 font-mono text-sm"
+      />
+      <div className="flex gap-2">
+        <Button
+          onClick={() => copyToClipboard()}
+          className="flex-1 sm:flex-none sm:min-w-[100px]"
+        >
+          {copied ? (
+            <>
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+              Copied
+            </>
+          ) : (
+            <>
+              <Copy className="w-4 h-4 mr-2" />
+              Copy Link
+            </>
+          )}
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => window.open(doctorLandingUrl, '_blank')}
+          className="border-[#0E7C9D] text-[#0E7C9D] font-bold hover:bg-blue-50 flex-1 sm:flex-none"
+        >
+          <ExternalLink className="w-4 h-4 mr-2" />
+          <span className="hidden sm:inline">Landing Page</span>
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => window.open(doctorEditingUrl, '_blank')}
+          className="border-[#0E7C9D] text-[#0E7C9D] font-bold hover:bg-blue-50 flex-1 sm:flex-none"
+        >
+          <Pencil className="w-4 h-4 mr-2" />
+          <span className="hidden sm:inline">Edit Page</span>
+        </Button>
+      </div>
+    </div>
+  </div>
+);
+
+const getTrackedLink = (source: string, campaign?: string) => {
+  const baseQuizUrl = customQuizId
+    ? `${baseUrl}/custom-quiz/${customQuizId}`
+    : `${baseUrl}/share/${quizId?.toLowerCase()}`;
+  
+  const trackingParams = new URLSearchParams();
+  
+  if (doctorProfile?.id) {
+    trackingParams.set('doctor', doctorProfile.id);
+  }
+
+  trackingParams.set('source', source);
+  trackingParams.set('utm_source', source);
+  trackingParams.set('utm_medium', getSourceMedium(source));
+  trackingParams.set('utm_campaign', campaign || 'quiz_share');
+
+  return `${baseQuizUrl}?${trackingParams.toString()}`;
+};
+const createSpecialLinks = () => {
+  return {
+    email: getTrackedLink('email', 'email_campaign'),
+    social: getTrackedLink('social_media', 'social_campaign'),
+    website: getTrackedLink('website', 'website_embed'),
+    direct: getTrackedLink('direct_share', 'direct_campaign'),
+    print: getTrackedLink('print_material', 'print_campaign')
+  };
+};
+const SocialSharingSection = () => {
+  const specialLinks = createSpecialLinks();
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">Social Media Sharing</CardTitle>
+        <CardDescription>Each platform gets tracked separately with full links</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+          <Button
+            variant="outline"
+            onClick={() => handleSocialShare('facebook')}
+            className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
+          >
+            <Facebook className="w-4 h-4 mr-2" />
+            Facebook
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleSocialShare('linkedin')}
+            className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
+          >
+            <Linkedin className="w-4 h-4 mr-2" />
+            LinkedIn
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleSocialShare('twitter')}
+            className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
+          >
+            <Twitter className="w-4 h-4 mr-2" />
+            Twitter
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleSocialShare('tiktok')}
+            className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
+          >
+            <FaTiktok className="w-4 h-4 mr-2" />
+            TikTok
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleSocialShare('email')}
+            className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
+          >
+            <Mail className="w-4 h-4 mr-2" />
+            Email
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleSocialShare('text')}
+            className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
+          >
+            <Smartphone className="w-4 h-4 mr-2" />
+            Text/SMS
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => copyToClipboard()}
+            className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
+          >
+            <Link2 className="w-4 h-4 mr-2" />
+            Copy Link
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              const printLink = specialLinks.print;
+              navigator.clipboard.writeText(printLink);
+              toast.success('Print-friendly link copied!');
+            }}
+            className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
+          >
+            <Printer className="w-4 h-4 mr-2" />
+            Print Link
+          </Button>
+        </div>
+        
+        {/* Quick copy buttons for specific use cases */}
+        <div className="mt-4 pt-4 border-t">
+          <h4 className="font-medium mb-2">Quick Copy Links:</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                navigator.clipboard.writeText(specialLinks.email);
+                toast.success('Email campaign link copied!');
+              }}
+              className="justify-start"
+            >
+              📧 Email Campaign Link
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                navigator.clipboard.writeText(specialLinks.website);
+                toast.success('Website embed link copied!');
+              }}
+              className="justify-start"
+            >
+              🌐 Website Embed Link
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
   const generateQrCode = () => {
     setShowQrCode(true);
   };
 
-  // Fixed: Calculate embedUrl with useMemo
   const embedUrl = useMemo(() => {
-    const url = new URL(`${baseUrl}/embed/chatbot/${customQuizId || quizId}`);
+    const url = new URL(`${baseUrl}/embed/${customQuizId || quizId}`);
     if (doctorProfile?.id) {
       url.searchParams.set('doctor', doctorProfile.id);
     }
@@ -269,17 +559,29 @@ export function ShareQuizPage() {
     toast.success(`Assessment shared with "${contactLists.find(list => list.id === selectedList)?.name}" contact list`);
   };
 
-  const handleCopyShortUrl = () => {
+const handleCopyShortUrl = async () => {
+  try {
     if (shortUrl) {
-      navigator.clipboard.writeText(shortUrl);
+      await navigator.clipboard.writeText(shortUrl);
       toast.success('Short URL copied to clipboard!');
     } else {
-      toast.error('No short URL available. Please generate one first.');
+      // Generate short URL if it doesn't exist
+      const newShortUrl = await generateShortUrl();
+      if (newShortUrl) {
+        await navigator.clipboard.writeText(newShortUrl);
+        toast.success('Short URL generated and copied to clipboard!');
+      } else {
+        toast.error('Failed to generate short URL. Please try again.');
+      }
     }
-  };
+  } catch (error) {
+    console.error('Error copying to clipboard:', error);
+    toast.error('Failed to copy to clipboard.');
+  }
+};
 
   const mailHtmlNOSE = useMemo(() => {
-    const noseUrl = `${baseUrl}/nose/${doctorProfile?.id || 'demo'}?utm_source=email`;
+    const noseUrl = `${baseUrl}/share/nose/doctor=${doctorProfile?.id || 'demo'}?utm_source=email`;
     const websiteLink = doctorProfile?.website
       ? `<a target="_blank" href="${doctorProfile.website}" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px"><img src="${doctorProfile?.avatar_url || 'Your Website Image'}" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47"></a>`
       : `<img src="https://cdn.prod.website-files.com/6213b8b7ae0610f9484d627a/63d85029011f18f6bfabf2f3_Exhale_Sinus_Horizontal_logo-p-800.png" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47">`;
@@ -308,7 +610,7 @@ export function ShareQuizPage() {
   }, [doctorProfile, baseUrl]);
 
   const mailHtmlSNOT12 = useMemo(() => {
-    const snot12Url = `${baseUrl}/snot12/${doctorProfile?.id || 'demo'}?utm_source=email`;
+    const snot12Url = `${baseUrl}/share/snot12/doctor=${doctorProfile?.id || 'demo'}?utm_source=email`;
     const websiteLink = doctorProfile?.website
       ? `<a target="_blank" href="${doctorProfile.website}" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px"><img src="${doctorProfile?.avatar_url || 'Your Website Image'}" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47"></a>`
       : `<img src="https://cdn.prod.website-files.com/6213b8b7ae0610f9484d627a/63d85029011f18f6bfabf2f3_Exhale_Sinus_Horizontal_logo-p-800.png" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47">`;
@@ -336,7 +638,7 @@ export function ShareQuizPage() {
   }, [doctorProfile, baseUrl]);
 
 const mailHtmlSNOT22 = useMemo(() => {
-      const snot22Url = `${baseUrl}/snot22/${doctorProfile?.id || 'demo'}?utm_source=email`;
+      const snot22Url = `${baseUrl}/share/snot22/doctor=${doctorProfile?.id || 'demo'}?utm_source=email`;
     const websiteLink = doctorProfile?.website
       ? `<a target="_blank" href="${doctorProfile.website}" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px"><img src="${doctorProfile?.avatar_url || 'Your Website Image'}" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47"></a>`
       : `<img src="https://cdn.prod.website-files.com/6213b8b7ae0610f9484d627a/63d85029011f18f6bfabf2f3_Exhale_Sinus_Horizontal_logo-p-800.png" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47">`;
@@ -363,13 +665,11 @@ const mailHtmlSNOT22 = useMemo(() => {
 <td align="left" style="padding:0;Margin:0;padding-left:20px;padding-right:20px;padding-bottom:30px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td valign="top" align="center" style="padding:0;Margin:0;width:560px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0;display:none"></td> </tr></table></td></tr></table></td></tr></table></td></tr></table></td></tr></table></div></body></html>`;
   }, [doctorProfile, baseUrl]);
 const mailHtmlTNSS = useMemo(() => {
-      const tnssUrl = `${baseUrl}/tnss/${doctorProfile?.id || 'demo'}?utm_source=email`;
+      const tnssUrl = `${baseUrl}/share/tnss/doctor=${doctorProfile?.id || 'demo'}?utm_source=email`;
     const websiteLink = doctorProfile?.website
       ? `<a target="_blank" href="${doctorProfile.website}" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px"><img src="${doctorProfile?.avatar_url || 'Your Website Image'}" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47"></a>`
       : `<img src="https://cdn.prod.website-files.com/6213b8b7ae0610f9484d627a/63d85029011f18f6bfabf2f3_Exhale_Sinus_Horizontal_logo-p-800.png" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47">`;
-
     const amIACandidateButton = `<span class="x" style="border-style:solid;border-color:#2CB543;background:#6fa8dc;border-width:0px 0px 2px 0px;display:inline-block;border-radius:5px;width:auto"><a href="${tnssUrl}" class="b b-1619632113981" target="_blank" style="mso-style-priority:100 !important;text-decoration:none;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;color:#FFFFFF;font-size:14px;display:inline-block;background:#6fa8dc;border-radius:5px;font-family:arial, 'helvetica neue', helvetica, sans-serif;font-weight:normal;font-style:normal;line-height:16.8px;width:auto;text-align:center;padding:10px 20px;mso-padding-alt:0;mso-border-alt:10px solid #6fa8dc">Am I a Candidate?</a></span>`;
-
     const takeTheTNSSTestButton = `<span class="x" style="border-style:solid;border-color:#2CB543;background:#6fa8dc;border-width:0px 0px 2px 0px;display:inline-block;border-radius:5px;width:auto"><a href="${tnssUrl}" class="b" target="_blank" style="mso-style-priority:100 !important;text-decoration:none;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;color:#FFFFFF;font-size:14px;display:inline-block;background:#6fa8dc;border-radius:5px;font-family:arial, 'helvetica neue', helvetica, sans-serif;font-weight:normal;font-style:normal;line-height:16.8px;width:auto;text-align:center;padding:10px 20px 10px 20px;mso-padding-alt:0;mso-border-alt:10px solid #6fa8dc">Take the TNSS Test</a></span>`;
     return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html dir="ltr" xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en" style="padding:0;Margin:0"><head><meta charset="UTF-8"><meta content="width=device-width, initial-scale=1" name="viewport"><meta name="x-apple-disable-message-reformatting"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta content="telephone=no" name="format-detection"><title>E</title> <!--[if (mso 16)]><style type="text/css"> a {text-decoration: none;}  </style><![endif]--><!--[if gte mso 9]><style>sup { font-size: 100% !important; }</style><![endif]--><!--[if gte mso 9]><noscript> <xml> <o:OfficeDocumentSettings> <o:AllowPNG></o:AllowPNG> <o:PixelsPerInch>96</o:PixelsPerInch> </o:OfficeDocumentSettings> </xml> </noscript>
 <![endif]--><!--[if mso]><xml> <w:WordDocument xmlns:w="urn:schemas-microsoft-com:office:word"> <w:DontUseAdvancedTypographyReadingMail></w:DontUseAdvancedTypographyReadingMail> </w:WordDocument> </xml>
@@ -407,12 +707,12 @@ const mailHtmlTNSS = useMemo(() => {
   const mailiframSrc = useMemo(() => URL.createObjectURL(blob), [blob]);
 
  useEffect(() => {
-   if (embedUrl) {
-     const height = heightFromUrl || '500px';
-     const iframeCode = `<iframe src="${embedUrl}" width="100%" height="${height}" frameBorder="0"></iframe>`;
-     setEmbedCode(iframeCode);
-   }
- }, [embedUrl, heightFromUrl]);
+ if (embedUrl) {
+   const height = heightFromUrl || '100%';
+   const iframeCode = `<iframe src="${embedUrl}" width="100%" height="${height}" style="min-height: 700px;" frameBorder="0"></iframe>`;
+   setEmbedCode(iframeCode);
+ }
+}, [embedUrl, heightFromUrl]);
 
  const handleCopy = (text: string, successMessage: string) => {
    navigator.clipboard.writeText(text)
@@ -505,7 +805,7 @@ const mailHtmlTNSS = useMemo(() => {
               </Button>
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Share Assessment</h1>
-                <p className="text-sm sm:text-base text-gray-600">{quizInfo.title}</p>
+                <p className="text-sm sm:text-base text-gray-600">{quizInfo.title.toUpperCase()}</p>
                 {doctorProfile && (
                   <p className="text-xs sm:text-sm text-gray-500">
                     Dr. {doctorProfile.first_name} {doctorProfile.last_name} (ID: {doctorProfile.id})
@@ -608,7 +908,7 @@ const mailHtmlTNSS = useMemo(() => {
                       </Button>
                     ) : (
                       <Button
-                        onClick={generateShortUrl}
+                        onClick={() => generateShortUrl()}
                         disabled={isGeneratingShortUrl}
                         className="min-w-[140px]"
                       >
@@ -659,6 +959,22 @@ const mailHtmlTNSS = useMemo(() => {
                         >
                           <Twitter className="w-4 h-4 mr-2" />
                           Twitter
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleSocialShare('tiktok')}
+                          className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
+                        >
+                          <FaTiktok className="w-4 h-4 mr-2" />
+                          Tiktok
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleSocialShare('tiktok')}
+                          className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
+                        >
+                          <MessageCircle className="w-4 h-4 mr-2" />
+                          TikTok
                         </Button>
                         <Button
                           variant="outline"
@@ -731,17 +1047,17 @@ const mailHtmlTNSS = useMemo(() => {
                       <CardTitle className="text-lg">Email options</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="space-y-2">
-                        <h4 className="font-medium">Send from</h4>
-                        <p className="text-sm text-gray-600">{doctorProfile ? (doctorProfile.email) : "your-email@exmaple.com"}</p>
+                      <div className="flex items-center gap-3 text-gray-600">
+                        <Mail className="w-4 h-4" />
+                        <span className="text-sm">{doctorProfile ? (doctorProfile.email) : 'Your Email'}</span>
                       </div>
-                      <div className="space-y-2">
-                        <h4 className="font-medium">Sender Name</h4>
-                        <p className="text-sm text-gray-600">{doctorProfile ? (doctorProfile.first_name) : "Your name" }</p>
+                      <div className="flex items-center gap-3 text-gray-600">
+                        <UserRound className="w-4 h-4" />
+                        <span className="text-sm">{doctorProfile ? (doctorProfile.first_name) : 'Your Name'}</span>
                       </div>
                       <div className="space-y-2">
                         <h4 className="font-medium">Subject</h4>
-                        <p className="text-sm text-gray-600">Give {quizId} Assessment and get to know about your results instantly</p>
+                        <p className="text-sm text-gray-600">Discover What Your {quizId.toUpperCase()} Assessment Reveals About You — Take the Test Today, Unlock Exclusive Insights, and Get Your Personalized Results the Moment You Finish!</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -794,11 +1110,10 @@ const mailHtmlTNSS = useMemo(() => {
                       <CardTitle className="text-lg">Preview</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="w-full aspect-video bg-white border rounded-lg overflow-hidden">
+                      <div className="w-full h-[700px] bg-white border rounded-lg overflow-hidden">
                         <iframe
                           src={embedUrl}
                           className="w-full h-full"
-                          style={{ minHeight: '400px' }}
                           title={`${quizInfo.title} Preview`}
                         />
                       </div>

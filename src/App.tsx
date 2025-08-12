@@ -21,12 +21,14 @@ import SNOT22Page from './pages/quizzes/SNOT22Page';
 import STOPPage from './pages/quizzes/STOPPage';
 import TNSSPage from './pages/quizzes/TNSSPage';
 import NOSELandingPage from './pages/share/NOSELandingPage';
+import SNOTLandingPage from './pages/share/SNOT12LandingPage';
 import { AuthProvider } from '@/hooks/useAuth';
 import NoseEditorPage from './pages/NoseEditorPage';
 import ShareQuizPage from './pages/ShareQuizPage';
 import ShortLinkRedirect from './pages/ShortLinkRedirect';
 import EmbeddedChatbotPage from './pages/EmbeddedChatbotPage';
 import Embed from './pages/Embed';
+import Snot12LandingPage from './pages/SNOT12LandingPage';
 
 const queryClient = new QueryClient();
 
@@ -43,6 +45,7 @@ function App() {
               <Route path="/verify-email" element={<EmailVerificationPage />} />
               <Route path="/nose/:doctorId?" element={<NoseLandingPage />} />
               <Route path="/share/nose/:doctorId?" element={<NOSELandingPage />} />
+              <Route path="/share/snot12/:doctorId?" element={<SNOTLandingPage/>}/>
               <Route path="/share/:quizType/:doctorId?" element={<ShareQuizPage />} />
               <Route path="/portal/*" element={<PortalPage />} />
               <Route path="/portal/share/:quizId" element={<ShareQuizPage />} />

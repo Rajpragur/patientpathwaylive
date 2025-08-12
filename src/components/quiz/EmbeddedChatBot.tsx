@@ -39,15 +39,15 @@ interface QuizAnswer {
 
 interface EmbeddedChatBotProps {
   quizType: string;
-  shareKey?: string;
   doctorId?: string;
   customQuiz?: any;
   quizData?: any;
   doctorAvatarUrl?: string;
   chatbotColors?: typeof defaultChatbotColors;
+  utm_source: string;
 }
 
-export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quizData, doctorAvatarUrl,chatbotColors }: EmbeddedChatBotProps) {
+export function EmbeddedChatBot({ quizType, doctorId, customQuiz, quizData, doctorAvatarUrl,chatbotColors,utm_source }: EmbeddedChatBotProps) {
   const [searchParams] = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -76,7 +76,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
   const colors = chatbotColors || defaultChatbotColors;
 
   // Enhanced source tracking
-  const source = searchParams.get('source') || searchParams.get('utm_source') || 'direct';
+  const source = utm_source || 'website';
   const campaign = searchParams.get('campaign') || searchParams.get('utm_campaign') || 'default';
   const medium = searchParams.get('medium') || searchParams.get('utm_medium') || 'web';
 
@@ -137,14 +137,11 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
     if (urlDoctorId) {
       console.log('Found doctor ID:', urlDoctorId);
       setFinalDoctorId(urlDoctorId);
-    } else if (shareKey) {
-      // Try to find doctor from share key
-      findDoctorByShareKey();
     } else {
       // Fallback to first available doctor
       findFirstDoctor();
     }
-  }, [doctorId, shareKey, searchParams]);
+  }, [doctorId, searchParams]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -179,43 +176,6 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
     fetchDoctorProfile();
   }, [finalDoctorId]);
 
-  const findDoctorByShareKey = async () => {
-    try {
-      console.log('Looking up doctor by share key:', shareKey);
-      
-      // First try to find in quiz_leads
-      const { data: leadData, error: leadError } = await supabase
-        .from('quiz_leads')
-        .select('doctor_id')
-        .eq('share_key', shareKey)
-        .maybeSingle();
-
-      if (leadData && !leadError) {
-        console.log('Found doctor ID from quiz_leads:', leadData.doctor_id);
-        setFinalDoctorId(leadData.doctor_id);
-        return;
-      }
-
-      // If not found in quiz_leads, try custom_quizzes
-      const { data: customData, error: customError } = await supabase
-        .from('custom_quizzes')
-        .select('doctor_id')
-        .eq('share_key', shareKey)
-        .maybeSingle();
-
-      if (customData && !customError) {
-        console.log('Found doctor ID from custom_quizzes:', customData.doctor_id);
-        setFinalDoctorId(customData.doctor_id);
-        return;
-      }
-
-      // If still not found, use first available doctor
-      findFirstDoctor();
-    } catch (error) {
-      console.error('Error finding doctor by share key:', error);
-      findFirstDoctor();
-    }
-  };
 
   const findFirstDoctor = async () => {
     try {
@@ -492,11 +452,10 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
         custom_quiz_id: quizData.isCustom ? quizData.id : null,
         score: result.score,
         answers: result.detailedAnswers,
-        lead_source: searchParams.get('utm_source') || (shareKey ? 'shared_link' : 'website'),
+        lead_source: source || 'website',
         lead_status: 'NEW',
         doctor_id: finalDoctorId,
-        share_key: shareKey || null,
-        incident_source: shareKey || 'default',
+        incident_source: 'default',
         submitted_at: new Date().toISOString()
       };
 

@@ -59,6 +59,7 @@ export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
   const [notFound, setNotFound] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showTyping, setShowTyping] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
   const [finalDoctorId, setFinalDoctorId] = useState<string | null>(null);
   const [doctorProfile, setDoctorProfile] = useState<any>(null);
@@ -485,9 +486,9 @@ export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
   );
 
   return (
-    <div className="flex flex-col h-full max-h-full" style={{ background: chatbotColors.background, width: dimensions.width, height: dimensions.height }}>
-      <div className="flex-1 overflow-hidden flex flex-col max-w-4xl mx-auto w-full rounded-2xl shadow-lg" style={{ minHeight: 400 }}>
-        <div className="flex-1 overflow-y-auto p-6 space-y-4" style={{ maxHeight: '100%', minHeight: 0 }}>
+    <div className="flex flex-col h-screen" style={{ background: chatbotColors.background, width: dimensions.width, height: dimensions.height }}>
+      <div className="flex-1 flex flex-col w-full rounded-2xl shadow-lg" style={{ minHeight: 0 }}>
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
           <AnimatePresence initial={false}>
             {messages.map((message, index) => (
               <motion.div
