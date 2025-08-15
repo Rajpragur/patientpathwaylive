@@ -8,11 +8,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Mail, Lock, Chrome } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface LoginFormProps {
-  onToggleMode: () => void;
-}
 
-export function LoginForm({ onToggleMode }: LoginFormProps) {
+export function LoginForm() {
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -42,7 +39,6 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
     try {
       console.log('Starting Google sign-in...');
       
-      // Get the current origin for redirect
       const currentOrigin = window.location.origin;
       
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -142,17 +138,6 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
             {loading ? 'Signing in...' : 'Sign in'}
           </Button>
         </form>
-
-        <div className="text-center text-sm">
-          <span className="text-gray-600">Don't have an account? </span>
-          <button
-            onClick={onToggleMode}
-            className="text-[#0E7C9D] hover:underline font-medium"
-            disabled={loading || googleLoading}
-          >
-            Sign up
-          </button>
-        </div>
       </CardContent>
     </Card>
   );

@@ -155,12 +155,6 @@ const Index = () => {
             >
               Log In
             </Button>
-            <Button 
-              className="bg-white hover:from-white hover:to-[#03657a] text-black text-xl px-10 py-10 rounded-full transition-all duration-300 border-2 border-solid border-black shadow-lg hover:shadow-xxl transform hover:scale-110 hover:border-none"
-              onClick={handleSignup}
-            >
-              Sign Up
-            </Button>
           </motion.div>
         </div>
       </section>

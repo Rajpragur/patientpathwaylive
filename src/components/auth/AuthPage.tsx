@@ -4,15 +4,10 @@ import { LoginForm } from './LoginForm';
 import { SignUpForm } from './SignUpForm';
 import { EmailVerificationNotice } from './EmailVerificationNotice';
 
-export function AuthPage({login}) {
-  const [isLogin, setIsLogin] = useState(login);
+export function AuthPage() {
+  const [isLogin, setIsLogin] = useState(true);
   const [showVerificationNotice, setShowVerificationNotice] = useState(false);
   const [userEmail, setUserEmail] = useState('');
-  
-  useEffect(() => {
-    setIsLogin(login);
-  }, [login]);
-
   const handleSignUpSuccess = (email: string) => {
     setUserEmail(email);
     setShowVerificationNotice(true);

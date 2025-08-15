@@ -3,12 +3,10 @@ import { AuthPage as AuthComponent } from '@/components/auth/AuthPage';
 import { useSearchParams } from 'react-router-dom';
 
 export default function AuthPage() {
-  // Default to login mode
-  const [params,setParams] = useSearchParams();
-  const login = params.get('mode') === 'login';
+  const [params] = useSearchParams();
   return (
     <>
-      <AuthComponent login={login === 'login'} />
+      <AuthComponent />
     </>
   )
 }
