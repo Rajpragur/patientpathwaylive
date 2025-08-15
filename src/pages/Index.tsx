@@ -122,8 +122,7 @@ const Index = () => {
           isScrolled ? 'shadow-lg' : ''
         }`}
       >
-        <div className="max-w-7xl mx-auto px-2 py-4 flex justify-between items-center">
-          <div className="flex-1" />
+        <div className="max-w-7xl mx-auto px-2 py-4 justify-between items-center">
           <div className="flex flex-col items-center">
             <img 
               src="/patient-pathway-logo.jpeg" 
@@ -134,45 +133,9 @@ const Index = () => {
               Patient Pathway
             </span>
           </div>
-          <div className="flex-1 flex justify-end">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  className="bg-gradient-to-r from-[#f7904f] to-[#04748f] hover:from-[#e67f3e] hover:to-[#03657a] text-white px-6 py-2 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
-                >
-                  Login / Signup
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem 
-                  onClick={handleLogin}
-                  className="cursor-pointer focus:bg-[#f7904f]/10 focus:text-[#f7904f]"
-                >
-                  Login
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={handleSignup}
-                  className="cursor-pointer focus:bg-[#04748f]/10 focus:text-[#04748f]"
-                >
-                  Sign Up
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
         </div>
       </motion.nav>
-
-      {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 z-0">
-          <img 
-            src="/hero-bg.jpg" 
-            alt="Hero Background" 
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-white/90 to-white/50" />
-        </div>
         <div className="relative z-10 max-w-5xl mx-auto px-6 py-32 text-center">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
@@ -181,146 +144,26 @@ const Index = () => {
             className="mb-12"
           >
           </motion.div>
-          <motion.h1 
-            initial={{ opacity: 0, y: 100 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-6xl md:text-7xl font-bold text-gray-900 mb-8 leading-tight"
-          >
-            Qualify the Right Patients
-          </motion.h1>
-          <motion.p 
-            initial={{ opacity: 0, y: 100 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-            className="text-xl md:text-2xl text-gray-600 mb-12 max-w-3xl mx-auto leading-relaxed"
-          >
-            Patient-friendly and medically accurate quizzes for every ENT condition — made to engage, educate, and empower.
-          </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 100 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
           >
             <Button 
-              className="bg-gradient-to-r from-[#f7904f] to-[#04748f] hover:from-[#e67f3e] hover:to-[#03657a] text-white text-lg px-8 py-6 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+              className="bg-black hover:from-black hover:to-[#03657a] text-white text-xl px-10 py-10 rounded-full transition-all duration-300 border-2 border-solid border-white shadow-lg hover:shadow-xl transform hover:scale-110 mx-5"
               onClick={handleLogin}
             >
-              Get Started
+              Log In
+            </Button>
+            <Button 
+              className="bg-white hover:from-white hover:to-[#03657a] text-black text-xl px-10 py-10 rounded-full transition-all duration-300 border-2 border-solid border-black shadow-lg hover:shadow-xxl transform hover:scale-110 hover:border-none"
+              onClick={handleSignup}
+            >
+              Sign Up
             </Button>
           </motion.div>
         </div>
       </section>
-
-      {/* Features section with better spacing */}
-      <section className="py-16 px-6 bg-white/50 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-6">
-          <motion.h2 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="text-4xl md:text-5xl font-bold text-center mb-16 bg-gradient-to-r from-[#f7904f] to-[#04748f] bg-clip-text text-transparent"
-          >
-            Explore Our Medical Quizzes
-          </motion.h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {quizzes.map((quiz, idx) => (
-              <motion.div
-                key={idx}
-                initial={{ opacity: 0, y: 50 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: idx * 0.1 }}
-                viewport={{ once: true }}
-                className="group relative bg-white rounded-3xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100"
-              >
-                <div className="p-8">
-                  <div className="flex justify-center mb-6">
-                    {React.cloneElement(quiz.icon, { className: "w-12 h-12 text-[#04748f]" })}
-                  </div>
-                  <h3 className="text-2xl font-bold text-gray-900 mb-4 text-center">{quiz.title}</h3>
-                  <p className="text-gray-600 mb-6 text-sm leading-relaxed">{quiz.description}</p>
-                  <div className="flex items-center justify-center space-x-3 text-sm">
-                    <span className="bg-[#f7904f]/10 text-[#f7904f] px-4 py-2 rounded-full">
-                      {quiz.questions} Questions
-                    </span>
-                    <span className="bg-[#04748f]/10 text-[#04748f] px-4 py-2 rounded-full">
-                      Max Score: {quiz.maxScore}
-                    </span>
-                  </div>
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-r from-[#f7904f]/0 to-[#04748f]/0 group-hover:from-[#f7904f]/5 group-hover:to-[#04748f]/10 transition-all duration-300" />
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Custom Quiz Builder Section */}
-      <section className="py-24 bg-gradient-to-b from-gray-50 to-white">
-        <div className="max-w-7xl mx-auto px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 100 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="bg-gradient-to-r from-[#f7904f] to-[#04748f] rounded-3xl p-12 md:p-16 text-white shadow-2xl"
-          >
-            <div className="max-w-4xl mx-auto text-center">
-              <h2 className="text-4xl md:text-5xl font-bold mb-8">Build Your Own Quiz</h2>
-              <p className="text-xl text-white/90 mb-12 leading-relaxed">
-                Don't see a quiz you need? No problem. Patient Pathway offers a Custom Quiz Builder where you can drag, drop, and define your own questions.
-                Whether you want to automate pre-consult screenings or build follow-up forms, it's fast, smart, and deeply integrated with AI assistance.
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
-                <div className="bg-white/10 rounded-2xl p-6 backdrop-blur-sm">
-                  <div className="flex justify-center mb-4">
-                    <Zap className="w-12 h-12 text-white/90" />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2 text-center">Save Time</h3>
-                  <p className="text-white/90 text-center">Automate your workflow and reduce manual data entry</p>
-                </div>
-                <div className="bg-white/10 rounded-2xl p-6 backdrop-blur-sm">
-                  <div className="flex justify-center mb-4">
-                    <Target className="w-12 h-12 text-white/90" />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2 text-center">Reduce Errors</h3>
-                  <p className="text-white/90 text-center">AI-powered validation ensures accurate data collection</p>
-                </div>
-                <div className="bg-white/10 rounded-2xl p-6 backdrop-blur-sm">
-                  <div className="flex justify-center mb-4">
-                    <Rocket className="w-12 h-12 text-white/90" />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2 text-center">Smart Experience</h3>
-                  <p className="text-white/90 text-center">Build engaging, interactive patient experiences</p>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="bg-white/80 backdrop-blur-sm border-t border-gray-200 py-8 px-6">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex flex-col items-center">
-            <div className="flex-1 flex justify-center">
-              <img 
-                src="/patient-pathway-logo.jpeg" 
-                alt="Patient Pathway" 
-                className="h-20 w-auto object-contain rounded-sm shadow-lg mb-2" 
-              />
-            </div>
-            <div className="flex flex-col items-center">
-              <span className="text-xl font-semibold bg-gradient-to-r from-[#f7904f] to-[#04748f] bg-clip-text text-transparent">
-                Patient Pathway
-              </span>
-              <p className="text-gray-600 text-sm mt-2">© 2025 Patient Pathway. All rights reserved.</p>
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };

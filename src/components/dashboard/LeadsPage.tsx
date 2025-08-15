@@ -103,7 +103,6 @@ export function LeadsPage() {
           setLoading(false);
         }
       } else {
-        // Use the first doctor profile
         setDoctorId(doctorProfiles[0].id);
       }
     } catch (error) {

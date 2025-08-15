@@ -1,13 +1,17 @@
 
-import { useState } from 'react';
+import { useState,useEffect } from 'react';
 import { LoginForm } from './LoginForm';
 import { SignUpForm } from './SignUpForm';
 import { EmailVerificationNotice } from './EmailVerificationNotice';
 
-export function AuthPage() {
-  const [isLogin, setIsLogin] = useState(true);
+export function AuthPage({login}) {
+  const [isLogin, setIsLogin] = useState(login);
   const [showVerificationNotice, setShowVerificationNotice] = useState(false);
   const [userEmail, setUserEmail] = useState('');
+  
+  useEffect(() => {
+    setIsLogin(login);
+  }, [login]);
 
   const handleSignUpSuccess = (email: string) => {
     setUserEmail(email);
@@ -28,9 +32,9 @@ export function AuthPage() {
           <p className="text-gray-600">ENT Medical Assessment Platform</p>
         </div>
         {isLogin ? (
-          <LoginForm onToggleMode={() => setIsLogin(false)} />
+          <LoginForm onToggleMode={() => setIsLogin} />
         ) : (
-          <SignUpForm onToggleMode={() => setIsLogin(true)} onSignUpSuccess={handleSignUpSuccess} />
+          <SignUpForm onToggleMode={() => setIsLogin} onSignUpSuccess={handleSignUpSuccess} />
         )}
       </div>
     </div>
