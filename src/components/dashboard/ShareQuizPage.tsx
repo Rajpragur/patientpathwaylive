@@ -39,6 +39,8 @@ import { quizzes } from '@/data/quizzes';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { QRCodeSVG } from 'qrcode.react';
+import { EmbedPreview } from './EmbedPreview';
+import { getDeviceType, getDeviceSize } from '@/utils/device';
 
 export function ShareQuizPage() {
   const { quizId, customQuizId } = useParams<{ quizId?: string; customQuizId?: string }>();
@@ -51,14 +53,11 @@ export function ShareQuizPage() {
   const [copied, setCopied] = useState(false);
   const [showQrCode, setShowQrCode] = useState(false);
   const [embedCode, setEmbedCode] = useState('');
+  const [embedType, setEmbedType] = useState<'inline' | 'button' | 'chat'>('inline');
   const [doctorProfile, setDoctorProfile] = useState<any>(null);
+  const [embedSize, setEmbedSize] = useState({ width: '100%', height: '700px' });
   const [webSource, setWebSource] = useState('website');
   const [error, setError] = useState<string | null>(null);
-  const [contactLists, setContactLists] = useState<any[]>([
-    { id: '1', name: 'All Patients', count: 245 },
-    { id: '2', name: 'New Patients', count: 78 },
-    { id: '3', name: 'Follow-up Patients', count: 124 }
-  ]);
   const [selectedList, setSelectedList] = useState('');
   const [shortUrl, setShortUrl] = useState<string>('');
   const [isGeneratingShortUrl, setIsGeneratingShortUrl] = useState(false);
@@ -548,16 +547,6 @@ const SocialSharingSection = () => {
   }, [baseUrl, customQuizId, quizId, doctorProfile?.id]);
 
   const shareUrl = useMemo(() => getQuizUrl(), [getQuizUrl]);
-  
-  const handleShareWithContactList = () => {
-    if (!selectedList) {
-      toast.error('Please select a contact list');
-      return;
-    }
-
-    // Simulate sharing with contact list
-    toast.success(`Assessment shared with "${contactLists.find(list => list.id === selectedList)?.name}" contact list`);
-  };
 
 const handleCopyShortUrl = async () => {
   try {
@@ -707,12 +696,125 @@ const mailHtmlTNSS = useMemo(() => {
   const mailiframSrc = useMemo(() => URL.createObjectURL(blob), [blob]);
 
  useEffect(() => {
- if (embedUrl) {
-   const height = heightFromUrl || '100%';
-   const iframeCode = `<iframe src="${embedUrl}" width="100%" height="${height}" style="min-height: 700px;" frameBorder="0"></iframe>`;
-   setEmbedCode(iframeCode);
- }
-}, [embedUrl, heightFromUrl]);
+    if (embedUrl) {
+      const deviceType = getDeviceType();
+      const size = getDeviceSize();
+
+      const script = `
+        (function() {
+          var container = document.currentScript.parentElement;
+          var deviceType = (function() {
+            var width = window.innerWidth;
+            if (width < 768) return 'phone';
+            if (width < 1024) return 'tablet';
+            return 'desktop';
+          })();
+          var sizes = {
+            phone: { width: '375px', height: '667px' },
+            tablet: { width: '768px', height: '1024px' },
+            desktop: { width: '100%', height: '700px' },
+          };
+          var size = sizes[deviceType];
+          container.style.width = size.width;
+          container.style.height = size.height;
+          container.style.maxWidth = '100%';
+        })();
+      `;
+
+      const iframeCode = `<div id="quiz-embed-container" style="width: ${size.width}; height: ${size.height}; max-width: 100%;">
+  <iframe src="${embedUrl}" width="100%" height="100%" style="border: none;" title="Quiz Embed"></iframe>
+</div>
+<script>${script.replace('quiz-embed-container', 'document.currentScript.previousElementSibling.id')}</script>`;
+
+      const buttonEmbedCode = `<div id="quiz-chatbot-container"></div>
+<script>
+  (function() {
+    var container = document.getElementById('quiz-chatbot-container');
+    if (!container) return;
+
+    var deviceType = (function() {
+      var width = window.innerWidth;
+      if (width < 768) return 'phone';
+      if (width < 1024) return 'tablet';
+      return 'desktop';
+    })();
+    var sizes = {
+      phone: { width: '375px', height: '667px' },
+      tablet: { width: '768px', height: '1024px' },
+      desktop: { width: '100%', height: '700px' },
+    };
+    var size = sizes[deviceType];
+    container.style.width = size.width;
+    container.style.height = size.height;
+    container.style.maxWidth = '100%';
+    
+    var button = document.createElement('button');
+    button.innerText = 'Take the ${quizId.toUpperCase()} Assessment';
+    button.style.cssText = 'background-color: #2563EB; color: white; padding: 10px 20px; border: none; border-radius: 10px; cursor: pointer; font-size: 16px; transition: all 0.2s ease;';
+    
+    container.appendChild(button);
+    
+    button.addEventListener('mouseenter', function() {
+      button.style.backgroundColor = '#1D4ED8';
+      button.style.transform = 'scale(1.1)';
+    });
+    button.addEventListener('mouseleave', function() {
+      button.style.backgroundColor = '#2563EB';
+      button.style.transform = 'scale(1)';
+    });
+
+    button.addEventListener('click', function() {
+      container.innerHTML = '';
+      var iframe = document.createElement('iframe');
+      iframe.src = '${embedUrl}';
+      iframe.style.cssText = 'width: 100%; height: 100%; border: none; border-radius: 10px;';
+      container.appendChild(iframe);
+    });
+  })();
+</script>`;
+
+      const chatEmbedCode = `<div id="quiz-chat-widget-container"></div>
+<script>
+  (function() {
+    var container = document.getElementById('quiz-chat-widget-container');
+    if (!container) return;
+
+    var button = document.createElement('button');
+    button.style.cssText = 'background-color: #2563EB; width: 60px; height: 60px; border-radius: 50%; border: none; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.2); display: flex; justify-content: center; align-items: center; position: fixed; bottom: 20px; right: 20px;';
+    button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
+    
+    container.appendChild(button);
+
+    var iframe = null;
+    var isOpen = false;
+
+    button.addEventListener('click', function() {
+      if (isOpen) {
+        if (iframe) iframe.style.display = 'none';
+        isOpen = false;
+      } else {
+        if (!iframe) {
+          iframe = document.createElement('iframe');
+          iframe.src = '${embedUrl}';
+          iframe.style.cssText = 'position: fixed; bottom: 90px; right: 20px; width: 400px; height: 600px; border: none; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);';
+          container.appendChild(iframe);
+        }
+        iframe.style.display = 'block';
+        isOpen = true;
+      }
+    });
+  })();
+</script>`;
+
+      if (embedType === 'inline') {
+        setEmbedCode(iframeCode);
+      } else if (embedType === 'button') {
+        setEmbedCode(buttonEmbedCode);
+      } else if (embedType === 'chat') {
+        setEmbedCode(chatEmbedCode);
+      }
+    }
+  }, [embedUrl, embedType, quizId]);
 
  const handleCopy = (text: string, successMessage: string) => {
    navigator.clipboard.writeText(text)
@@ -1069,6 +1171,13 @@ const mailHtmlTNSS = useMemo(() => {
             <Card>
               <CardHeader>
                 <CardTitle>Embed Code</CardTitle>
+                <Tabs value={embedType} onValueChange={(value) => setEmbedType(value as 'inline' | 'button' | 'chat')} className="w-full pt-4">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="inline">Inline Iframe</TabsTrigger>
+                    <TabsTrigger value="button">Button Popup</TabsTrigger>
+                    <TabsTrigger value="chat">Chat Button</TabsTrigger>
+                  </TabsList>
+                </Tabs>
                 <CardDescription>
                   Add this assessment directly to your website
                   {doctorProfile && (
@@ -1109,13 +1218,13 @@ const mailHtmlTNSS = useMemo(() => {
                       <CardTitle className="text-lg">Preview</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="w-full h-[700px] bg-white border rounded-lg overflow-hidden">
-                        <iframe
-                          src={embedUrl}
-                          className="w-full h-full"
-                          title={`${quizInfo.title} Preview`}
-                        />
-                      </div>
+                      <EmbedPreview
+                        embedType={embedType}
+                        embedUrl={embedUrl}
+                        quizInfo={quizInfo}
+                        onSizeChange={setEmbedSize}
+                        quizId={quizId}
+                      />
                     </CardContent>
                   </Card>
 

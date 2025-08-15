@@ -8,7 +8,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Mail, Lock, Chrome } from 'lucide-react';
 import { toast } from 'sonner';
 
-
 export function LoginForm() {
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');

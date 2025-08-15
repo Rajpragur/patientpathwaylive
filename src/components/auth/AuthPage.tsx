@@ -26,11 +26,7 @@ export function AuthPage() {
           </h1>
           <p className="text-gray-600">ENT Medical Assessment Platform</p>
         </div>
-        {isLogin ? (
-          <LoginForm onToggleMode={() => setIsLogin} />
-        ) : (
-          <SignUpForm onToggleMode={() => setIsLogin} onSignUpSuccess={handleSignUpSuccess} />
-        )}
+        {<LoginForm/>}
       </div>
     </div>
   );
