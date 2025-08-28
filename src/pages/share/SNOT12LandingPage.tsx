@@ -153,16 +153,99 @@ const SNOT12LandingPage: React.FC = () => {
       setContentError(null);
 
       try {
-        // First, try to get existing content from localStorage as a fallback
+        // First, try to get existing content from database
+        try {
+          const { data: queryResult, error } = await supabase
+            .from('ai_landing_pages')
+            .select('*')
+            .eq('doctor_id', doctor.id)
+            .eq('quiz_type', 'SNOT12');
+            
+          // Handle multiple rows by using the most recent one
+          let data: any = null;
+          if (queryResult && Array.isArray(queryResult) && queryResult.length > 1) {
+            data = queryResult.sort((a, b) => 
+              new Date(b.updated_at || b.created_at).getTime() - 
+              new Date(a.updated_at || a.created_at).getTime()
+            )[0];
+            
+            // Clean up duplicate rows (keep only the most recent one)
+            const duplicateIds = queryResult
+              .filter(row => row.id !== data.id)
+              .map(row => row.id);
+              
+            if (duplicateIds.length > 0) {
+              try {
+                const { error: deleteError } = await supabase
+                  .from('ai_landing_pages')
+                  .delete()
+                  .in('id', duplicateIds);
+                  
+                if (deleteError) {
+                  console.warn('Could not clean up duplicate rows:', deleteError);
+                } else {
+                }
+              } catch (cleanupError) {
+                console.warn('Error during duplicate cleanup:', cleanupError);
+              }
+            }
+          } else if (queryResult && Array.isArray(queryResult) && queryResult.length === 1) {
+            data = queryResult[0];
+          } else if (queryResult && !Array.isArray(queryResult)) {
+            data = queryResult;
+          } else {
+            data = null;
+          }
+
+          if (error) {
+            console.error('Database query error details:', error);
+          }
+
+          if (data && data.content && !data.content.error) {
+            // Check if this is SNOT12 content by looking for SNOT12-specific fields
+            const isSNOT12Content = data.content.headline && 
+              data.content.headline.toLowerCase().includes('snot') &&
+              data.content.symptoms && Array.isArray(data.content.symptoms);
+            
+            if (isSNOT12Content) {
+              // Validate existing content has all required fields
+              const requiredFields = ['headline', 'intro', 'symptoms', 'treatments'];
+              const hasValidContent = requiredFields.every(field => 
+                data.content[field] && 
+                (typeof data.content[field] === 'string' ? data.content[field].trim() : Array.isArray(data.content[field]) && data.content[field].length > 0)
+              );
+              
+              if (hasValidContent) {
+                setAIContent(data.content);
+                setLoadingAI(false);
+                return; // EXIT HERE - don't generate new content
+              }
+            }
+          }
+        } catch (dbError) {
+          console.warn('Could not fetch existing content from database:', dbError);
+          // Continue to generate new content
+        }
+
+        // If we get here, no valid content was found in database
+        // Try localStorage as a fallback before generating new content
         const cachedContent = localStorage.getItem(`snot12_content_${doctor.id}`);
         if (cachedContent) {
           try {
             const parsed = JSON.parse(cachedContent);
-            if (parsed && !parsed.error) {
+            // Only use cached content if it's actually SNOT12 content (not NOSE content)
+            if (parsed && !parsed.error && parsed.symptoms && 
+                parsed.headline && parsed.headline.toLowerCase().includes('snot') &&
+                !parsed.headline.toLowerCase().includes('nose') &&
+                !parsed.whatIsNAO) { // NOSE content has whatIsNAO, SNOT12 doesn't
+              console.log('Using cached SNOT12 content from localStorage');
               setAIContent(parsed);
-              console.log('Using cached content for SNOT-12 landing page');
               setLoadingAI(false);
-              return;
+              return; // EXIT HERE - don't generate new content
+            } else {
+              console.log('Cached content is not SNOT12 type, will generate new content');
+              // Remove the old cached content
+              localStorage.removeItem(`snot12_content_${doctor.id}`);
             }
           } catch (e) {
             console.warn('Failed to parse cached content:', e);
@@ -170,8 +253,7 @@ const SNOT12LandingPage: React.FC = () => {
         }
 
         // Generate new AI content
-        console.log('Generating new AI content for doctor:', doctor.name);
-        const generated = await generatePageContent(doctor);
+        const generated = await generatePageContent(doctor, 'SNOT12');
         
         if (generated.error) {
           setContentError(generated.error);
@@ -182,19 +264,18 @@ const SNOT12LandingPage: React.FC = () => {
           // Cache the content in localStorage for future use
           try {
             localStorage.setItem(`snot12_content_${doctor.id}`, JSON.stringify(generated));
-            console.log('Content cached in localStorage for SNOT-12 landing page');
           } catch (cacheError) {
             console.warn('Could not cache content in localStorage:', cacheError);
           }
           
           // Try to save to database - check if record exists first
           try {
-            // Check if a record already exists
+            // Check if a record already exists for SNOT12 quiz type
             const { data: existingRecord } = await supabase
               .from('ai_landing_pages')
               .select('id')
               .eq('doctor_id', doctor.id)
-              .eq('user_id', doctor.id)
+              .eq('quiz_type', 'SNOT12')
               .maybeSingle();
 
             if (existingRecord) {
@@ -210,15 +291,14 @@ const SNOT12LandingPage: React.FC = () => {
               if (updateError) {
                 console.warn('Could not update content in database:', updateError);
               } else {
-                console.log('Content updated in database successfully');
               }
             } else {
-              // Insert new record
+              // Insert new record for SNOT12 quiz type
               const { error: insertError } = await supabase
                 .from('ai_landing_pages')
                 .insert({
                   doctor_id: doctor.id,
-                  user_id: doctor.id,
+                  quiz_type: 'SNOT12',
                   content: generated,
                   updated_at: new Date().toISOString(),
                 });
@@ -226,7 +306,6 @@ const SNOT12LandingPage: React.FC = () => {
               if (insertError) {
                 console.warn('Could not insert content to database:', insertError);
               } else {
-                console.log('Content inserted to database successfully');
               }
             }
           } catch (saveError) {

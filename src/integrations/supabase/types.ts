@@ -493,6 +493,36 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_landing_pages: {
+        Row: {
+          id: string
+          doctor_id: string
+          quiz_type: string
+          content: Json
+          chatbot_colors: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          doctor_id: string
+          quiz_type?: string
+          content?: Json
+          chatbot_colors?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          doctor_id?: string
+          quiz_type?: string
+          content?: Json
+          chatbot_colors?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

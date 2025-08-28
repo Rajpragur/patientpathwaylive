@@ -137,14 +137,12 @@ const TNSSLandingPage: React.FC = () => {
           // Handle multiple rows by using the most recent one
           let data: any = null;
           if (queryResult && Array.isArray(queryResult) && queryResult.length > 1) {
-            console.log(`Found ${queryResult.length} rows for doctor ${doctor.id}, using most recent`);
             data = queryResult.sort((a, b) => 
               new Date(b.updated_at || b.created_at).getTime() - 
               new Date(a.updated_at || a.created_at).getTime()
             )[0];
             
             // Clean up duplicate rows (keep only the most recent one)
-            console.log('Cleaning up duplicate rows...');
             const duplicateIds = queryResult
               .filter(row => row.id !== data.id)
               .map(row => row.id);
@@ -159,7 +157,6 @@ const TNSSLandingPage: React.FC = () => {
                 if (deleteError) {
                   console.warn('Could not clean up duplicate rows:', deleteError);
                 } else {
-                  console.log(`✅ Cleaned up ${duplicateIds.length} duplicate rows`);
                 }
               } catch (cleanupError) {
                 console.warn('Error during duplicate cleanup:', cleanupError);
@@ -188,18 +185,11 @@ const TNSSLandingPage: React.FC = () => {
               );
               
               if (hasValidContent) {
-                console.log('Using existing TNSS content from database');
                 setAIContent(data.content);
                 setLoadingAI(false);
                 return; // EXIT HERE - don't generate new content
-              } else {
-                console.log('Existing TNSS content is incomplete, will generate new content');
               }
-            } else {
-              console.log('Found existing content but not TNSS type, will generate new TNSS content');
             }
-          } else {
-            console.log('No existing content found in database, will generate new content');
           }
         } catch (dbError) {
           console.warn('Could not fetch existing content from database:', dbError);
@@ -207,8 +197,7 @@ const TNSSLandingPage: React.FC = () => {
         }
 
         // Generate new content
-        console.log('Generating new AI content for doctor:', doctor.name);
-        const generated = await generatePageContent(doctor);
+        const generated = await generatePageContent(doctor, 'TNSS');
         
         if (generated.error) {
           setContentError(generated.error);
@@ -218,11 +207,12 @@ const TNSSLandingPage: React.FC = () => {
           
           // Save to database - check if record exists first
           try {
-            // Check if a record already exists (table only has doctor_id, not user_id)
+            // Check if a record already exists for TNSS quiz type
             const { data: existingRecord } = await supabase
               .from('ai_landing_pages')
               .select('id')
               .eq('doctor_id', doctor.id)
+              .eq('quiz_type', 'TNSS')
               .maybeSingle();
 
             if (existingRecord) {
@@ -237,15 +227,14 @@ const TNSSLandingPage: React.FC = () => {
               
               if (updateError) {
                 console.warn('Could not update content in database:', updateError);
-              } else {
-                console.log('Content updated in database successfully');
               }
             } else {
-              // Insert new record (table structure: doctor_id, content, chatbot_colors, created_at, updated_at)
+              // Insert new record for TNSS quiz type
               const { error: insertError } = await supabase
                 .from('ai_landing_pages')
                 .insert({
                   doctor_id: doctor.id,
+                  quiz_type: 'TNSS',
                   content: generated,
                   chatbot_colors: {}, // Default empty object
                   created_at: new Date().toISOString(),
@@ -254,8 +243,6 @@ const TNSSLandingPage: React.FC = () => {
               
               if (insertError) {
                 console.warn('Could not insert content to database:', insertError);
-              } else {
-                console.log('Content inserted to database successfully');
               }
             }
           } catch (saveError) {

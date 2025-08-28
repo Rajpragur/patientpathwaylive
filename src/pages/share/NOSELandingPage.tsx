@@ -136,8 +136,6 @@ const NOSELandingPage: React.FC = () => {
       try {
         // First, try to get existing content from database
         try {
-          console.log('Checking database for existing content for doctor:', doctor.id);
-          console.log('Doctor object:', doctor);
           
           // First, let's test if the table exists and what's in it
           try {
@@ -145,7 +143,6 @@ const NOSELandingPage: React.FC = () => {
               .from('ai_landing_pages')
               .select('*')
               .limit(1);
-            console.log('Table test query:', { tableTest, tableError });
           } catch (tableTestError) {
             console.error('Table test failed:', tableTestError);
           }
@@ -160,7 +157,6 @@ const NOSELandingPage: React.FC = () => {
           // If we get multiple rows, use the most recent one and clean up duplicates
           let data: any = null;
           if (queryResult && Array.isArray(queryResult) && queryResult.length > 1) {
-            console.log(`Found ${queryResult.length} rows for doctor ${doctor.id}, using most recent`);
             // Sort by updated_at descending and take the first one
             data = queryResult.sort((a, b) => 
               new Date(b.updated_at || b.created_at).getTime() - 
@@ -168,7 +164,6 @@ const NOSELandingPage: React.FC = () => {
             )[0];
             
             // Clean up duplicate rows (keep only the most recent one)
-            console.log('Cleaning up duplicate rows...');
             const duplicateIds = queryResult
               .filter(row => row.id !== data.id)
               .map(row => row.id);
@@ -183,7 +178,6 @@ const NOSELandingPage: React.FC = () => {
                 if (deleteError) {
                   console.warn('Could not clean up duplicate rows:', deleteError);
                 } else {
-                  console.log(`✅ Cleaned up ${duplicateIds.length} duplicate rows`);
                 }
               } catch (cleanupError) {
                 console.warn('Error during duplicate cleanup:', cleanupError);
@@ -198,7 +192,6 @@ const NOSELandingPage: React.FC = () => {
             data = null;
           }
 
-          console.log('Database query result:', { data, error });
           if (error) {
             console.error('Database query error details:', error);
           }
@@ -209,15 +202,6 @@ const NOSELandingPage: React.FC = () => {
               data.content.headline && 
               data.content.headline.toLowerCase().includes('nose');
             
-            console.log('Content validation:', { 
-              hasContent: !!data.content, 
-              hasError: !!data.content.error,
-              isNOSEContent,
-              hasWhatIsNAO: !!data.content.whatIsNAO,
-              hasHeadline: !!data.content.headline,
-              headlineIncludesNose: data.content.headline?.toLowerCase().includes('nose')
-            });
-            
             if (isNOSEContent) {
               // Validate existing content has all required fields
               const requiredFields = ['headline', 'intro', 'whatIsNAO', 'symptoms', 'treatments'];
@@ -226,23 +210,11 @@ const NOSELandingPage: React.FC = () => {
                 (typeof data.content[field] === 'string' ? data.content[field].trim() : Array.isArray(data.content[field]) && data.content[field].length > 0)
               );
               
-              console.log('Content completeness check:', { requiredFields, hasValidContent });
-              
               if (hasValidContent) {
-                console.log('Using existing NOSE content from database');
                 setAIContent(data.content);
                 setLoadingAI(false);
                 return; // EXIT HERE - don't generate new content
-              } else {
-                console.log('Existing NOSE content is incomplete, will generate new content');
               }
-            } else {
-              console.log('Found existing content but not NOSE type, will generate new NOSE content');
-            }
-          } else {
-            console.log('No existing content found in database, will generate new content');
-            if (data) {
-              console.log('Data exists but no valid content:', data);
             }
           }
         } catch (dbError) {
@@ -253,11 +225,9 @@ const NOSELandingPage: React.FC = () => {
         // If we get here, no valid content was found in database
         // For shared links, we should always generate new content to ensure consistency
         // localStorage is only used for the same user's subsequent visits
-        console.log('No valid content in database - will generate new content for consistency');
 
         // Generate new content
-        console.log('Generating new AI content for doctor:', doctor.name);
-        const generated = await generatePageContent(doctor);
+        const generated = await generatePageContent(doctor, 'NOSE');
         
         if (generated.error) {
           setContentError(generated.error);
@@ -268,20 +238,19 @@ const NOSELandingPage: React.FC = () => {
           // Cache the content in localStorage for future use
           try {
             localStorage.setItem(`nose_content_${doctor.id}`, JSON.stringify(generated));
-            console.log('Content cached in localStorage for NOSE landing page');
           } catch (cacheError) {
             console.warn('Could not cache content in localStorage:', cacheError);
           }
           
           // Save to database - this is CRITICAL for shared links
           try {
-            console.log('Saving generated content to database for doctor:', doctor.id);
             
-            // Check if a record already exists (table only has doctor_id, not user_id)
+            // Check if a record already exists for NOSE quiz type
             const { data: existingRecord } = await supabase
               .from('ai_landing_pages')
               .select('id')
               .eq('doctor_id', doctor.id)
+              .eq('quiz_type', 'NOSE')
               .maybeSingle();
 
             if (existingRecord) {
@@ -298,14 +267,14 @@ const NOSELandingPage: React.FC = () => {
                 console.error('CRITICAL: Could not update content in database:', updateError);
                 // If database save fails, this could cause sharing issues
               } else {
-                console.log('✅ Content updated in database successfully - will be available for shared links');
               }
             } else {
-              // Insert new record (table structure: doctor_id, content, chatbot_colors, created_at, updated_at)
+              // Insert new record for NOSE quiz type
               const { error: insertError } = await supabase
                 .from('ai_landing_pages')
                 .insert({
                   doctor_id: doctor.id,
+                  quiz_type: 'NOSE',
                   content: generated,
                   chatbot_colors: {}, // Default empty object
                   created_at: new Date().toISOString(),
@@ -315,8 +284,6 @@ const NOSELandingPage: React.FC = () => {
               if (insertError) {
                 console.error('CRITICAL: Could not insert content to database:', insertError);
                 // If database save fails, this could cause sharing issues
-              } else {
-                console.log('✅ Content inserted to database successfully - will be available for shared links');
               }
             }
           } catch (saveError) {

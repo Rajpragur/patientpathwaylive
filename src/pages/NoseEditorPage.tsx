@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { generatePageContent, DoctorProfile } from '../lib/contentGenerator';
+import { generatePageContent, DoctorProfile } from '../lib/openrouter';
 import { Button } from '@/components/ui/button';
 import { quizzes } from '@/data/quizzes';
 import { EmbeddedChatBot } from '@/components/quiz/EmbeddedChatBot';
@@ -616,12 +616,12 @@ const NoseEditorPage: React.FC = () => {
         .single();
       setDoctor(docData || defaultDoctor);
       
-      // Fetch AI content
+      // Fetch AI content for NOSE quiz type
       const { data, error } = await supabase
         .from('ai_landing_pages')
         .select('content, chatbot_colors')
-        .eq('user_id', user.id)
         .eq('doctor_id', doctorId)
+        .eq('quiz_type', 'NOSE')
         .single();
       
       if (data && data.content) setContent(data.content);
@@ -669,12 +669,12 @@ const NoseEditorPage: React.FC = () => {
     setContent(newContent);
     await supabase.from('ai_landing_pages').upsert([
       {
-        user_id: user.id,
         doctor_id: doctorId,
+        quiz_type: 'NOSE',
         content: newContent,
         chatbot_colors: chatbotColors,
       },
-    ], { onConflict: 'user_id,doctor_id' });
+    ], { onConflict: 'doctor_id,quiz_type' });
     setEditingSection(null);
     setEditValue('');
     setSaving(false);
@@ -698,12 +698,12 @@ const NoseEditorPage: React.FC = () => {
     // Save to database
     await supabase.from('ai_landing_pages').upsert([
       {
-        user_id: user.id,
         doctor_id: doctorId,
+        quiz_type: 'NOSE',
         content: content,
         chatbot_colors: newColors,
       },
-    ], { onConflict: 'user_id,doctor_id' });
+    ], { onConflict: 'doctor_id,quiz_type' });
   };
 
   if (loading) return <div className="p-8">Loading...</div>;
@@ -802,6 +802,7 @@ const NoseEditorPage: React.FC = () => {
                   quizData={quizzes.NOSE} 
                   doctorAvatarUrl={doctorAvatarUrl} 
                   chatbotColors={chatbotColors}
+                  utm_source="nose_editor"
                 />
               </div>
             </div>
@@ -824,7 +825,7 @@ const NoseEditorPage: React.FC = () => {
         
 
         
-        <style jsx>{`
+        <style>{`
           @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
