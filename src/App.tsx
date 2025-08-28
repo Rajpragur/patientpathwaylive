@@ -29,7 +29,9 @@ import ShortLinkRedirect from './pages/ShortLinkRedirect';
 import EmbeddedChatbotPage from './pages/EmbeddedChatbotPage';
 import Embed from './pages/Embed';
 import Snot12LandingPage from './pages/SNOT12LandingPage';
-
+import Snot22LandingPage from './pages/share/SNOT22LandingPage';
+import TNSSLandingPage from './pages/share/TNSSLandingPage';
+import AdminPortal from './pages/AdminPortal';
 const queryClient = new QueryClient();
 
 function App() {
@@ -41,11 +43,14 @@ function App() {
           <AuthProvider>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/admin-portal" element={<AdminPortal />} />
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/verify-email" element={<EmailVerificationPage />} />
               <Route path="/nose/:doctorId?" element={<NoseLandingPage />} />
               <Route path="/share/nose/:doctorId?" element={<NOSELandingPage />} />
               <Route path="/share/snot12/:doctorId?" element={<SNOTLandingPage/>}/>
+              <Route path="/share/snot22/:doctorId?" element={<Snot22LandingPage/>}/>
+              <Route path="/share/tnss/:doctorId?" element={<TNSSLandingPage/>}/>
               <Route path="/share/:quizType/:doctorId?" element={<ShareQuizPage />} />
               <Route path="/portal/*" element={<PortalPage />} />
               <Route path="/portal/share/:quizId" element={<ShareQuizPage />} />

@@ -14,8 +14,8 @@ const defaultDoctor: DoctorProfile = {
     { city: 'Southlake', address: '1545 E. Southlake Blvd., Ste. 140, Southlake, TX 76092', phone: '(817) 420-9393' },
   ],
   testimonials: [
-    { text: 'The SNOT-12 assessment helped identify my chronic sinus issues. Treatment has been life-changing.', author: 'Patient', location: 'Fort Worth' },
-    { text: 'Dr. Smith used the SNOT-12 to create a personalized treatment plan that finally resolved my symptoms.', author: 'Patient', location: 'Southlake' },
+    { text: 'The comprehensive SNOT-22 assessment revealed the full impact of my sinus condition. Treatment has been transformative.', author: 'Patient', location: 'Fort Worth' },
+    { text: 'Dr. Smith used the detailed SNOT-22 evaluation to create a comprehensive treatment plan that addressed all my symptoms.', author: 'Patient', location: 'Southlake' },
   ],
   website: 'https://www.exhalesinus.com/',
 };
@@ -30,7 +30,7 @@ const defaultChatbotColors = {
   botText: '#334155'
 };
 
-const SNOT12LandingPage: React.FC = () => {
+const SNOT22LandingPage: React.FC = () => {
   const { doctorId } = useParams<{ doctorId: string }>();
   const [utmSource, setUtmSource] = useState<string | null>(null);
   const [doctor, setDoctor] = useState<DoctorProfile | null>(null);
@@ -153,16 +153,96 @@ const SNOT12LandingPage: React.FC = () => {
       setContentError(null);
 
       try {
-        // First, try to get existing content from localStorage as a fallback
-        const cachedContent = localStorage.getItem(`snot12_content_${doctor.id}`);
+        // First, try to get existing content from database
+        try {
+          const { data: queryResult, error } = await supabase
+            .from('ai_landing_pages')
+            .select('*')
+            .eq('doctor_id', doctor.id);
+            
+          // Handle multiple rows by using the most recent one
+          let data: any = null;
+          if (queryResult && Array.isArray(queryResult) && queryResult.length > 1) {
+            console.log(`Found ${queryResult.length} rows for doctor ${doctor.id}, using most recent`);
+            data = queryResult.sort((a, b) => 
+              new Date(b.updated_at || b.created_at).getTime() - 
+              new Date(a.updated_at || a.created_at).getTime()
+            )[0];
+            
+            // Clean up duplicate rows (keep only the most recent one)
+            console.log('Cleaning up duplicate rows...');
+            const duplicateIds = queryResult
+              .filter(row => row.id !== data.id)
+              .map(row => row.id);
+              
+            if (duplicateIds.length > 0) {
+              try {
+                const { error: deleteError } = await supabase
+                  .from('ai_landing_pages')
+                  .delete()
+                  .in('id', duplicateIds);
+                  
+                if (deleteError) {
+                  console.warn('Could not clean up duplicate rows:', deleteError);
+                } else {
+                  console.log(`✅ Cleaned up ${duplicateIds.length} duplicate rows`);
+                }
+              } catch (cleanupError) {
+                console.warn('Error during duplicate cleanup:', cleanupError);
+              }
+            }
+          } else if (queryResult && Array.isArray(queryResult) && queryResult.length === 1) {
+            data = queryResult[0];
+          } else if (queryResult && !Array.isArray(queryResult)) {
+            data = queryResult;
+          } else {
+            data = null;
+          }
+
+          if (data && data.content && !data.content.error) {
+            // Check if this is SNOT22 content by looking for SNOT22-specific fields
+            const isSNOT22Content = data.content.headline && 
+              data.content.headline.toLowerCase().includes('snot') &&
+              data.content.symptoms && Array.isArray(data.content.symptoms);
+            
+            if (isSNOT22Content) {
+              // Validate existing content has all required fields
+              const requiredFields = ['headline', 'intro', 'symptoms', 'treatments'];
+              const hasValidContent = requiredFields.every(field => 
+                data.content[field] && 
+                (typeof data.content[field] === 'string' ? data.content[field].trim() : Array.isArray(data.content[field]) && data.content[field].length > 0)
+              );
+              
+              if (hasValidContent) {
+                console.log('Using existing SNOT22 content from database');
+                setAIContent(data.content);
+                setLoadingAI(false);
+                return; // EXIT HERE - don't generate new content
+              } else {
+                console.log('Existing SNOT22 content is incomplete, will generate new content');
+              }
+            } else {
+              console.log('Found existing content but not SNOT22 type, will generate new SNOT22 content');
+            }
+          } else {
+            console.log('No existing content found in database, will generate new content');
+          }
+        } catch (dbError) {
+          console.warn('Could not fetch existing content from database:', dbError);
+          // Continue to generate new content
+        }
+
+        // If we get here, no valid content was found in database
+        // Try localStorage as a backup before generating new content
+        const cachedContent = localStorage.getItem(`snot22_content_${doctor.id}`);
         if (cachedContent) {
           try {
             const parsed = JSON.parse(cachedContent);
-            if (parsed && !parsed.error) {
+            if (parsed && !parsed.error && parsed.symptoms) {
+              console.log('Using cached SNOT22 content from localStorage');
               setAIContent(parsed);
-              console.log('Using cached content for SNOT-12 landing page');
               setLoadingAI(false);
-              return;
+              return; // EXIT HERE - don't generate new content
             }
           } catch (e) {
             console.warn('Failed to parse cached content:', e);
@@ -181,20 +261,19 @@ const SNOT12LandingPage: React.FC = () => {
           
           // Cache the content in localStorage for future use
           try {
-            localStorage.setItem(`snot12_content_${doctor.id}`, JSON.stringify(generated));
-            console.log('Content cached in localStorage for SNOT-12 landing page');
+            localStorage.setItem(`snot22_content_${doctor.id}`, JSON.stringify(generated));
+            console.log('Content cached in localStorage for SNOT-22 landing page');
           } catch (cacheError) {
             console.warn('Could not cache content in localStorage:', cacheError);
           }
           
-          // Try to save to database - check if record exists first
+                    // Try to save to database - check if record exists first
           try {
-            // Check if a record already exists
+            // Check if a record already exists (table only has doctor_id, not user_id)
             const { data: existingRecord } = await supabase
               .from('ai_landing_pages')
               .select('id')
               .eq('doctor_id', doctor.id)
-              .eq('user_id', doctor.id)
               .maybeSingle();
 
             if (existingRecord) {
@@ -213,13 +292,14 @@ const SNOT12LandingPage: React.FC = () => {
                 console.log('Content updated in database successfully');
               }
             } else {
-              // Insert new record
+              // Insert new record (table structure: doctor_id, content, chatbot_colors, created_at, updated_at)
               const { error: insertError } = await supabase
                 .from('ai_landing_pages')
                 .insert({
                   doctor_id: doctor.id,
-                  user_id: doctor.id,
                   content: generated,
+                  chatbot_colors: {}, // Default empty object
+                  created_at: new Date().toISOString(),
                   updated_at: new Date().toISOString(),
                 });
               
@@ -304,7 +384,7 @@ const SNOT12LandingPage: React.FC = () => {
                 onClick={handleShowQuiz}
                 className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
               >
-                Take the SNOT-12 Assessment
+                Take the SNOT-22 Assessment
               </button>
             </div>
             {process.env.NODE_ENV === 'development' && (
@@ -349,7 +429,7 @@ const SNOT12LandingPage: React.FC = () => {
             {showChatMessage && (
               <div className="absolute bottom-24 right-2 bg-white rounded-2xl shadow-2xl p-6 mb-2 border border-gray-100 animate-slideIn" style={{ width: '340px', minWidth: '340px' }}>
                 <div className="text-sm text-gray-700 mb-3 font-medium">
-                  {safeText(aiContent.cta, 'Take our quick SNOT-12 assessment to evaluate your sinus and nasal symptoms!')}
+                  {safeText(aiContent.cta, 'Take our comprehensive SNOT-22 assessment to evaluate your sinus and nasal symptoms impact!')}
                 </div>
                 <div className="text-xs text-gray-500 flex items-center">
                   <span>Click to start the quiz</span>
@@ -407,8 +487,8 @@ const SNOT12LandingPage: React.FC = () => {
                 <div className="flex items-center space-x-4">
                   <img src={doctorAvatarUrl} alt="Doctor" className="w-12 h-12 rounded-full object-cover border-2 border-white/30" />
                   <div>
-                    <h3 className="font-bold text-lg">SNOT-12 Assessment</h3>
-                    <p className="text-sm">Quick sinus evaluation with {doctor.name}</p>
+                    <h3 className="font-bold text-lg">SNOT-22 Assessment</h3>
+                    <p className="text-sm">Comprehensive sinus evaluation with {doctor.name}</p>
                   </div>
                 </div>
                 <button
@@ -423,9 +503,9 @@ const SNOT12LandingPage: React.FC = () => {
               
               <div className="overflow-y-auto overflow-x-hidden" style={{ height: 'calc(90vh - 96px)' }}>
                 <EmbeddedChatBot
-                  quizType="SNOT12"
+                  quizType="SNOT22"
                   doctorId={doctorId || doctor?.id}
-                  quizData={quizzes.SNOT12}
+                  quizData={quizzes.SNOT22}
                   doctorAvatarUrl={doctorAvatarUrl}
                   chatbotColors={chatbotColors}
                   utm_source={utmSource}
@@ -474,16 +554,16 @@ const SNOT12LandingPage: React.FC = () => {
               <img src={doctorAvatarUrl} alt="Practice Logo" className="w-20 rounded-xl object-cover" />
             </div>
             <h1 className="text-5xl font-bold text-slate-900 mb-8 leading-tight max-w-6xl mx-auto">
-              {safeText(aiContent.headline, "Suffering from Chronic Sinus and Nasal Symptoms? Get Relief Today.")}
+              {safeText(aiContent.headline, "Comprehensive Sinus & Nasal Symptom Evaluation - Get the Full Picture")}
             </h1>
             <p className="text-2xl text-slate-600 mb-12 max-w-4xl mx-auto leading-relaxed">
-              {safeText(aiContent.intro, 'Take our quick SNOT-12 assessment to evaluate how your sinus and nasal symptoms are impacting your quality of life and discover personalized treatment options available in your area.')}
+              {safeText(aiContent.intro, 'Take our comprehensive SNOT-22 assessment to get a complete evaluation of how your sinus and nasal symptoms are affecting your quality of life. This detailed 22-question assessment provides the most thorough understanding of your condition.')}
             </p>
             <button
               onClick={handleShowQuiz}
               className="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-6 px-12 rounded-xl transition-all duration-300 hover:scale-105 shadow-xl text-xl group"
             >
-              <span>Take the SNOT-12 Assessment</span>
+              <span>Take the SNOT-22 Assessment</span>
               <svg className="w-6 h-6 ml-3 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
@@ -494,12 +574,12 @@ const SNOT12LandingPage: React.FC = () => {
 
       {/* Content Sections */}
       <div className="w-full space-y-0">
-        {/* What is SNOT-12 */}
+        {/* What is SNOT-22 */}
         <section className="w-full bg-slate-100 py-24">
           <div className="max-w-7xl mx-auto px-8 text-center">
-              <h2 className="text-5xl font-bold text-slate-900 mb-8">What Is the SNOT-12 Assessment?</h2>
+              <h2 className="text-5xl font-bold text-slate-900 mb-8">What Is the SNOT-22 Assessment?</h2>
               <p className="text-2xl text-slate-600 leading-relaxed max-w-5xl mx-auto">
-                {safeText(aiContent.whatIsSNOT12, 'The SNOT-12 (Sino-Nasal Outcome Test) is a validated 12-question assessment that measures how much your sinus and nasal symptoms are affecting your quality of life. This comprehensive evaluation helps healthcare providers understand the severity of your condition and create targeted treatment plans.')}
+                {safeText(aiContent.whatIsSNOT22, 'The SNOT-22 (Sino-Nasal Outcome Test) is the gold standard 22-question assessment that comprehensively evaluates how much your sinus and nasal symptoms are affecting your quality of life. This detailed evaluation covers physical symptoms, emotional impact, and functional limitations to provide the most complete picture of your condition.')}
               </p>
           </div>
         </section>
@@ -507,15 +587,15 @@ const SNOT12LandingPage: React.FC = () => {
         {/* Symptoms & Impact */}
         <section className="w-full bg-white py-24">
           <div className="max-w-7xl mx-auto px-8 text-center">
-              <h2 className="text-5xl font-bold text-slate-900 mb-12">Common Sinus & Nasal Symptoms</h2>
+              <h2 className="text-5xl font-bold text-slate-900 mb-12">Comprehensive Symptom Evaluation</h2>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
                 {safeArray(aiContent.symptoms, [
-                  'Chronic nasal congestion and blockage',
-                  'Persistent runny nose and post-nasal drip',
-                  'Thick nasal discharge and sinus pressure',
-                  'Decreased sense of smell and taste',
-                  'Facial pain and pressure around sinuses',
-                  'Difficulty sleeping due to breathing problems'
+                  'Nasal symptoms: congestion, runny nose, post-nasal drip',
+                  'Sleep quality: difficulty falling asleep, frequent waking',
+                  'Emotional impact: frustration, embarrassment, depression',
+                  'Functional limitations: reduced productivity, concentration issues',
+                  'Social impact: avoiding social situations, relationship stress',
+                  'Physical symptoms: facial pressure, ear problems, cough'
                 ]).map((symptom: string, i: number) => (
                   <div key={i} className="bg-slate-50 rounded-xl p-8 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
                     <div className="w-4 h-4 bg-blue-600 rounded-full mb-4 mx-auto"></div>
@@ -530,20 +610,20 @@ const SNOT12LandingPage: React.FC = () => {
         <section className="w-full bg-slate-100 py-24">
           <div className="max-w-7xl mx-auto px-8 text-center">
               <h2 className="text-5xl font-bold text-slate-900 mb-8">
-                Comprehensive Treatment Options at {doctor.name.split(' ')[0]}'s Practice
+                Advanced Treatment Options at {doctor.name.split(' ')[0]}'s Practice
               </h2>
               <p className="text-2xl text-slate-600 mb-16 max-w-5xl mx-auto leading-relaxed">
-                {safeText(aiContent.treatments, 'Our practice offers a comprehensive range of treatment options for chronic sinus and nasal conditions. From conservative medical management to advanced minimally invasive procedures, we tailor our approach to your specific symptoms and severity.')}
+                {safeText(aiContent.treatments, 'Our practice offers the most advanced treatment options for chronic sinus and nasal conditions. Based on your comprehensive SNOT-22 results, we create personalized treatment plans that address the root cause of your symptoms.')}
               </p>
               
               <div className="mb-16">
-                <h3 className="text-3xl font-semibold text-slate-800 mb-12">Treatment Options: From Medical to Surgical</h3>
+                <h3 className="text-3xl font-semibold text-slate-800 mb-12">Comprehensive Treatment Approach</h3>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
                   {safeArray(aiContent.treatmentOptions, [
-                    'Medical Management: Nasal sprays, antihistamines, and decongestants',
-                    'Balloon Sinuplasty: Minimally invasive sinus dilation procedure',
-                    'Endoscopic Sinus Surgery: Advanced surgical treatment for chronic sinusitis',
-                    'Immunotherapy: Targeted treatment for allergy-related symptoms'
+                    'Advanced Medical Management: Targeted therapies based on symptom severity',
+                    'Minimally Invasive Procedures: Balloon sinuplasty and endoscopic techniques',
+                    'Surgical Solutions: Comprehensive sinus surgery for severe cases',
+                    'Lifestyle & Prevention: Long-term management strategies'
                   ]).map((option: string, i: number) => (
                     <div key={i} className="bg-white rounded-xl p-8 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
                       <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mb-6 mx-auto">
@@ -554,52 +634,21 @@ const SNOT12LandingPage: React.FC = () => {
                   ))}
                 </div>
               </div>
-
-              {/* Comparison Table */}
-              <div className="overflow-x-auto bg-white rounded-xl shadow-sm border border-slate-200">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-slate-900 text-white">
-                      <th className="py-6 px-8 text-left font-semibold text-lg">Treatment</th>
-                      <th className="py-6 px-8 text-left font-semibold text-lg">Pros</th>
-                      <th className="py-6 px-8 text-left font-semibold text-lg">Cons</th>
-                      <th className="py-6 px-8 text-left font-semibold text-lg">Invasiveness</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(Array.isArray(aiContent.comparisonTable) && aiContent.comparisonTable.length > 0
-                      ? aiContent.comparisonTable
-                      : [
-                          ["Medical Management", "Non-invasive, reversible", "Temporary relief", "None"],
-                          ["Balloon Sinuplasty", "Minimally invasive, quick recovery", "May not be covered by insurance", "Minimal"],
-                          ["Endoscopic Surgery", "Comprehensive treatment", "Recovery time required", "Moderate"],
-                          ["Immunotherapy", "Long-term solution", "Time to see results", "None"]
-                        ]
-                    ).map((row: any, i: number) => (
-                      <tr key={i} className={i % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
-                        {(Array.isArray(row) ? row : ['', '', '', '']).map((cell: string, j: number) => (
-                          <td key={`${i}-${j}`} className="py-6 px-8 text-slate-700 text-lg">{cell || ''}</td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
           </div>
         </section>
 
         {/* Call to Action */}
         <section className="w-full bg-blue-600 py-24">
           <div className="max-w-7xl mx-auto px-8 text-center">
-              <h2 className="text-5xl font-bold text-white mb-12">Take the Next Step</h2>
+              <h2 className="text-5xl font-bold text-white mb-12">Get Your Complete Symptom Evaluation</h2>
               <p className="text-2xl text-blue-100 mb-16 max-w-4xl mx-auto leading-relaxed">
-                {safeText(aiContent.cta, 'Don\'t let chronic sinus and nasal symptoms control your life. Take our quick SNOT-12 assessment to see how much your symptoms are affecting you and discover personalized treatment options. The assessment takes just 3 minutes and could be the first step toward lasting relief.')}
+                {safeText(aiContent.cta, 'Don\'t let chronic sinus and nasal symptoms continue to impact your quality of life. Take our comprehensive SNOT-22 assessment to get the complete picture of your condition and discover personalized treatment options. The assessment takes just 5 minutes and provides the most thorough evaluation available.')}
               </p>
               <button
                 onClick={handleShowQuiz}
                 className="inline-flex items-center bg-white text-blue-600 font-bold py-6 px-12 rounded-xl transition-all duration-300 hover:scale-105 shadow-xl text-xl group hover:shadow-2xl"
               >
-                <span>Take the SNOT-12 Assessment</span>
+                <span>Take the SNOT-22 Assessment</span>
                 <svg className="w-6 h-6 ml-3 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
@@ -617,7 +666,7 @@ const SNOT12LandingPage: React.FC = () => {
                   'Comprehensive diagnostic evaluation using validated assessments',
                   'Full spectrum of treatment options from medical to surgical',
                   'State-of-the-art facilities and advanced procedures',
-                  'Personalized treatment plans based on your SNOT-12 results',
+                  'Personalized treatment plans based on your SNOT-22 results',
                   'Proven track record of successful outcomes'
                 ]).map((reason: string, i: number) => (
                   <div key={i} className="bg-slate-50 rounded-xl p-8 text-left border border-slate-200 hover:shadow-md transition-shadow">
@@ -642,12 +691,12 @@ const SNOT12LandingPage: React.FC = () => {
                 ? aiContent.testimonials 
                 : [
                     {
-                      text: "The SNOT-12 assessment helped Dr. Smith understand exactly how my sinus symptoms were affecting my daily life. The treatment plan was perfect and I'm finally breathing freely again.",
+                      text: "The comprehensive SNOT-22 assessment revealed the full extent of my sinus condition. Dr. Smith's treatment plan based on these results has been life-changing.",
                       author: "Sarah M.",
                       location: "Fort Worth"
                     },
                     {
-                      text: "After years of suffering with chronic sinusitis, the SNOT-12 evaluation led to a treatment that changed everything. My quality of life has improved dramatically.",
+                      text: "After years of suffering, the detailed SNOT-22 evaluation led to a treatment that addressed all my symptoms. My quality of life has improved dramatically.",
                       author: "Michael R.", 
                       location: "Southlake"
                     }
@@ -656,7 +705,7 @@ const SNOT12LandingPage: React.FC = () => {
                 <div key={i} className="bg-white rounded-xl p-12 border border-slate-200 relative shadow-sm hover:shadow-md transition-shadow">
                   <div className="absolute top-8 left-8 text-8xl text-slate-300">"</div>
                   <p className="text-slate-700 mb-8 pt-12 text-xl leading-relaxed italic">
-                    {safeText(testimonial.text, 'This treatment has significantly improved my quality of life.')}
+                    {safeText(testimonial.text, 'This comprehensive treatment has significantly improved my quality of life.')}
                   </p>
                   <div className="flex items-center justify-center">
                     <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mr-4">
@@ -707,7 +756,7 @@ const SNOT12LandingPage: React.FC = () => {
             </div>
             <div className="mt-12">
               <p className="text-xl text-slate-300 mb-6">
-                {safeText(aiContent.contact, `Ready to find relief from your sinus symptoms? Contact ${doctor.name} at one of our convenient locations to schedule your consultation.`)}
+                {safeText(aiContent.contact, `Ready for a comprehensive evaluation of your sinus symptoms? Contact ${doctor.name} at one of our convenient locations to schedule your consultation.`)}
               </p>
               <a 
                 href={doctor.website} 
@@ -730,4 +779,4 @@ const SNOT12LandingPage: React.FC = () => {
   );
 };
 
-export default SNOT12LandingPage;
+export default SNOT22LandingPage;

@@ -11,7 +11,6 @@ import { SettingsPage } from '@/components/dashboard/SettingsPage';
 import { SupportPage } from '@/components/dashboard/SupportPage';
 import { SocialIntegrationsPage } from '@/components/dashboard/SocialIntegrationsPage';
 import { AutomationPage } from '@/components/dashboard/AutomationPage';
-import { MarketingRecommendations } from '@/components/dashboard/MarketingRecommendations';
 import { SymptomChecker } from '@/components/dashboard/SymptomChecker';
 import { IntegrationsPage } from '@/components/dashboard/IntegrationsPage';
 import { toast } from 'sonner';
@@ -37,7 +36,6 @@ export default function PortalPage() {
   }, [searchParams]);
 
   useEffect(() => {
-    // Only check auth once loading is complete and we haven't checked before
     if (!loading && !hasCheckedAuth) {
       setHasCheckedAuth(true);
       if (!user) {

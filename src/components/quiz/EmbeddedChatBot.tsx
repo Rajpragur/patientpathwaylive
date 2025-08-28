@@ -132,7 +132,6 @@ export function EmbeddedChatBot({ quizType, doctorId, customQuiz, quizData, doct
   }, [quizData]);
 
   useEffect(() => {
-    // Get doctor ID from props or URL parameters
     const urlDoctorId = doctorId || searchParams.get('doctor');
     if (urlDoctorId) {
       setFinalDoctorId(urlDoctorId);

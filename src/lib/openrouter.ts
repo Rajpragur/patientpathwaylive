@@ -73,9 +73,29 @@ const getFallbackContent = (doctor: DoctorProfile) => ({
   cta: "Don't let nasal breathing problems affect your quality of life any longer. Take our quick NOSE assessment to see if you're a candidate for life-changing nasal airway treatment. The quiz takes just 2 minutes and could be the first step toward breathing freely again."
 });
 
-export async function generatePageContent(doctor: DoctorProfile) {
-  // Enhanced prompt with better structure and specific medical requirements
-  const prompt = `You are an expert medical copywriter specializing in ENT (Ear, Nose, Throat) conditions. Write comprehensive, medically accurate, and engaging content for a nasal airway obstruction landing page.
+// Global rate limiting to prevent multiple simultaneous requests
+let isGenerating = false;
+let lastGenerationTime = 0;
+const MIN_INTERVAL = 5000; // 5 seconds between requests
+
+export async function generatePageContent(doctor: DoctorProfile, retryCount: number = 0) {
+  // Rate limiting: prevent multiple simultaneous requests
+  if (isGenerating) {
+    console.log('Content generation already in progress, using fallback content');
+    return getFallbackContent(doctor);
+  }
+
+  const now = Date.now();
+  if (now - lastGenerationTime < MIN_INTERVAL) {
+    console.log('Rate limit: too soon since last generation, using fallback content');
+    return getFallbackContent(doctor);
+  }
+
+  isGenerating = true;
+  lastGenerationTime = now;
+
+    // Enhanced prompt with better structure and specific medical requirements
+    const prompt = `You are an expert medical copywriter specializing in ENT (Ear, Nose, Throat) conditions. Write comprehensive, medically accurate, and engaging content for a nasal airway obstruction landing page.
 
 Doctor Information:
 - Name: ${doctor.name}
@@ -122,7 +142,7 @@ CONTENT STRUCTURE NEEDED:
 
 Return ONLY a valid JSON object with these exact keys. Ensure all content is substantial, specific, and medically accurate. Do not include any text outside the JSON structure.`;
 
-  try {
+    try {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -130,9 +150,9 @@ Return ONLY a valid JSON object with these exact keys. Ensure all content is sub
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'anthropic/claude-3-haiku:beta', // Better model for structured content
+        model: 'meta-llama/llama-3.3-8b-instruct:free', // Better model for structured content
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 4000, // Increased token limit for comprehensive content
+        max_tokens: 12000, // Increased token limit for comprehensive content
         temperature: 0.7, // Balanced creativity and accuracy
         top_p: 0.9,
       }),
@@ -140,6 +160,15 @@ Return ONLY a valid JSON object with these exact keys. Ensure all content is sub
 
     if (!response.ok) {
       console.error('OpenRouter API error:', response.status, response.statusText);
+      
+      // Handle rate limiting with exponential backoff
+      if (response.status === 429 && retryCount < 3) {
+        const delay = Math.pow(2, retryCount) * 2000; // 2s, 4s, 8s (longer delays)
+        console.log(`Rate limited, retrying in ${delay}ms (attempt ${retryCount + 1}/3)`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return generatePageContent(doctor, retryCount + 1);
+      }
+      
       return getFallbackContent(doctor);
     }
 
@@ -232,5 +261,7 @@ Return ONLY a valid JSON object with these exact keys. Ensure all content is sub
   } catch (error) {
     console.error('Error generating AI content:', error);
     return getFallbackContent(doctor);
+  } finally {
+    isGenerating = false;
   }
 }
