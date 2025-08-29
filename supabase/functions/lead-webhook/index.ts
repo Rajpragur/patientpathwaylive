@@ -72,7 +72,8 @@ serve(async (req) => {
         score: lead.score,
         submitted_at: lead.submitted_at,
         lead_source: leadData.lead_source || 'webhook',
-        share_key: leadData.share_key || null
+        share_key: leadData.share_key || null,
+        answers: leadData.answers || []
       },
       doctor: doctorProfile ? {
         id: doctorProfile.id,
@@ -80,10 +81,42 @@ serve(async (req) => {
         email: doctorProfile.email,
         phone: doctorProfile.phone,
         clinic_name: doctorProfile.clinic_name,
-        location: doctorProfile.location
+        location: doctorProfile.location,
+        twilio_account_sid: doctorProfile.twilio_account_sid,
+        twilio_auth_token: doctorProfile.twilio_auth_token,
+        twilio_phone_number: doctorProfile.twilio_phone_number
       } : null,
-      quiz_data: leadData.answers || [],
-      webhook_timestamp: new Date().toISOString()
+      quiz_data: {
+        questions: leadData.answers || [],
+        maxScore: leadData.maxScore || 100,
+        title: leadData.quiz_title || leadData.quiz_type,
+        description: leadData.quiz_description || 'Health assessment quiz'
+      },
+      webhook_timestamp: new Date().toISOString(),
+      webhook_id: lead.id
+    }
+
+    // Trigger n8n webhook if configured
+    const n8nWebhookUrl = Deno.env.get('N8N_WEBHOOK_URL')
+    if (n8nWebhookUrl) {
+      try {
+        console.log('Triggering n8n webhook:', n8nWebhookUrl)
+        const n8nResponse = await fetch(n8nWebhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(webhookPayload)
+        })
+        
+        if (n8nResponse.ok) {
+          console.log('n8n webhook triggered successfully')
+        } else {
+          console.warn('n8n webhook failed:', n8nResponse.status)
+        }
+      } catch (n8nError) {
+        console.warn('Failed to trigger n8n webhook:', n8nError)
+      }
     }
 
     // Return the webhook payload for n8n to process
@@ -92,7 +125,8 @@ serve(async (req) => {
         success: true,
         data: webhookPayload,
         message: 'Lead webhook processed successfully',
-        webhook_id: lead.id
+        webhook_id: lead.id,
+        n8n_triggered: !!n8nWebhookUrl
       }),
       {
         headers: { 

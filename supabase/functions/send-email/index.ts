@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,17 +8,17 @@ const corsHeaders = {
 }
 
 interface EmailRequest {
-  to: string;
-  subject: string;
-  html: string;
-  text?: string;
-  from?: string;
-  replyTo?: string;
+  to: string
+  subject: string
+  html: string
+  text?: string
+  from?: string
+  replyTo?: string
   attachments?: Array<{
-    filename: string;
-    content: string;
-    contentType: string;
-  }>;
+    filename: string
+    content: string
+    contentType: string
+  }>
 }
 
 serve(async (req) => {
@@ -34,42 +33,15 @@ serve(async (req) => {
     }
 
     const emailData: EmailRequest = await req.json()
-    console.log('Processing email request:', { to: emailData.to, subject: emailData.subject })
-
+    
     // Validate required fields
     if (!emailData.to || !emailData.subject || !emailData.html) {
       throw new Error('Missing required fields: to, subject, html')
     }
 
-    // For now, we'll use a simple email service simulation
-    // In production, integrate with SendGrid, Resend, or similar
-    const emailResult = await sendEmail(emailData)
+    // Use Resend for email sending (you can also use SendGrid, Mailgun, etc.)
+    const emailResult = await sendEmailViaResend(emailData)
 
-    // Log the email communication
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-
-    try {
-      await supabaseAdmin
-        .from('lead_communications')
-        .insert([{
-          communication_type: 'email',
-          message: `Email sent to ${emailData.to}: ${emailData.subject}`,
-          status: emailResult.success ? 'sent' : 'failed',
-          metadata: {
-            to: emailData.to,
-            subject: emailData.subject,
-            email_id: emailResult.id,
-            service: 'email_service'
-          }
-        }])
-    } catch (dbError) {
-      console.warn('Could not log email communication:', dbError)
-    }
-
-    // Return success response
     return new Response(
       JSON.stringify({
         success: true,
@@ -104,75 +76,48 @@ serve(async (req) => {
   }
 })
 
-async function sendEmail(emailData: EmailRequest) {
-  // TODO: Integrate with actual email service
-  // Options: SendGrid, Resend, Mailgun, AWS SES
+async function sendEmailViaResend(emailData: EmailRequest) {
+  const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
   
-  // For now, simulate email sending
-  console.log('Sending email:', {
-    to: emailData.to,
-    subject: emailData.subject,
-    html: emailData.html.substring(0, 100) + '...'
-  })
-
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 100))
-
-  // Simulate success/failure (90% success rate for demo)
-  const isSuccess = Math.random() > 0.1
-
-  if (isSuccess) {
+  if (!RESEND_API_KEY) {
+    // Fallback to console log for development
+    console.log('Email would be sent:', {
+      to: emailData.to,
+      subject: emailData.subject,
+      html: emailData.html
+    })
+    
     return {
-      success: true,
-      id: `email_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      message: 'Email queued for sending',
-      service: 'email_service'
+      id: `dev_email_${Date.now()}`,
+      message: 'Email logged (RESEND_API_KEY not configured)'
     }
-  } else {
-    throw new Error('Email service temporarily unavailable')
-  }
-}
-
-// Alternative implementation using SendGrid (uncomment when ready)
-/*
-async function sendEmailWithSendGrid(emailData: EmailRequest) {
-  const sendgridApiKey = Deno.env.get('SENDGRID_API_KEY')
-  if (!sendgridApiKey) {
-    throw new Error('SendGrid API key not configured')
   }
 
-  const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+  const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${sendgridApiKey}`,
-      'Content-Type': 'application/json'
+      'Authorization': `Bearer ${RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      personalizations: [{
-        to: [{ email: emailData.to }],
-        subject: emailData.subject
-      }],
-      from: { email: emailData.from || 'noreply@yourdomain.com' },
-      content: [
-        {
-          type: 'text/html',
-          value: emailData.html
-        }
-      ]
-    })
+      from: emailData.from || 'noreply@yourdomain.com',
+      to: emailData.to,
+      subject: emailData.subject,
+      html: emailData.html,
+      text: emailData.text || emailData.html.replace(/<[^>]*>/g, ''),
+      reply_to: emailData.replyTo,
+      attachments: emailData.attachments
+    }),
   })
 
   if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`SendGrid error: ${response.status} - ${error}`)
+    const errorText = await response.text()
+    throw new Error(`Resend API failed: ${response.status} - ${errorText}`)
   }
 
   const result = await response.json()
   return {
-    success: true,
-    id: result.id || `sg_${Date.now()}`,
-    message: 'Email sent via SendGrid',
-    service: 'sendgrid'
+    id: result.id,
+    message: 'Email sent via Resend'
   }
 }
-*/
