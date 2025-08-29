@@ -5,6 +5,7 @@ import { quizzes } from '@/data/quizzes';
 import { supabase } from '@/integrations/supabase/client';
 import { generatePageContent, DoctorProfile } from '../../lib/openrouter';
 
+
 const defaultDoctor: DoctorProfile = {
   id: 'demo',
   name: 'Dr. Jane Smith',
@@ -42,6 +43,8 @@ const SNOT12LandingPage: React.FC = () => {
   const [chatbotColors, setChatbotColors] = useState(defaultChatbotColors);
   const [contentError, setContentError] = useState<string | null>(null);
   const [retryAttempts, setRetryAttempts] = useState(0);
+  const lastProcessedDoctorId = useRef<string | null>(null);
+  const isSettingFromDatabase = useRef(false);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -49,10 +52,19 @@ const SNOT12LandingPage: React.FC = () => {
     if (source) {
       setUtmSource(source);
     }
+    
+    console.log('SNOT12LandingPage - doctorId from URL:', doctorId);
+    console.log('SNOT12LandingPage - URL search params:', Object.fromEntries(searchParams));
+    
     const fetchDoctorData = async () => {
-      if (!doctorId) return;
+      if (!doctorId) {
+        console.error('No doctorId found in URL parameters');
+        setDoctor(defaultDoctor);
+        return;
+      }
 
       try {
+        console.log('Fetching doctor profile for ID:', doctorId);
         const { data, error } = await supabase
           .from('doctor_profiles')
           .select('*')
@@ -66,7 +78,7 @@ const SNOT12LandingPage: React.FC = () => {
         }
 
         if (data && data.first_name && data.last_name) {
-          setDoctor({
+          const doctorProfile = {
             id: data.id,
             name: `${data.first_name} ${data.last_name}`,
             credentials: data.specialty || 'MD',
@@ -80,7 +92,9 @@ const SNOT12LandingPage: React.FC = () => {
             testimonials: defaultDoctor.testimonials,
             website: data.website || defaultDoctor.website,
             avatar_url: data.avatar_url
-          });
+          };
+          console.log('Successfully fetched doctor profile:', doctorProfile);
+          setDoctor(doctorProfile);
         } else {
           console.warn('Doctor data incomplete, using default doctor');
           setDoctor(defaultDoctor);
@@ -125,6 +139,7 @@ const SNOT12LandingPage: React.FC = () => {
             .from('ai_landing_pages')
             .select('chatbot_colors')
             .eq('doctor_id', doctor.id)
+            .eq('quiz_type', 'SNOT12')
             .maybeSingle();
           if (data && data.chatbot_colors) {
             setChatbotColors(data.chatbot_colors);
@@ -147,7 +162,22 @@ const SNOT12LandingPage: React.FC = () => {
 
   useEffect(() => {
     const fetchOrCreateAIContent = async () => {
-      if (!doctor) return;
+      if (!doctor || loadingAI) return; // Prevent multiple calls
+      
+      // Prevent multiple calls for the same doctor ID
+      if (doctor.id === lastProcessedDoctorId.current) {
+        console.log('Skipping content generation - already processed this doctor ID:', doctor.id);
+        return;
+      }
+      
+      // Prevent calls when we're setting doctor from database
+      if (isSettingFromDatabase.current) {
+        console.log('Skipping content generation - setting doctor from database');
+        return;
+      }
+      
+      console.log('Starting content generation for doctor ID:', doctor.id);
+      lastProcessedDoctorId.current = doctor.id;
 
       setLoadingAI(true);
       setContentError(null);
@@ -202,22 +232,61 @@ const SNOT12LandingPage: React.FC = () => {
           }
 
           if (data && data.content && !data.content.error) {
+            // Parse content if it's a string
+            let parsedContent = data.content;
+            if (typeof data.content === 'string') {
+              try {
+                parsedContent = JSON.parse(data.content);
+              } catch (parseError) {
+                console.warn('Could not parse content from database:', parseError);
+                parsedContent = data.content;
+              }
+            }
+            
             // Check if this is SNOT12 content by looking for SNOT12-specific fields
-            const isSNOT12Content = data.content.headline && 
-              data.content.headline.toLowerCase().includes('snot') &&
-              data.content.symptoms && Array.isArray(data.content.symptoms);
+            const isSNOT12Content = parsedContent.headline && 
+              parsedContent.headline.toLowerCase().includes('snot') &&
+              parsedContent.symptoms && Array.isArray(parsedContent.symptoms);
             
             if (isSNOT12Content) {
-              // Validate existing content has all required fields
-              const requiredFields = ['headline', 'intro', 'symptoms', 'treatments'];
-              const hasValidContent = requiredFields.every(field => 
-                data.content[field] && 
-                (typeof data.content[field] === 'string' ? data.content[field].trim() : Array.isArray(data.content[field]) && data.content[field].length > 0)
-              );
+              // For shared links, be more lenient with validation - just check if basic content exists
+              const hasBasicContent = parsedContent.headline && 
+                parsedContent.intro && 
+                parsedContent.symptoms && 
+                Array.isArray(parsedContent.symptoms) && 
+                parsedContent.symptoms.length > 0;
               
-              if (hasValidContent) {
-                setAIContent(data.content);
+              if (hasBasicContent) {
+                console.log('Using existing SNOT12 content from database for shared link');
+                console.log('Content from database:', parsedContent);
+                console.log('Doctor profile in content:', parsedContent.doctor_profile);
+                
+                setAIContent(parsedContent);
                 setLoadingAI(false);
+                
+                // Then set doctor data from the stored profile if available (but don't trigger content generation again)
+                if (parsedContent.doctor_profile && !doctor.name) {
+                  console.log('Setting doctor from stored profile:', parsedContent.doctor_profile);
+                  // Only set doctor if we don't already have a name (prevents infinite loop)
+                  isSettingFromDatabase.current = true; // Flag to prevent infinite loop
+                  const storedDoctor = {
+                    id: parsedContent.doctor_profile.id || doctor.id,
+                    name: parsedContent.doctor_profile.name || 'Dr. Smith',
+                    credentials: parsedContent.doctor_profile.credentials || 'MD',
+                    locations: parsedContent.doctor_profile.locations || [{ city: 'Main Office', address: 'Please contact for address', phone: 'Please contact for phone' }],
+                    testimonials: parsedContent.doctor_profile.testimonials || [],
+                    website: parsedContent.doctor_profile.website || '#',
+                    avatar_url: parsedContent.doctor_profile.avatar_url
+                  };
+                  setDoctor(storedDoctor);
+                  // Reset the flag after a short delay
+                  setTimeout(() => {
+                    isSettingFromDatabase.current = false;
+                  }, 100);
+                } else {
+                  console.log('No doctor profile found in content or doctor already has name');
+                }
+                
                 return; // EXIT HERE - don't generate new content
               }
             }
@@ -279,11 +348,22 @@ const SNOT12LandingPage: React.FC = () => {
               .maybeSingle();
 
             if (existingRecord) {
-              // Update existing record
+              // Update existing record with complete data
               const { error: updateError } = await supabase
                 .from('ai_landing_pages')
                 .update({
-                  content: generated,
+                  content: {
+                    ...generated,
+                    doctor_profile: {
+                      id: doctor.id,
+                      name: doctor.name,
+                      credentials: doctor.credentials,
+                      locations: doctor.locations,
+                      testimonials: doctor.testimonials,
+                      website: doctor.website,
+                      avatar_url: doctor.avatar_url
+                    }
+                  },
                   updated_at: new Date().toISOString(),
                 })
                 .eq('id', existingRecord.id);
@@ -293,13 +373,24 @@ const SNOT12LandingPage: React.FC = () => {
               } else {
               }
             } else {
-              // Insert new record for SNOT12 quiz type
+              // Insert new record for SNOT12 quiz type with complete data
               const { error: insertError } = await supabase
                 .from('ai_landing_pages')
                 .insert({
                   doctor_id: doctor.id,
                   quiz_type: 'SNOT12',
-                  content: generated,
+                  content: {
+                    ...generated,
+                    doctor_profile: {
+                      id: doctor.id,
+                      name: doctor.name,
+                      credentials: doctor.credentials,
+                      locations: doctor.locations,
+                      testimonials: doctor.testimonials,
+                      website: doctor.website,
+                      avatar_url: doctor.avatar_url
+                    }
+                  },
                   updated_at: new Date().toISOString(),
                 });
               
@@ -323,7 +414,7 @@ const SNOT12LandingPage: React.FC = () => {
     };
 
     fetchOrCreateAIContent();
-  }, [doctor, retryAttempts]);
+  }, [doctor?.id, retryAttempts]); // Only run when doctor ID changes, not when other doctor properties change
 
   const handleShowQuiz = (e?: React.MouseEvent) => {
     e?.preventDefault();
@@ -567,6 +658,8 @@ const SNOT12LandingPage: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
             </button>
+            
+
           </div>
         </div>
       </section>

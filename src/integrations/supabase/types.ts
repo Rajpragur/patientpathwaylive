@@ -499,6 +499,7 @@ export type Database = {
           doctor_id: string
           quiz_type: string
           content: Json
+          doctor_profile: Json
           chatbot_colors: Json
           created_at: string
           updated_at: string
@@ -508,6 +509,7 @@ export type Database = {
           doctor_id: string
           quiz_type?: string
           content?: Json
+          doctor_profile?: Json
           chatbot_colors?: Json
           created_at?: string
           updated_at?: string
@@ -517,6 +519,7 @@ export type Database = {
           doctor_id?: string
           quiz_type?: string
           content?: Json
+          doctor_profile?: Json
           chatbot_colors?: Json
           created_at?: string
           updated_at?: string

@@ -422,118 +422,7 @@ const createSpecialLinks = () => {
     print: getTrackedLink('print_material', 'print_campaign')
   };
 };
-const SocialSharingSection = () => {
-  const specialLinks = createSpecialLinks();
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Social Media Sharing</CardTitle>
-        <CardDescription>Each platform gets tracked separately with full links</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-          <Button
-            variant="outline"
-            onClick={() => handleSocialShare('facebook')}
-            className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
-          >
-            <Facebook className="w-4 h-4 mr-2" />
-            Facebook
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => handleSocialShare('linkedin')}
-            className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
-          >
-            <Linkedin className="w-4 h-4 mr-2" />
-            LinkedIn
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => handleSocialShare('twitter')}
-            className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
-          >
-            <Twitter className="w-4 h-4 mr-2" />
-            Twitter
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => handleSocialShare('tiktok')}
-            className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
-          >
-            <FaTiktok className="w-4 h-4 mr-2" />
-            TikTok
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => handleSocialShare('email')}
-            className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
-          >
-            <Mail className="w-4 h-4 mr-2" />
-            Email
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => handleSocialShare('text')}
-            className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
-          >
-            <Smartphone className="w-4 h-4 mr-2" />
-            Text/SMS
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => copyToClipboard()}
-            className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
-          >
-            <Link2 className="w-4 h-4 mr-2" />
-            Copy Link
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              const printLink = specialLinks.print;
-              navigator.clipboard.writeText(printLink);
-              toast.success('Print-friendly link copied!');
-            }}
-            className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
-          >
-            <Printer className="w-4 h-4 mr-2" />
-            Print Link
-          </Button>
-        </div>
-        
-        {/* Quick copy buttons for specific use cases */}
-        <div className="mt-4 pt-4 border-t">
-          <h4 className="font-medium mb-2">Quick Copy Links:</h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                navigator.clipboard.writeText(specialLinks.email);
-                toast.success('Email campaign link copied!');
-              }}
-              className="justify-start"
-            >
-              📧 Email Campaign Link
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                navigator.clipboard.writeText(specialLinks.website);
-                toast.success('Website embed link copied!');
-              }}
-              className="justify-start"
-            >
-              🌐 Website Embed Link
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
+
   const generateQrCode = () => {
     setShowQrCode(true);
   };
@@ -1067,14 +956,6 @@ const mailHtmlTNSS = useMemo(() => {
                           className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
                         >
                           <FaTiktok className="w-4 h-4 mr-2" />
-                          Tiktok
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => handleSocialShare('tiktok')}
-                          className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
-                        >
-                          <MessageCircle className="w-4 h-4 mr-2" />
                           TikTok
                         </Button>
                         <Button

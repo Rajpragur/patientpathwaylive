@@ -42,6 +42,10 @@ const TNSSLandingPage: React.FC = () => {
   const [chatbotColors, setChatbotColors] = useState(defaultChatbotColors);
   const [contentError, setContentError] = useState<string | null>(null);
   const [retryAttempts, setRetryAttempts] = useState(0);
+  
+  // Refs to prevent infinite loops
+  const lastProcessedDoctorId = useRef<string | null>(null);
+  const isSettingFromDatabase = useRef(false);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -108,6 +112,7 @@ const TNSSLandingPage: React.FC = () => {
           .from('ai_landing_pages')
           .select('chatbot_colors')
           .eq('doctor_id', doctor.id)
+          .eq('quiz_type', 'TNSS')
           .maybeSingle();
         if (data && data.chatbot_colors) setChatbotColors(data.chatbot_colors);
         else setChatbotColors(defaultChatbotColors);
@@ -121,7 +126,20 @@ const TNSSLandingPage: React.FC = () => {
 
   useEffect(() => {
     const fetchOrCreateAIContent = async () => {
-      if (!doctor) return;
+      // Guard clause to prevent infinite loops
+      if (!doctor || loadingAI || isSettingFromDatabase.current) {
+        console.log('TNSS - useEffect guard: doctor:', !!doctor, 'loadingAI:', loadingAI, 'isSettingFromDatabase:', isSettingFromDatabase.current);
+        return;
+      }
+      
+      // Prevent re-processing the same doctor ID
+      if (lastProcessedDoctorId.current === doctor.id) {
+        console.log('TNSS - Already processed doctor ID:', doctor.id);
+        return;
+      }
+      
+      console.log('TNSS - Processing doctor ID:', doctor.id);
+      lastProcessedDoctorId.current = doctor.id;
 
       setLoadingAI(true);
       setContentError(null);
@@ -132,7 +150,8 @@ const TNSSLandingPage: React.FC = () => {
           const { data: queryResult, error } = await supabase
             .from('ai_landing_pages')
             .select('*')
-            .eq('doctor_id', doctor.id);
+            .eq('doctor_id', doctor.id)
+            .eq('quiz_type', 'TNSS');
             
           // Handle multiple rows by using the most recent one
           let data: any = null;
@@ -171,22 +190,61 @@ const TNSSLandingPage: React.FC = () => {
           }
 
           if (data && data.content && !data.content.error) {
+            // Parse content if it's a string
+            let parsedContent = data.content;
+            if (typeof data.content === 'string') {
+              try {
+                parsedContent = JSON.parse(data.content);
+              } catch (parseError) {
+                console.warn('Could not parse content from database:', parseError);
+                parsedContent = data.content;
+              }
+            }
+            
             // Check if this is TNSS content by looking for TNSS-specific fields
-            const isTNSSContent = data.content.headline && 
-              data.content.headline.toLowerCase().includes('allergy') &&
-              data.content.symptoms && Array.isArray(data.content.symptoms);
+            const isTNSSContent = parsedContent.headline && 
+              parsedContent.headline.toLowerCase().includes('allergy') &&
+              parsedContent.symptoms && Array.isArray(parsedContent.symptoms);
             
             if (isTNSSContent) {
-              // Validate existing content has all required fields
-              const requiredFields = ['headline', 'intro', 'whatIsTNSS', 'symptoms', 'treatments'];
-              const hasValidContent = requiredFields.every(field => 
-                data.content[field] && 
-                (typeof data.content[field] === 'string' ? data.content[field].trim() : Array.isArray(data.content[field]) && data.content[field].length > 0)
-              );
+              // For shared links, be more lenient with validation - just check if basic content exists
+              const hasBasicContent = parsedContent.headline && 
+                parsedContent.intro && 
+                parsedContent.symptoms && 
+                Array.isArray(parsedContent.symptoms) && 
+                parsedContent.symptoms.length > 0;
               
-              if (hasValidContent) {
-                setAIContent(data.content);
+              if (hasBasicContent) {
+                console.log('Using existing TNSS content from database for shared link');
+                console.log('Content from database:', parsedContent);
+                console.log('Doctor profile in content:', parsedContent.doctor_profile);
+                
+                setAIContent(parsedContent);
                 setLoadingAI(false);
+                
+                // Then set doctor data from the stored profile if available (but don't trigger content generation again)
+                if (parsedContent.doctor_profile && !doctor.name) {
+                  console.log('Setting doctor from stored profile:', parsedContent.doctor_profile);
+                  // Only set doctor if we don't already have a name (prevents infinite loop)
+                  isSettingFromDatabase.current = true; // Flag to prevent infinite loop
+                  const storedDoctor = {
+                    id: parsedContent.doctor_profile.id || doctor.id,
+                    name: parsedContent.doctor_profile.name || 'Dr. Smith',
+                    credentials: parsedContent.doctor_profile.credentials || 'MD',
+                    locations: parsedContent.doctor_profile.locations || [{ city: 'Main Office', address: 'Please contact for address', phone: 'Please contact for phone' }],
+                    testimonials: parsedContent.doctor_profile.testimonials || [],
+                    website: parsedContent.doctor_profile.website || '#',
+                    avatar_url: parsedContent.doctor_profile.avatar_url
+                  };
+                  setDoctor(storedDoctor);
+                  // Reset the flag after a short delay
+                  setTimeout(() => {
+                    isSettingFromDatabase.current = false;
+                  }, 100);
+                } else {
+                  console.log('No doctor profile found in content or doctor already has name');
+                }
+                
                 return; // EXIT HERE - don't generate new content
               }
             }
@@ -220,7 +278,18 @@ const TNSSLandingPage: React.FC = () => {
               const { error: updateError } = await supabase
                 .from('ai_landing_pages')
                 .update({
-                  content: generated,
+                  content: {
+                    ...generated,
+                    doctor_profile: {
+                      id: doctor.id,
+                      name: doctor.name,
+                      credentials: doctor.credentials,
+                      locations: doctor.locations,
+                      testimonials: doctor.testimonials,
+                      website: doctor.website,
+                      avatar_url: doctor.avatar_url
+                    }
+                  },
                   updated_at: new Date().toISOString(),
                 })
                 .eq('id', existingRecord.id);
@@ -235,7 +304,18 @@ const TNSSLandingPage: React.FC = () => {
                 .insert({
                   doctor_id: doctor.id,
                   quiz_type: 'TNSS',
-                  content: generated,
+                  content: {
+                    ...generated,
+                    doctor_profile: {
+                      id: doctor.id,
+                      name: doctor.name,
+                      credentials: doctor.credentials,
+                      locations: doctor.locations,
+                      testimonials: doctor.testimonials,
+                      website: doctor.website,
+                      avatar_url: doctor.avatar_url
+                    }
+                  },
                   chatbot_colors: {}, // Default empty object
                   created_at: new Date().toISOString(),
                   updated_at: new Date().toISOString(),
@@ -259,7 +339,7 @@ const TNSSLandingPage: React.FC = () => {
     };
 
     fetchOrCreateAIContent();
-  }, [doctor, retryAttempts]);
+      }, [doctor?.id, retryAttempts]);
 
   const handleShowQuiz = (e?: React.MouseEvent) => {
     e?.preventDefault();
