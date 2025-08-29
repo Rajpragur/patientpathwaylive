@@ -1,0 +1,2 @@
+[functions.quiz-email-automation]
+verify_jwt = false

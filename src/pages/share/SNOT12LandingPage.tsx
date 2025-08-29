@@ -57,18 +57,23 @@ const SNOT12LandingPage: React.FC = () => {
     console.log('SNOT12LandingPage - URL search params:', Object.fromEntries(searchParams));
     
     const fetchDoctorData = async () => {
-      if (!doctorId) {
-        console.error('No doctorId found in URL parameters');
+      // Check both route params and query parameters for doctor ID
+      const doctorIdFromRoute = doctorId;
+      const doctorIdFromQuery = searchParams.get('doctor');
+      const actualDoctorId = doctorIdFromQuery || doctorIdFromRoute;
+      
+      if (!actualDoctorId) {
+        console.error('No doctorId found in URL parameters or route');
         setDoctor(defaultDoctor);
         return;
       }
 
       try {
-        console.log('Fetching doctor profile for ID:', doctorId);
+        console.log('Fetching doctor profile for ID:', actualDoctorId);
         const { data, error } = await supabase
           .from('doctor_profiles')
           .select('*')
-          .eq('id', doctorId)
+          .eq('id', actualDoctorId)
           .single();
 
         if (error) {

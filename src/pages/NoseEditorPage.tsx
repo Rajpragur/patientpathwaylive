@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { generatePageContent, DoctorProfile } from '../lib/openrouter';
+import { createDoctorProfileForLandingPage, ensureContentWithDoctorProfile } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { quizzes } from '@/data/quizzes';
 import { EmbeddedChatBot } from '@/components/quiz/EmbeddedChatBot';
@@ -667,12 +668,36 @@ const NoseEditorPage: React.FC = () => {
       newContent[editingSection] = Array.isArray(content[editingSection]) ? editValue.split('\n') : editValue;
     }
     setContent(newContent);
+    
+    // Ensure doctor profile is included in the content
+    const contentWithProfile = {
+      ...newContent,
+      doctor_profile: {
+        id: doctor?.id || doctorId,
+        name: doctor?.name || 'Dr. Smith',
+        credentials: doctor?.credentials || 'MD',
+        locations: doctor?.locations || [],
+        testimonials: doctor?.testimonials || [],
+        website: doctor?.website || '#',
+        avatar_url: doctor?.avatar_url || '/lovable-uploads/6b38df79-5ad8-494b-83ed-7dba6c54d4b1.png'
+      }
+    };
+    
     await supabase.from('ai_landing_pages').upsert([
       {
         doctor_id: doctorId,
         quiz_type: 'NOSE',
-        content: newContent,
+        content: contentWithProfile,
         chatbot_colors: chatbotColors,
+        doctor_profile: {
+          id: doctor?.id || doctorId,
+          name: doctor?.name || 'Dr. Smith',
+          credentials: doctor?.credentials || 'MD',
+          locations: doctor?.locations || [],
+          testimonials: doctor?.testimonials || [],
+          website: doctor?.website || '#',
+          avatar_url: doctor?.avatar_url || '/lovable-uploads/6b38df79-5ad8-494b-83ed-7dba6c54d4b1.png'
+        }
       },
     ], { onConflict: 'doctor_id,quiz_type' });
     setEditingSection(null);
@@ -695,13 +720,36 @@ const NoseEditorPage: React.FC = () => {
     
     setChatbotColors(newColors);
     
+    // Ensure doctor profile is included in the content
+    const contentWithProfile = {
+      ...content,
+      doctor_profile: {
+        id: doctor?.id || doctorId,
+        name: doctor?.name || 'Dr. Smith',
+        credentials: doctor?.credentials || 'MD',
+        locations: doctor?.locations || [],
+        testimonials: doctor?.testimonials || [],
+        website: doctor?.website || '#',
+        avatar_url: doctor?.avatar_url || '/lovable-uploads/6b38df79-5ad8-494b-83ed-7dba6c54d4b1.png'
+      }
+    };
+    
     // Save to database
     await supabase.from('ai_landing_pages').upsert([
       {
         doctor_id: doctorId,
         quiz_type: 'NOSE',
-        content: content,
+        content: contentWithProfile,
         chatbot_colors: newColors,
+        doctor_profile: {
+          id: doctor?.id || doctorId,
+          name: doctor?.name || 'Dr. Smith',
+          credentials: doctor?.credentials || 'MD',
+          locations: doctor?.locations || [],
+          testimonials: doctor?.testimonials || [],
+          website: doctor?.website || '#',
+          avatar_url: doctor?.avatar_url || '/lovable-uploads/6b38df79-5ad8-494b-83ed-7dba6c54d4b1.png'
+        }
       },
     ], { onConflict: 'doctor_id,quiz_type' });
   };

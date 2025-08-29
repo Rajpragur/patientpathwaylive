@@ -53,14 +53,28 @@ const TNSSLandingPage: React.FC = () => {
     if (source) {
       setUtmSource(source);
     }
+    
+    console.log('TNSSLandingPage - doctorId from URL:', doctorId);
+    console.log('TNSSLandingPage - URL search params:', Object.fromEntries(searchParams));
+    
     const fetchDoctorData = async () => {
-      if (!doctorId) return;
+      // Check both route params and query parameters for doctor ID
+      const doctorIdFromRoute = doctorId;
+      const doctorIdFromQuery = searchParams.get('doctor');
+      const actualDoctorId = doctorIdFromQuery || doctorIdFromRoute;
+      
+      if (!actualDoctorId) {
+        console.error('No doctorId found in URL parameters or route');
+        setDoctor(defaultDoctor);
+        return;
+      }
 
       try {
+        console.log('Fetching doctor profile for ID:', actualDoctorId);
         const { data, error } = await supabase
           .from('doctor_profiles')
           .select('*')
-          .eq('id', doctorId)
+          .eq('id', actualDoctorId)
           .single();
 
         if (error) {
@@ -69,8 +83,8 @@ const TNSSLandingPage: React.FC = () => {
           return;
         }
 
-        if (data) {
-          setDoctor({
+        if (data && data.first_name && data.last_name) {
+          const doctorProfile = {
             id: data.id,
             name: `${data.first_name} ${data.last_name}`,
             credentials: data.specialty || 'MD',
@@ -84,8 +98,11 @@ const TNSSLandingPage: React.FC = () => {
             testimonials: defaultDoctor.testimonials,
             website: data.website || defaultDoctor.website,
             avatar_url: data.avatar_url
-          });
+          };
+          console.log('Successfully fetched doctor profile:', doctorProfile);
+          setDoctor(doctorProfile);
         } else {
+          console.warn('Doctor data incomplete, using default doctor');
           setDoctor(defaultDoctor);
         }
       } catch (error) {
