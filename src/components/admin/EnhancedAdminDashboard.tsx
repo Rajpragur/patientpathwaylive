@@ -142,6 +142,16 @@ export function EnhancedAdminDashboard() {
   const [showDoctorLeads, setShowDoctorLeads] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<DoctorProfile | null>(null);
   const [locallySuspendedDoctorIds, setLocallySuspendedDoctorIds] = useState<Set<string>>(new Set());
+  const [showAddDoctor, setShowAddDoctor] = useState(false);
+  const [showBulkActions, setShowBulkActions] = useState(false);
+  const [selectedDoctors, setSelectedDoctors] = useState<Set<string>>(new Set());
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showQuickActions, setShowQuickActions] = useState(false);
+  const [searchFilters, setSearchFilters] = useState({
+    doctors: '',
+    leads: '',
+    users: ''
+  });
 
   useEffect(() => {
     fetchAdminData();
@@ -151,23 +161,35 @@ export function EnhancedAdminDashboard() {
     try {
       setLoading(true);
       
-      // Fetch doctors (using the working approach from AdminDashboard.tsx)
-      const { data: doctorData } = await supabase
+      // Fetch doctors
+      const { data: doctorData, error: doctorError } = await supabase
         .from('doctor_profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
-      // Fetch leads (using the working approach from AdminDashboard.tsx)
-      const { data: leadData } = await supabase
+      if (doctorError) {
+        console.error('Error fetching doctors:', doctorError);
+      }
+
+      // Fetch leads
+      const { data: leadData, error: leadError } = await supabase
         .from('quiz_leads')
         .select('*')
         .order('created_at', { ascending: false });
 
-      // Fetch admin users (you might need to create this table)
-      const { data: userData } = await supabase
+      if (leadError) {
+        console.error('Error fetching leads:', leadError);
+      }
+
+      // Fetch admin users
+      const { data: userData, error: userError } = await supabase
         .from('admin_users')
         .select('*')
         .order('created_at', { ascending: false });
+
+      if (userError) {
+        console.error('Error fetching admin users:', userError);
+      }
 
       setDoctors(doctorData || []);
       setLeads(leadData || []);
@@ -463,6 +485,11 @@ export function EnhancedAdminDashboard() {
     }
   };
 
+  // Function to create sample leads for testing (remove in production)
+
+
+
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -545,10 +572,66 @@ export function EnhancedAdminDashboard() {
               Refresh Data
             </Button>
             
-            <Button className="bg-red-600 hover:bg-red-700">
+            <Button 
+              onClick={() => setShowAddDoctor(true)} 
+              variant="outline"
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Add Doctor
+            </Button>
+            
+            <Button 
+              onClick={() => setShowBulkActions(true)} 
+              variant="outline"
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Bulk Actions
+            </Button>
+            
+            <Button 
+              onClick={() => setShowNotifications(true)}
+              className="bg-red-600 hover:bg-red-700"
+            >
               <Bell className="w-4 h-4 mr-2" />
               Notifications
             </Button>
+            
+            <Button 
+              onClick={() => setShowQuickActions(true)}
+              variant="outline"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Quick Actions
+            </Button>
+          </div>
+        </div>
+
+
+
+        {/* Search and Quick Stats */}
+        <div className="flex items-center gap-4 mb-6">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Search doctors, leads, or analytics..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Badge variant="outline" className="bg-green-50 text-green-700">
+              {stats.totalDoctors} Doctors
+            </Badge>
+            <Badge variant="outline" className="bg-blue-50 text-blue-700">
+              {stats.totalLeads} Leads
+            </Badge>
+            <Badge variant="outline" className="bg-purple-50 text-purple-700">
+              {stats.leadsThisWeek} This Week
+            </Badge>
           </div>
         </div>
 
@@ -664,18 +747,18 @@ export function EnhancedAdminDashboard() {
 
         {/* Main Content Tabs */}
         <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 bg-white p-1 rounded-lg shadow-sm">
+          <TabsList className="grid w-full grid-cols-7 bg-white p-1 rounded-lg shadow-sm">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <Activity className="w-4 h-4" />
               Overview
             </TabsTrigger>
-            <TabsTrigger value="leads" className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4" />
-              Leads ({filteredLeads.length})
-            </TabsTrigger>
             <TabsTrigger value="doctors" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
               Doctors ({filteredDoctors.length})
+            </TabsTrigger>
+            <TabsTrigger value="doctorAnalytics" className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Doctor Analytics
             </TabsTrigger>
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Shield className="w-4 h-4" />
@@ -693,6 +776,26 @@ export function EnhancedAdminDashboard() {
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
+            {/* Quick Actions Row */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => setShowAddDoctor(true)}>
+                <UserPlus className="w-8 h-8 text-green-600" />
+                <span className="text-sm">Add Doctor</span>
+              </Button>
+              <Button variant="outline" className="h-24 flex-col gap-2" onClick={fetchAdminData}>
+                <Database className="w-8 h-8 text-blue-600" />
+                <span className="text-sm">Refresh Data</span>
+              </Button>
+              <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => exportData('doctors')}>
+                <Download className="w-8 h-8 text-purple-600" />
+                <span className="text-sm">Export Data</span>
+              </Button>
+              <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => setShowNotifications(true)}>
+                <Bell className="w-8 h-8 text-red-600" />
+                <span className="text-sm">Notifications</span>
+              </Button>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
@@ -747,12 +850,11 @@ export function EnhancedAdminDashboard() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <TrendingUp className="w-5 h-5" />
-                    Patient Leads
+                    Lead Analytics (HIPAA Compliant)
                   </CardTitle>
-                  <Button onClick={() => exportData('leads')} variant="outline" size="sm">
-                    <Download className="w-4 h-4 mr-2" />
-                    Export
-                  </Button>
+                  <div className="text-sm text-slate-500">
+                    No personal information displayed - only aggregated data
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -943,6 +1045,8 @@ export function EnhancedAdminDashboard() {
                         <TableHead>Doctor</TableHead>
                         <TableHead>Clinic</TableHead>
                         <TableHead>Specialty</TableHead>
+                        <TableHead>Leads by Quiz Type</TableHead>
+                        <TableHead>Total Leads</TableHead>
                         <TableHead>Contact</TableHead>
                         <TableHead>Location</TableHead>
                         <TableHead>Joined</TableHead>
@@ -968,6 +1072,40 @@ export function EnhancedAdminDashboard() {
                           <TableCell className="font-medium">{doctor.clinic_name || 'N/A'}</TableCell>
                           <TableCell>
                             <Badge variant="outline">{doctor.specialty || 'General'}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              {(() => {
+                                const doctorLeads = leads.filter(l => l.doctor_id === doctor.id);
+                                const leadsByQuiz: { [key: string]: number } = {};
+                                
+                                doctorLeads.forEach(lead => {
+                                  leadsByQuiz[lead.quiz_type] = (leadsByQuiz[lead.quiz_type] || 0) + 1;
+                                });
+                                
+                                return (
+                                  <>
+                                    {Object.entries(leadsByQuiz).map(([quizType, count]) => (
+                                      <div key={quizType} className="flex items-center justify-between text-xs">
+                                        <span className="text-slate-600">{quizType}:</span>
+                                        <Badge variant="secondary" className="text-xs">{count}</Badge>
+                                      </div>
+                                    ))}
+                                    {Object.keys(leadsByQuiz).length === 0 && (
+                                      <span className="text-xs text-slate-400">No leads yet</span>
+                                    )}
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-center">
+                              <div className="text-lg font-bold text-blue-600">
+                                {leads.filter(l => l.doctor_id === doctor.id).length}
+                              </div>
+                              <div className="text-xs text-slate-500">Total</div>
+                            </div>
                           </TableCell>
                           <TableCell>
                             <div className="space-y-1">
@@ -1011,6 +1149,246 @@ export function EnhancedAdminDashboard() {
                       ))}
                     </TableBody>
                   </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Doctor Analytics Tab */}
+          <TabsContent value="doctorAnalytics" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5" />
+                    Comprehensive Doctor Analytics
+                  </CardTitle>
+                  <Button onClick={() => exportData('doctors')} variant="outline" size="sm">
+                    <Download className="w-4 h-4 mr-2" />
+                    Export Analytics
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {/* Quiz Type Summary */}
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold mb-4">Quiz Type Distribution Across All Doctors</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {(() => {
+                      if (!leads || leads.length === 0) {
+                        return (
+                          <div className="col-span-2 md:col-span-4 text-center py-8">
+                            <div className="text-lg text-slate-500">No leads found yet</div>
+                            <div className="text-sm text-slate-400">Take quizzes or create sample leads to see data</div>
+                          </div>
+                        );
+                      }
+                      
+                      const quizTypeTotals = leads.reduce((acc, lead) => {
+                        acc[lead.quiz_type] = (acc[lead.quiz_type] || 0) + 1;
+                        return acc;
+                      }, {} as Record<string, number>);
+                      
+                      return Object.entries(quizTypeTotals).map(([quizType, count]) => (
+                        <Card key={quizType} className="text-center">
+                          <CardContent className="pt-4">
+                            <div className="text-2xl font-bold text-blue-600">{count}</div>
+                            <div className="text-sm text-slate-600">{quizType}</div>
+                            <div className="text-xs text-slate-400">Total Leads</div>
+                          </CardContent>
+                        </Card>
+                      ));
+                    })()}
+                  </div>
+                </div>
+
+                {/* Detailed Doctor Analytics Table */}
+                <div className="border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Doctor</TableHead>
+                        <TableHead>Clinic</TableHead>
+                        <TableHead>Specialty</TableHead>
+                        <TableHead>NOSE</TableHead>
+                        <TableHead>SNOT22</TableHead>
+                        <TableHead>SNOT12</TableHead>
+                        <TableHead>TNSS</TableHead>
+                        <TableHead>Other</TableHead>
+                        <TableHead>Total</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredDoctors.map((doctor) => {
+                        const doctorLeads = leads.filter(l => l.doctor_id === doctor.id);
+                        const totalLeads = doctorLeads.length;
+                        
+                        // Count leads by quiz type
+                        const noseLeads = doctorLeads.filter(l => l.quiz_type === 'NOSE').length;
+                        const snot22Leads = doctorLeads.filter(l => l.quiz_type === 'SNOT22').length;
+                        const snot12Leads = doctorLeads.filter(l => l.quiz_type === 'SNOT12').length;
+                        const tnssLeads = doctorLeads.filter(l => l.quiz_type === 'TNSS').length;
+                        const otherLeads = totalLeads - noseLeads - snot22Leads - snot12Leads - tnssLeads;
+                        
+                        return (
+                          <TableRow key={doctor.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center">
+                                  <Users className="w-5 h-5 text-slate-600" />
+                                </div>
+                                <div>
+                                  <div className="font-medium">
+                                    {doctor.first_name} {doctor.last_name}
+                                  </div>
+                                  <div className="text-sm text-slate-500">{doctor.clinic_name || 'N/A'}</div>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-medium">{doctor.clinic_name || 'N/A'}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{doctor.specialty || 'General'}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-center">
+                                <div className="text-lg font-bold text-blue-600">{noseLeads}</div>
+                                <div className="text-xs text-slate-500">NOSE</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-center">
+                                <div className="text-lg font-bold text-green-600">{snot22Leads}</div>
+                                <div className="text-xs text-slate-500">SNOT22</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-center">
+                                <div className="text-lg font-bold text-purple-600">{snot12Leads}</div>
+                                <div className="text-xs text-slate-500">SNOT12</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-center">
+                                <div className="text-lg font-bold text-orange-600">{tnssLeads}</div>
+                                <div className="text-xs text-slate-500">TNSS</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-center">
+                                <div className="text-lg font-bold text-slate-600">{otherLeads}</div>
+                                <div className="text-xs text-slate-500">Other</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-center">
+                                <div className="text-xl font-bold text-red-600">{totalLeads}</div>
+                                <div className="text-xs text-slate-500">Total</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Button variant="outline" size="sm" onClick={() => openDoctorLeads(doctor)}>
+                                View Details
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Summary Statistics */}
+                <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-slate-600">Top Performing Doctor</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {(() => {
+                        if (!filteredDoctors || filteredDoctors.length === 0) {
+                          return (
+                            <div>
+                              <div className="text-lg font-bold text-blue-600">N/A</div>
+                              <div className="text-sm text-slate-500">0 leads</div>
+                            </div>
+                          );
+                        }
+                        
+                        const topDoctor = filteredDoctors.reduce((top, current) => {
+                          const topLeads = leads.filter(l => l.doctor_id === top.id).length;
+                          const currentLeads = leads.filter(l => l.doctor_id === current.id).length;
+                          return currentLeads > topLeads ? current : top;
+                        }, filteredDoctors[0]);
+                        
+                        const topDoctorLeads = leads.filter(l => l.doctor_id === topDoctor?.id).length;
+                        
+                        return (
+                          <div>
+                            <div className="text-lg font-bold text-blue-600">
+                              {topDoctor ? `${topDoctor.first_name} ${topDoctor.last_name}` : 'N/A'}
+                            </div>
+                            <div className="text-sm text-slate-500">{topDoctorLeads} leads</div>
+                          </div>
+                        );
+                      })()}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-slate-600">Most Popular Quiz</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {(() => {
+                        if (!leads || leads.length === 0) {
+                          return (
+                            <div>
+                              <div className="text-lg font-bold text-green-600">N/A</div>
+                              <div className="text-sm text-slate-500">0 leads</div>
+                            </div>
+                          );
+                        }
+                        
+                        const quizTypeTotals = leads.reduce((acc, lead) => {
+                          acc[lead.quiz_type] = (acc[lead.quiz_type] || 0) + 1;
+                          return acc;
+                        }, {} as Record<string, number>);
+                        
+                        if (Object.keys(quizTypeTotals).length === 0) {
+                          return (
+                            <div>
+                              <div className="text-lg font-bold text-green-600">N/A</div>
+                              <div className="text-sm text-slate-500">0 leads</div>
+                            </div>
+                          );
+                        }
+                        
+                        const mostPopular = Object.entries(quizTypeTotals).reduce((a, b) => 
+                          quizTypeTotals[a[0]] > quizTypeTotals[b[0]] ? a : b
+                        );
+                        
+                        return (
+                          <div>
+                            <div className="text-lg font-bold text-green-600">{mostPopular?.[0] || 'N/A'}</div>
+                            <div className="text-sm text-slate-500">{mostPopular?.[1] || 0} leads</div>
+                          </div>
+                        );
+                      })()}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-slate-600">Average Leads per Doctor</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-lg font-bold text-purple-600">
+                        {filteredDoctors.length > 0 ? Math.round(leads.length / filteredDoctors.length) : 0}
+                      </div>
+                      <div className="text-sm text-slate-500">Across all doctors</div>
+                    </CardContent>
+                  </Card>
                 </div>
               </CardContent>
             </Card>
@@ -1357,6 +1735,220 @@ export function EnhancedAdminDashboard() {
               })()}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Notifications Dialog */}
+      <Dialog open={showNotifications} onOpenChange={setShowNotifications}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bell className="w-5 h-5" />
+              System Notifications
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <div className="flex-1">
+                  <div className="font-medium text-sm">New leads this week</div>
+                  <div className="text-xs text-slate-600">{stats.leadsThisWeek} new patient assessments</div>
+                </div>
+                <Badge variant="secondary">New</Badge>
+              </div>
+              
+              <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <div className="flex-1">
+                  <div className="font-medium text-sm">System health</div>
+                  <div className="text-xs text-slate-600">All systems operational</div>
+                </div>
+                <Badge variant="default">Good</Badge>
+              </div>
+              
+              <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg">
+                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                <div className="flex-1">
+                  <div className="font-medium text-sm">Data backup</div>
+                  <div className="text-xs text-slate-600">Last backup: 2 hours ago</div>
+                </div>
+                <Badge variant="secondary">Info</Badge>
+              </div>
+            </div>
+            
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1">
+                Mark All Read
+              </Button>
+              <Button variant="outline" onClick={() => setShowNotifications(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Actions Dialog */}
+      <Dialog open={showQuickActions} onOpenChange={setShowQuickActions}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings className="w-5 h-5" />
+              Quick Actions
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4">
+            <Button 
+              variant="outline" 
+              className="h-20 flex-col gap-2"
+              onClick={() => {
+                setShowQuickActions(false);
+                setShowAddDoctor(true);
+              }}
+            >
+              <UserPlus className="w-6 h-6" />
+              <span>Add Doctor</span>
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              className="h-20 flex-col gap-2"
+              onClick={() => {
+                setShowQuickActions(false);
+                fetchAdminData();
+              }}
+            >
+              <Database className="w-6 h-6" />
+              <span>Refresh Data</span>
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              className="h-20 flex-col gap-2"
+              onClick={() => exportData('doctors')}
+            >
+              <Download className="w-6 h-6" />
+              <span>Export Doctors</span>
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              className="h-20 flex-col gap-2"
+              onClick={() => exportData('leads')}
+            >
+              <TrendingUp className="w-6 h-6" />
+              <span>Export Analytics</span>
+            </Button>
+          </div>
+          
+          <div className="flex gap-2 mt-4">
+            <Button variant="outline" onClick={() => setShowQuickActions(false)} className="flex-1">
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Enhanced Add Doctor Dialog */}
+      <Dialog open={showAddDoctor} onOpenChange={setShowAddDoctor}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Doctor</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="firstName">First Name</Label>
+                <Input id="firstName" placeholder="John" />
+              </div>
+              <div>
+                <Label htmlFor="firstName">Last Name</Label>
+                <Input id="lastName" placeholder="Doe" />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" placeholder="john.doe@clinic.com" />
+            </div>
+            <div>
+              <Label htmlFor="clinic">Clinic Name</Label>
+              <Input id="clinic" placeholder="City Medical Center" />
+            </div>
+            <div>
+              <Label htmlFor="specialty">Specialty</Label>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select specialty" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ENT">ENT</SelectItem>
+                  <SelectItem value="Cardiology">Cardiology</SelectItem>
+                  <SelectItem value="Dermatology">Dermatology</SelectItem>
+                  <SelectItem value="Neurology">Neurology</SelectItem>
+                  <SelectItem value="Orthopedics">Orthopedics</SelectItem>
+                  <SelectItem value="General">General</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="location">Location</Label>
+              <Input id="location" placeholder="City, State" />
+            </div>
+            <div>
+              <Label htmlFor="phone">Phone</Label>
+              <Input id="phone" placeholder="+1 (555) 123-4567" />
+            </div>
+            <div className="flex gap-2">
+              <Button className="flex-1">
+                <UserPlus className="w-4 h-4 mr-2" />
+                Add Doctor
+              </Button>
+              <Button variant="outline" onClick={() => setShowAddDoctor(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Enhanced Bulk Actions Dialog */}
+      <Dialog open={showBulkActions} onOpenChange={setShowBulkActions}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Bulk Actions</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-3 bg-slate-50 rounded-lg">
+              <div className="text-sm font-medium">Selected Doctors: {selectedDoctors.size}</div>
+              <div className="text-xs text-slate-500">Choose an action to perform on all selected doctors</div>
+            </div>
+            
+            <div className="space-y-2">
+              <Button variant="outline" className="w-full justify-start">
+                <UserPlus className="w-4 h-4 mr-2" />
+                Activate All
+              </Button>
+              <Button variant="outline" className="w-full justify-start">
+                <UserX className="w-4 h-4 mr-2" />
+                Deactivate All
+              </Button>
+              <Button variant="outline" className="w-full justify-start">
+                <Download className="w-4 h-4 mr-2" />
+                Export Selected
+              </Button>
+              <Button variant="outline" className="w-full justify-start text-red-600">
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Selected
+              </Button>
+            </div>
+            
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowBulkActions(false)} className="flex-1">
+                Close
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

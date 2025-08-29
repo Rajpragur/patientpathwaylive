@@ -9,6 +9,8 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error('Supabase environment variables are missing');
 }
 
+
+
 export const supabase = createClient(
   SUPABASE_URL,
   SUPABASE_ANON_KEY,
@@ -21,8 +23,10 @@ export const supabase = createClient(
     global: {
       headers: {
         'Accept': 'application/json',
-        'apikey': SUPABASE_ANON_KEY
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
       }
     }
   }
 );
+
