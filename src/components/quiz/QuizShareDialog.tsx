@@ -23,6 +23,8 @@ import {
   Linkedin,
   MessageCircle,
   Send,
+  Mail,
+  Smartphone,
 } from 'lucide-react';
 
 interface QuizShareDialogProps {
@@ -36,6 +38,7 @@ export function QuizShareDialog({ isOpen, onClose, quizType, customQuizId }: Qui
   const { user } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [shareUrl, setShareUrl] = useState('');
+  const [shortUrl, setShortUrl] = useState('');
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [copied, setCopied] = useState(false);
 
@@ -67,7 +70,7 @@ export function QuizShareDialog({ isOpen, onClose, quizType, customQuizId }: Qui
     }
   };
 
-  const generateShareUrl = (profileData: any) => {
+  const generateShareUrl = async (profileData: any) => {
     if (!profileData) return;
 
     let baseUrl = window.location.origin;
@@ -84,59 +87,143 @@ export function QuizShareDialog({ isOpen, onClose, quizType, customQuizId }: Qui
     const fullUrl = `${baseUrl}${path}?${params.toString()}`;
     setShareUrl(fullUrl);
 
+    // Generate short URL for sharing
+    const short = await generateShortUrl(fullUrl);
+    setShortUrl(short);
+
     // Generate QR code
     generateQrCode(fullUrl);
   };
 
   const generateQrCode = (url: string) => {
-    setQrCodeUrl(url);
+    const urlWithUtm = new URL(url);
+    urlWithUtm.searchParams.set('utm_source', 'qr');
+    setQrCodeUrl(urlWithUtm.toString());
   };
 
-  const handleSocialShare = (platform: string) => {
+  const generateShortUrl = async (longUrl: string) => {
+    try {
+      // Try multiple URL shortening services directly from client
+      let shortUrl = null;
+      
+      // Try TinyURL first (most reliable)
+      try {
+        const tinyUrlResponse = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`);
+        if (tinyUrlResponse.ok) {
+          const tinyUrl = await tinyUrlResponse.text();
+          if (tinyUrl && tinyUrl.startsWith('http')) {
+            shortUrl = tinyUrl.trim();
+          }
+        }
+      } catch (error) {
+        console.log('TinyURL failed, trying next service...');
+      }
+      
+      // Try is.gd if TinyURL failed
+      if (!shortUrl) {
+        try {
+          const isGdResponse = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`);
+          if (isGdResponse.ok) {
+            const isGdData = await isGdResponse.json();
+            if (isGdData && isGdData.shorturl) {
+              shortUrl = isGdData.shorturl;
+            }
+          }
+        } catch (error) {
+          console.log('is.gd failed, trying next service...');
+        }
+      }
+      
+      // Try v.gd if previous services failed
+      if (!shortUrl) {
+        try {
+          const vGdResponse = await fetch(`https://v.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`);
+          if (vGdResponse.ok) {
+            const vGdData = await vGdResponse.json();
+            if (vGdData && vGdData.shorturl) {
+              shortUrl = vGdData.shorturl;
+            }
+          }
+        } catch (error) {
+          console.log('v.gd failed, using original URL...');
+        }
+      }
+      
+      // If all services fail, use original URL
+      return shortUrl || longUrl;
+    } catch (error) {
+      console.error('Error generating short URL:', error);
+      return longUrl;
+    }
+  };
+
+  const handleSocialShare = async (platform: string) => {
     if (!shareUrl) return;
 
     // Add source parameter to the URL for tracking
     const urlWithSource = new URL(shareUrl);
     urlWithSource.searchParams.set('source', platform);
+    urlWithSource.searchParams.set('utm_source', platform);
+    urlWithSource.searchParams.set('utm_medium', platform);
+    urlWithSource.searchParams.set('utm_campaign', 'quiz_share');
     const finalUrl = urlWithSource.toString();
 
+    // Generate short URL for sharing (Facebook can't access localhost)
+    const urlToShare = await generateShortUrl(finalUrl);
+
     let socialUrl = '';
-    const message = encodeURIComponent(`Take this ${quizType} assessment to evaluate your health.`);
+    const message = `Take this ${quizType} assessment to evaluate your health.`;
+    const encodedMessage = encodeURIComponent(message);
+    const encodedUrl = encodeURIComponent(urlToShare);
 
     switch (platform) {
       case 'facebook':
-        socialUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(finalUrl)}`;
+        try {
+          socialUrl = `https://www.facebook.com/sharer.php?u=${encodedUrl}`;
+        } catch (error) {
+          console.error('Error generating Facebook URL:', error);
+          socialUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
+        }
         break;
       case 'twitter':
-        socialUrl = `https://twitter.com/intent/tweet?text=${message}&url=${encodeURIComponent(finalUrl)}`;
+        socialUrl = `https://twitter.com/intent/tweet?text=${encodedMessage}&url=${encodedUrl}&hashtags=health,assessment`;
         break;
       case 'linkedin':
-        socialUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(finalUrl)}`;
+        socialUrl = `https://www.linkedin.com/shareArticle?mini=true&url=${encodedUrl}&title=${encodeURIComponent(`${quizType} Health Assessment`)}&summary=${encodedMessage}`;
         break;
       case 'whatsapp':
-        socialUrl = `https://wa.me/?text=${message}%20${encodeURIComponent(finalUrl)}`;
+        socialUrl = `https://wa.me/?text=${encodedMessage}%20${encodedUrl}`;
         break;
       case 'telegram':
-        socialUrl = `https://t.me/share/url?url=${encodeURIComponent(finalUrl)}&text=${message}`;
+        socialUrl = `https://t.me/share/url?url=${encodedUrl}&text=${encodedMessage}`;
+        break;
+      case 'email':
+        socialUrl = `mailto:?subject=${encodeURIComponent(`${quizType} Health Assessment`)}&body=${encodedMessage}%0A%0A${encodedUrl}`;
+        break;
+      case 'sms':
+        socialUrl = `sms:?&body=${encodedMessage}%0A%0A${encodedUrl}`;
         break;
       default:
+        console.warn(`Unsupported platform: ${platform}`);
         return;
     }
 
-    window.open(socialUrl, '_blank', 'width=600,height=400');
+    if (socialUrl) {
+      window.open(socialUrl, '_blank', 'width=600,height=400,noopener,noreferrer');
+    }
   };
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(shareUrl)
-      .then(() => {
-        setCopied(true);
-        toast.success('Link copied to clipboard!');
-        setTimeout(() => setCopied(false), 2000);
-      })
-      .catch(err => {
-        console.error("Could not copy text: ", err);
-        toast.error('Failed to copy link to clipboard.');
-      });
+  const copyToClipboard = async () => {
+    try {
+      const urlToCopy = shortUrl || shareUrl;
+      await navigator.clipboard.writeText(urlToCopy);
+      setCopied(true);
+      toast.success('Link copied to clipboard!');
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Could not copy text: ", err);
+      toast.error('Failed to copy link to clipboard.');
+    }
   };
 
   return (
@@ -228,6 +315,22 @@ export function QuizShareDialog({ isOpen, onClose, quizType, customQuizId }: Qui
                 <Send className="w-4 h-4" />
                 Telegram
               </Button>
+              <Button
+                onClick={() => handleSocialShare('email')}
+                variant="outline"
+                className="flex items-center gap-2 text-gray-600 hover:bg-gray-50"
+              >
+                <Mail className="w-4 h-4" />
+                Email
+              </Button>
+              <Button
+                onClick={() => handleSocialShare('sms')}
+                variant="outline"
+                className="flex items-center gap-2 text-green-700 hover:bg-green-50"
+              >
+                <Smartphone className="w-4 h-4" />
+                SMS
+              </Button>
             </div>
           </div>
 
@@ -237,7 +340,7 @@ export function QuizShareDialog({ isOpen, onClose, quizType, customQuizId }: Qui
               <Label>QR Code</Label>
               <div className="flex justify-center p-4 border border-gray-200 rounded-lg bg-gray-50">
                 <QRCodeSVG
-                  value={shareUrl}
+                  value={qrCodeUrl}
                   size={200}
                   level="M"
                   includeMargin={true}

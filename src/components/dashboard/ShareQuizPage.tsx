@@ -176,6 +176,8 @@ export function ShareQuizPage() {
         return 'twitter';
       case 'tiktok':
         return 'tiktok';
+      case 'qr':
+        return 'qr';
       case 'email':
         return 'email';
       case 'text':
@@ -192,28 +194,63 @@ const generateShortUrl = async (source?: string) => {
   try {
     const longUrl = getQuizUrl(source || 'website');
     
-    console.log('Generating short URL for:', longUrl);
     
-    const { data, error } = await supabase.functions.invoke('generate-short-url', {
-      body: { long_url: longUrl },
-    });
-
-    if (error) {
-      console.error('Supabase function error:', error);
-      throw new Error(error.message || 'Failed to generate short URL');
-    }
-
-    if (!data || !data.short_id) {
-      console.error('Invalid response from function:', data);
-      throw new Error('Invalid response: missing short_id');
+    // Try multiple URL shortening services directly from client
+    let shortUrl = null;
+    
+    // Try TinyURL first (most reliable)
+    try {
+      const tinyUrlResponse = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`);
+      if (tinyUrlResponse.ok) {
+        const tinyUrl = await tinyUrlResponse.text();
+        if (tinyUrl && tinyUrl.startsWith('http')) {
+          shortUrl = tinyUrl.trim();
+        }
+      }
+    } catch (error) {
+      console.log('TinyURL failed, trying next service...');
     }
     
-    const fullShortUrl = `${window.location.origin}/s/${data.short_id}`;
-    console.log('Generated short URL:', fullShortUrl);
+    // Try is.gd if TinyURL failed
+    if (!shortUrl) {
+      try {
+        const isGdResponse = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`);
+        if (isGdResponse.ok) {
+          const isGdData = await isGdResponse.json();
+          if (isGdData && isGdData.shorturl) {
+            shortUrl = isGdData.shorturl;
+          }
+        }
+      } catch (error) {
+        console.log('is.gd failed, trying next service...');
+      }
+    }
+    
+    // Try v.gd if previous services failed
+    if (!shortUrl) {
+      try {
+        const vGdResponse = await fetch(`https://v.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`);
+        if (vGdResponse.ok) {
+          const vGdData = await vGdResponse.json();
+          if (vGdData && vGdData.shorturl) {
+            shortUrl = vGdData.shorturl;
+          }
+        }
+      } catch (error) {
+        console.log('v.gd failed, using original URL...');
+      }
+    }
+    
+    // If all services fail, use original URL
+    if (!shortUrl) {
+      shortUrl = longUrl;
+    }
+    
+    const fullShortUrl = shortUrl;
     
     if (!source) {
       setShortUrl(fullShortUrl);
-      toast.success('Short URL generated successfully!');
+      toast.success(fullShortUrl === longUrl ? 'Using original URL (shortening services unavailable)' : 'Short URL generated successfully!');
     }
     
     return fullShortUrl;
@@ -237,30 +274,59 @@ const generateShortUrlWithRetry = async (source?: string, retries = 3) => {
     try {
       const longUrl = getQuizUrl(source || 'website');
       
-      console.log(`Attempt ${attempt}: Generating short URL for:`, longUrl);
       
-      const { data, error } = await supabase.functions.invoke('generate-short-url', {
-        body: { long_url: longUrl },
-      });
-
-      if (error) {
-        console.error(`Attempt ${attempt} - Supabase function error:`, error);
-        if (attempt === retries) {
-          throw new Error(error.message || 'Failed to generate short URL after multiple attempts');
+      // Try multiple URL shortening services directly from client
+      let shortUrl = null;
+      
+      // Try TinyURL first (most reliable)
+      try {
+        const tinyUrlResponse = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`);
+        if (tinyUrlResponse.ok) {
+          const tinyUrl = await tinyUrlResponse.text();
+          if (tinyUrl && tinyUrl.startsWith('http')) {
+            shortUrl = tinyUrl.trim();
+          }
         }
-        continue; // Try again
-      }
-
-      if (!data || !data.short_id) {
-        console.error(`Attempt ${attempt} - Invalid response:`, data);
-        if (attempt === retries) {
-          throw new Error('Invalid response: missing short_id');
-        }
-        continue; // Try again
+      } catch (error) {
+        console.log(`Attempt ${attempt} - TinyURL failed, trying next service...`);
       }
       
-      const fullShortUrl = `${window.location.origin}/s/${data.short_id}`;
-      console.log(`Success on attempt ${attempt}:`, fullShortUrl);
+      // Try is.gd if TinyURL failed
+      if (!shortUrl) {
+        try {
+          const isGdResponse = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`);
+          if (isGdResponse.ok) {
+            const isGdData = await isGdResponse.json();
+            if (isGdData && isGdData.shorturl) {
+              shortUrl = isGdData.shorturl;
+            }
+          }
+        } catch (error) {
+          console.log(`Attempt ${attempt} - is.gd failed, trying next service...`);
+        }
+      }
+      
+      // Try v.gd if previous services failed
+      if (!shortUrl) {
+        try {
+          const vGdResponse = await fetch(`https://v.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`);
+          if (vGdResponse.ok) {
+            const vGdData = await vGdResponse.json();
+            if (vGdData && vGdData.shorturl) {
+              shortUrl = vGdData.shorturl;
+            }
+          }
+        } catch (error) {
+          console.log(`Attempt ${attempt} - v.gd failed, using original URL...`);
+        }
+      }
+      
+      // If all services fail, use original URL
+      if (!shortUrl) {
+        shortUrl = longUrl;
+      }
+      
+      const fullShortUrl = shortUrl;
       
       if (!source) {
         setShortUrl(fullShortUrl);
@@ -299,17 +365,28 @@ const handleSocialShare = async (platform: string) => {
 
     switch (platform) {
       case 'facebook':
-        socialUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(directLink)}&quote=${message}`;
+        try {
+          // Use shortened URL for Facebook sharing (Facebook can't access localhost)
+          const urlToShare = shortUrl || directLink;
+          socialUrl = `https://www.facebook.com/sharer.php?u=${encodeURIComponent(urlToShare)}`;
+          toast.info('Opening Facebook...');
+        } catch (error) {
+          console.error('Error generating Facebook URL:', error);
+          socialUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(directLink)}`;
+        }
         break;
       case 'twitter':
-        socialUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(directLink)}&text=${message}`;
+        const twitterUrl = shortUrl || directLink;
+        socialUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(twitterUrl)}&text=${message}&hashtags=health,assessment`;
         break;
       case 'linkedin':
-        socialUrl = `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(directLink)}&title=${encodeURIComponent(quizInfo.title)}&summary=${message}`;
+        const linkedinUrl = shortUrl || directLink;
+        socialUrl = `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(linkedinUrl)}&title=${encodeURIComponent(quizInfo.title)}&summary=${message}`;
         break;
       case 'tiktok':
         try {
-          await navigator.clipboard.writeText(directLink);
+          const tiktokUrl = shortUrl || directLink;
+          await navigator.clipboard.writeText(tiktokUrl);
           toast.info('Link copied to clipboard. Please paste it in TikTok to share.');
           window.open('https://www.tiktok.com/', '_blank', 'width=600,height=400,noopener,noreferrer');
         } catch (clipboardError) {
@@ -318,10 +395,12 @@ const handleSocialShare = async (platform: string) => {
         }
         return;
       case 'email':
-        socialUrl = `mailto:?subject=${encodeURIComponent(quizInfo.title)}&body=${message}%0A%0A${encodeURIComponent(directLink)}`;
+        const emailUrl = shortUrl || directLink;
+        socialUrl = `mailto:?subject=${encodeURIComponent(quizInfo.title)}&body=${message}%0A%0A${encodeURIComponent(emailUrl)}`;
         break;
       case 'text':
-        socialUrl = `sms:?&body=${message}%0A%0A${encodeURIComponent(directLink)}`;
+        const smsUrl = shortUrl || directLink;
+        socialUrl = `sms:?&body=${message}%0A%0A${encodeURIComponent(smsUrl)}`;
         break;
       default:
         toast.error('Unsupported platform');
@@ -992,7 +1071,7 @@ const mailHtmlTNSS = useMemo(() => {
                     <CardContent className="flex flex-col items-center">
                       {showQrCode ? (
                         <div className="bg-white p-4 rounded-lg border border-gray-200">
-                          <QRCodeSVG value={shareUrl} size={200} />
+                          <QRCodeSVG value={getQuizUrl('qr')} size={200} />
                         </div>
                       ) : (
                         <Button 

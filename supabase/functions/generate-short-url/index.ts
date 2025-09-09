@@ -23,24 +23,64 @@ serve(async (req) => {
       throw new Error('Missing longUrl parameter');
     }
 
-    // Call the ulvis.net API to shorten the URL
-    const response = await fetch(`https://ulvis.net/api.php?url=${encodeURIComponent(longUrl)}`);
-    
-    if (!response.ok) {
-      throw new Error(`Ulvis API error: ${response.status} ${response.statusText}`);
+    // Try multiple URL shortening services with fallbacks
+    let shortUrl = null;
+    let errorMessage = '';
+
+    // Try TinyURL first (most reliable)
+    try {
+      const tinyUrlResponse = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`);
+      if (tinyUrlResponse.ok) {
+        const tinyUrl = await tinyUrlResponse.text();
+        if (tinyUrl && tinyUrl.startsWith('http')) {
+          shortUrl = tinyUrl;
+        }
+      }
+    } catch (error) {
+      errorMessage += `TinyURL failed: ${error.message}; `;
     }
-    
-    const data = await response.json();
-    
-    if (!data || !data.success) {
-      throw new Error('Failed to generate short URL');
+
+    // Try is.gd if TinyURL failed
+    if (!shortUrl) {
+      try {
+        const isGdResponse = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`);
+        if (isGdResponse.ok) {
+          const isGdData = await isGdResponse.json();
+          if (isGdData && isGdData.shorturl) {
+            shortUrl = isGdData.shorturl;
+          }
+        }
+      } catch (error) {
+        errorMessage += `is.gd failed: ${error.message}; `;
+      }
+    }
+
+    // Try v.gd if previous services failed
+    if (!shortUrl) {
+      try {
+        const vGdResponse = await fetch(`https://v.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`);
+        if (vGdResponse.ok) {
+          const vGdData = await vGdResponse.json();
+          if (vGdData && vGdData.shorturl) {
+            shortUrl = vGdData.shorturl;
+          }
+        }
+      } catch (error) {
+        errorMessage += `v.gd failed: ${error.message}; `;
+      }
+    }
+
+    // If all services fail, return the original URL
+    if (!shortUrl) {
+      console.warn('All URL shortening services failed, returning original URL:', errorMessage);
+      shortUrl = longUrl;
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        shortUrl: data.data.url,
-        message: 'Short URL generated successfully'
+        shortUrl: shortUrl,
+        message: shortUrl === longUrl ? 'URL shortening services unavailable, using original URL' : 'Short URL generated successfully'
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
