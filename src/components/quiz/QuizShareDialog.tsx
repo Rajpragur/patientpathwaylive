@@ -20,7 +20,6 @@ import {
   Check,
   Facebook,
   Twitter,
-  Linkedin,
   MessageCircle,
   Send,
   Mail,
@@ -188,9 +187,6 @@ export function QuizShareDialog({ isOpen, onClose, quizType, customQuizId }: Qui
       case 'twitter':
         socialUrl = `https://twitter.com/intent/tweet?text=${encodedMessage}&url=${encodedUrl}&hashtags=health,assessment`;
         break;
-      case 'linkedin':
-        socialUrl = `https://www.linkedin.com/shareArticle?mini=true&url=${encodedUrl}&title=${encodeURIComponent(`${quizType} Health Assessment`)}&summary=${encodedMessage}`;
-        break;
       case 'whatsapp':
         socialUrl = `https://wa.me/?text=${encodedMessage}%20${encodedUrl}`;
         break;
@@ -290,14 +286,6 @@ export function QuizShareDialog({ isOpen, onClose, quizType, customQuizId }: Qui
               >
                 <Twitter className="w-4 h-4" />
                 Twitter
-              </Button>
-              <Button
-                onClick={() => handleSocialShare('linkedin')}
-                variant="outline"
-                className="flex items-center gap-2 text-blue-700 hover:bg-blue-50"
-              >
-                <Linkedin className="w-4 h-4" />
-                LinkedIn
               </Button>
               <Button
                 onClick={() => handleSocialShare('whatsapp')}

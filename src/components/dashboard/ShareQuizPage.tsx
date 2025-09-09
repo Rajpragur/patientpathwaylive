@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { nanoid } from 'nanoid';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FaTiktok } from 'react-icons/fa';
 import { 
   Copy, 
   QrCode, 
@@ -29,7 +28,6 @@ import {
   Loader2,
   Users,
   Edit,
-  Pencil,
   UserRound,
   MessageCircle
 } from 'lucide-react';
@@ -379,21 +377,6 @@ const handleSocialShare = async (platform: string) => {
         const twitterUrl = shortUrl || directLink;
         socialUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(twitterUrl)}&text=${message}&hashtags=health,assessment`;
         break;
-      case 'linkedin':
-        const linkedinUrl = shortUrl || directLink;
-        socialUrl = `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(linkedinUrl)}&title=${encodeURIComponent(quizInfo.title)}&summary=${message}`;
-        break;
-      case 'tiktok':
-        try {
-          const tiktokUrl = shortUrl || directLink;
-          await navigator.clipboard.writeText(tiktokUrl);
-          toast.info('Link copied to clipboard. Please paste it in TikTok to share.');
-          window.open('https://www.tiktok.com/', '_blank', 'width=600,height=400,noopener,noreferrer');
-        } catch (clipboardError) {
-          console.error("Could not copy text: ", clipboardError);
-          toast.error('Could not copy link. Please copy it manually.');
-        }
-        return;
       case 'email':
         const emailUrl = shortUrl || directLink;
         socialUrl = `mailto:?subject=${encodeURIComponent(quizInfo.title)}&body=${message}%0A%0A${encodeURIComponent(emailUrl)}`;
@@ -416,17 +399,6 @@ const handleSocialShare = async (platform: string) => {
   }
 };
 
-const copyToClipboard = async () => {
-  try {
-    await navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    toast.success('Link copied to clipboard!');
-    setTimeout(() => setCopied(false), 2000);
-  } catch (err) {
-    console.error("Could not copy text: ", err);
-    toast.error('Failed to copy link to clipboard.');
-  }
-};
 
 const DirectLinkSection = () => (
   <div className="space-y-4">
@@ -438,36 +410,12 @@ const DirectLinkSection = () => (
       />
       <div className="flex gap-2">
         <Button
-          onClick={() => copyToClipboard()}
-          className="flex-1 sm:flex-none sm:min-w-[100px]"
-        >
-          {copied ? (
-            <>
-              <CheckCircle2 className="w-4 h-4 mr-2" />
-              Copied
-            </>
-          ) : (
-            <>
-              <Copy className="w-4 h-4 mr-2" />
-              Copy Link
-            </>
-          )}
-        </Button>
-        <Button
           variant="outline"
           onClick={() => window.open(doctorLandingUrl, '_blank')}
           className="border-[#0E7C9D] text-[#0E7C9D] font-bold hover:bg-blue-50 flex-1 sm:flex-none"
         >
           <ExternalLink className="w-4 h-4 mr-2" />
           <span className="hidden sm:inline">Landing Page</span>
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => window.open(doctorEditingUrl, '_blank')}
-          className="border-[#0E7C9D] text-[#0E7C9D] font-bold hover:bg-blue-50 flex-1 sm:flex-none"
-        >
-          <Pencil className="w-4 h-4 mr-2" />
-          <span className="hidden sm:inline">Edit Page</span>
         </Button>
       </div>
     </div>
@@ -516,26 +464,6 @@ const createSpecialLinks = () => {
 
   const shareUrl = useMemo(() => getQuizUrl(), [getQuizUrl]);
 
-const handleCopyShortUrl = async () => {
-  try {
-    if (shortUrl) {
-      await navigator.clipboard.writeText(shortUrl);
-      toast.success('Short URL copied to clipboard!');
-    } else {
-      // Generate short URL if it doesn't exist
-      const newShortUrl = await generateShortUrl();
-      if (newShortUrl) {
-        await navigator.clipboard.writeText(newShortUrl);
-        toast.success('Short URL generated and copied to clipboard!');
-      } else {
-        toast.error('Failed to generate short URL. Please try again.');
-      }
-    }
-  } catch (error) {
-    console.error('Error copying to clipboard:', error);
-    toast.error('Failed to copy to clipboard.');
-  }
-};
 
   const mailHtmlNOSE = useMemo(() => {
     const noseUrl = `${baseUrl}/share/nose/doctor=${doctorProfile?.id || 'demo'}?utm_source=email`;
@@ -926,36 +854,12 @@ const mailHtmlTNSS = useMemo(() => {
                     />
                     <div className="flex gap-2">
                       <Button
-                        onClick={() => copyToClipboard()}
-                        className="flex-1 sm:flex-none sm:min-w-[100px]"
-                      >
-                        {copied ? (
-                          <>
-                            <CheckCircle2 className="w-4 h-4 mr-2" />
-                            Copied
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-4 h-4 mr-2" />
-                            Copy
-                          </>
-                        )}
-                      </Button>
-                      <Button
                         variant="outline"
                         onClick={() => window.open(doctorLandingUrl, '_blank')}
                         className="border-[#0E7C9D] text-[#0E7C9D] font-bold hover:bg-blue-50 flex-1 sm:flex-none"
                       >
                         <ExternalLink className="w-4 h-4 mr-2" />
                         <span className="hidden sm:inline">Landing Page</span>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => window.open(doctorEditingUrl, '_blank')}
-                        className="border-[#0E7C9D] text-[#0E7C9D] font-bold hover:bg-blue-50 flex-1 sm:flex-none"
-                      >
-                        <Pencil className="w-4 h-4 mr-2" />
-                        <span className="hidden sm:inline">Edit Page</span>
                       </Button>
                     </div>
                   </div>
@@ -967,15 +871,7 @@ const mailHtmlTNSS = useMemo(() => {
                       readOnly
                       className="flex-1 font-mono text-sm"
                     />
-                    {shortUrl ? (
-                      <Button
-                        onClick={handleCopyShortUrl}
-                        className="min-w-[100px]"
-                      >
-                        <Copy className="w-4 h-4 mr-2" />
-                        Copy
-                      </Button>
-                    ) : (
+                    {shortUrl ? null : (
                       <Button
                         onClick={() => generateShortUrl()}
                         disabled={isGeneratingShortUrl}
@@ -1015,27 +911,11 @@ const mailHtmlTNSS = useMemo(() => {
                         </Button>
                         <Button
                           variant="outline"
-                          onClick={() => handleSocialShare('linkedin')}
-                          className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
-                        >
-                          <Linkedin className="w-4 h-4 mr-2" />
-                          LinkedIn
-                        </Button>
-                        <Button
-                          variant="outline"
                           onClick={() => handleSocialShare('twitter')}
                           className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
                         >
                           <Twitter className="w-4 h-4 mr-2" />
                           Twitter
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => handleSocialShare('tiktok')}
-                          className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
-                        >
-                          <FaTiktok className="w-4 h-4 mr-2" />
-                          TikTok
                         </Button>
                         <Button
                           variant="outline"
@@ -1052,14 +932,6 @@ const mailHtmlTNSS = useMemo(() => {
                         >
                           <Smartphone className="w-4 h-4 mr-2" />
                           Text/SMS
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => handleCopyShortUrl()}
-                          className="hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center"
-                        >
-                          <Link2 className="w-4 h-4 mr-2" />
-                          Copy Link
                         </Button>
                       </div>
                     </CardContent>
