@@ -869,9 +869,18 @@ const mailHtmlTNSS = useMemo(() => {
                     <Input
                       value={shortUrl || "Generate a short URL for easier sharing"}
                       readOnly
-                      className="flex-1 font-mono text-sm"
+                      className={`flex-1 font-mono text-sm ${shortUrl ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+                      onClick={shortUrl ? () => window.open(shortUrl, '_blank') : undefined}
                     />
-                    {shortUrl ? null : (
+                    {shortUrl ? (
+                      <Button
+                        onClick={() => handleCopy(shortUrl, 'Short URL copied!')}
+                        className="min-w-[100px]"
+                      >
+                        <Copy className="w-4 h-4 mr-2" />
+                        Copy Link
+                      </Button>
+                    ) : (
                       <Button
                         onClick={() => generateShortUrl()}
                         disabled={isGeneratingShortUrl}
