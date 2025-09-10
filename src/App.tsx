@@ -32,6 +32,8 @@ import Snot12LandingPage from './pages/SNOT12LandingPage';
 import Snot22LandingPage from './pages/share/SNOT22LandingPage';
 import TNSSLandingPage from './pages/share/TNSSLandingPage';
 import AdminPortal from './pages/AdminPortal';
+import GmailCallback from './pages/GmailCallback';
+import OutlookCallback from './pages/OutlookCallback';
 const queryClient = new QueryClient();
 
 function App() {
@@ -68,6 +70,8 @@ function App() {
               <Route path="/social-accounts" element={<SocialAccountsPage />} />
               <Route path="/nose-editor/:doctorId" element={<NoseEditorPage />} />
               <Route path="/s/:shortId" element={<ShortLinkRedirect />} />
+              <Route path="/auth/gmail/callback" element={<GmailCallback />} />
+              <Route path="/auth/outlook/callback" element={<OutlookCallback />} />
               <Route path="/embed/chatbot/:quizId" element={<EmbeddedChatbotPage />} />
               <Route path="/embed/:quizId" element={<Embed />} />
               <Route path="*" element={<NotFound />} />

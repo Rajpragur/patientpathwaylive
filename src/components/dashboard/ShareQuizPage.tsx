@@ -29,7 +29,8 @@ import {
   Users,
   Edit,
   UserRound,
-  MessageCircle
+  MessageCircle,
+  Send
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -909,7 +910,7 @@ const mailHtmlTNSS = useMemo(() => {
                       <CardDescription>Each platform gets tracked separately</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
                         <Button
                           variant="outline"
                           onClick={() => handleSocialShare('facebook')}
@@ -933,6 +934,14 @@ const mailHtmlTNSS = useMemo(() => {
                         >
                           <Mail className="w-4 h-4 mr-2" />
                           Email
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => navigate('/portal?tab=email')}
+                          className="hover:bg-green-50 hover:text-green-600 flex items-center justify-center"
+                        >
+                          <Send className="w-4 h-4 mr-2" />
+                          Send Direct
                         </Button>
                         <Button
                           variant="outline"

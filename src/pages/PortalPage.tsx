@@ -13,6 +13,7 @@ import { SocialIntegrationsPage } from '@/components/dashboard/SocialIntegration
 import { AutomationPage } from '@/components/dashboard/AutomationPage';
 import { SymptomChecker } from '@/components/dashboard/SymptomChecker';
 import { IntegrationsPage } from '@/components/dashboard/IntegrationsPage';
+import { EmailSettingsPage } from '@/components/dashboard/EmailSettingsPage';
 import { toast } from 'sonner';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { PageLoader } from '@/components/ui/PageLoader';
@@ -94,6 +95,8 @@ export default function PortalPage() {
         return <AutomationPage />;
       case 'integrations':
         return <IntegrationsPage />;
+      case 'email':
+        return <EmailSettingsPage />;
       case 'profile':
         return <ProfilePage />;
       case 'configuration':
@@ -141,6 +144,7 @@ export default function PortalPage() {
                     {currentPage === 'marketing' && 'Marketing Recommendations'}
                     {currentPage === 'symptom-checker' && 'Symptom Checker'}
                     {currentPage === 'integrations' && 'Integrations'}
+                    {currentPage === 'email' && 'Email Automation'}
                     {currentPage === 'profile' && 'Profile'}
                     {currentPage === 'configuration' && 'Configuration'}
                     {currentPage === 'settings' && 'Settings'}
@@ -157,6 +161,7 @@ export default function PortalPage() {
                     {currentPage === 'marketing' && 'Daily content ideas and marketing strategies'}
                     {currentPage === 'symptom-checker' && 'Conversational assessment tool'}
                     {currentPage === 'integrations' && 'Connect with other services and platforms'}
+                    {currentPage === 'email' && 'Connect email accounts and send quiz invitations'}
                     {currentPage === 'profile' && 'Manage your account information'}
                     {currentPage === 'configuration' && 'Manage your clinic information and settings'}
                     {currentPage === 'settings' && 'Configure your preferences'}

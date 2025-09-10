@@ -19,7 +19,8 @@ import {
   Brain,
   Globe,
   Users,
-  TestTube
+  TestTube,
+  Mail
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -59,6 +60,12 @@ const mainMenuItems = [
     label: 'Integrations',
     icon: <Globe size={22} />,
     description: 'Connect services'
+  },
+  {
+    id: 'email',
+    label: 'Email',
+    icon: <Mail size={22} />,
+    description: 'Email automation'
   }
 ];
 
