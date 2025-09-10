@@ -87,23 +87,23 @@ export function QuizManagementPage() {
             {categorizedPredefined.map(({ category, quizzes }) => (
               <div key={category}>
                 <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">{category} Related</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 ">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {quizzes.map((quiz) => (
-                    <Card key={quiz.id} className="hover:shadow-md transition-shadow">
-                      <CardHeader>
+                    <Card key={quiz.id} className="hover:shadow-md transition-shadow h-full flex flex-col">
+                      <CardHeader className="flex-shrink-0">
                         <div className="flex items-center justify-between">
                           <CardTitle className="text-lg">{quiz.title}</CardTitle>
                           <Badge variant="secondary">{quiz.id}</Badge>
                         </div>
                       </CardHeader>
-                      <CardContent className="space-y-4">
-                        <p className="text-sm text-gray-600">{quiz.description}</p>
+                      <CardContent className="space-y-4 flex-1 flex flex-col">
+                        <p className="text-sm text-gray-600 flex-1">{quiz.description}</p>
                         <div className="flex items-center gap-2 text-sm text-gray-500">
                           <span>{quiz.questions?.length || 0} Questions</span>
                           <span>•</span>
                           <span>Max Score: {quiz.maxScore || 0}</span>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 mt-auto">
                           <Button size="sm" onClick={() => handleShareQuiz(quiz.id, false)} className="flex-1">
                             <Share2 className="w-4 h-4 mr-2" />
                             Share
