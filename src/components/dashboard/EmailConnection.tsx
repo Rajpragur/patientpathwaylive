@@ -174,7 +174,17 @@ export function EmailConnection() {
       }
       
       const redirectUri = `${window.location.origin}/auth/gmail/callback`;
-      const authUrl = `https://accounts.google.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=https://www.googleapis.com/auth/gmail.send&response_type=code&state=gmail_auth`;
+      const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: 'code',
+        scope: 'https://www.googleapis.com/auth/gmail.send',
+        access_type: 'offline',
+        prompt: 'consent',
+        include_granted_scopes: 'true',
+        state: 'gmail_auth'
+      });
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
       
       console.log('Redirecting to Gmail OAuth:', authUrl);
       
@@ -189,7 +199,6 @@ export function EmailConnection() {
     if (!doctorId) return;
     
     try {
-      // In a real implementation, this would redirect to Microsoft OAuth
       const clientId = import.meta.env.VITE_MICROSOFT_CLIENT_ID;
       
       if (!clientId) {
