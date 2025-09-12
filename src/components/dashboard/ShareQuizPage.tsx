@@ -978,11 +978,18 @@ const mailHtmlTNSS = useMemo(() => {
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => handleCopy(shareUrl, 'Landing page link copied!')}
+                        title="Copy Landing Page Link"
+                      >
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => window.open(doctorLandingUrl, '_blank')}
                         title="Open Landing Page"
                       >
-                        <ExternalLink className="w-4 h-4 mr-1" />
-                        Open
+                        <ExternalLink className="w-3 h-3" />
                       </Button>
                     </div>
                     
@@ -994,15 +1001,24 @@ const mailHtmlTNSS = useMemo(() => {
                         placeholder="Short Link"
                       />
                       {shortUrls['lp'] ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleCopy(shortUrls['lp'], 'Short URL')}
-                          title="Copy Short URL"
-                        >
-                          <Copy className="w-4 h-4 mr-1" />
-                          Copy
-                        </Button>
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCopy(shortUrls['lp'], 'Short URL')}
+                            title="Copy Short URL"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(shortUrls['lp'], '_blank')}
+                            title="Open Short URL"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                          </Button>
+                        </>
                       ) : (
                         <Button
                           variant="outline"
@@ -1038,11 +1054,18 @@ const mailHtmlTNSS = useMemo(() => {
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => handleCopy(chatFormatUrl, 'Chat format link copied!')}
+                        title="Copy Chat Format Link"
+                      >
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => window.open(chatFormatUrl, '_blank')}
                         title="Open Chat Format"
                       >
-                        <ExternalLink className="w-4 h-4 mr-1" />
-                        Open
+                        <ExternalLink className="w-3 h-3" />
                       </Button>
                     </div>
                     
@@ -1054,15 +1077,24 @@ const mailHtmlTNSS = useMemo(() => {
                         placeholder="Short Link"
                       />
                       {shortUrls['chat'] ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleCopy(shortUrls['chat'], 'Chat Short URL')}
-                          title="Copy Chat Short URL"
-                        >
-                          <Copy className="w-4 h-4 mr-1" />
-                          Copy
-                        </Button>
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCopy(shortUrls['chat'], 'Chat Short URL')}
+                            title="Copy Chat Short URL"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(shortUrls['chat'], '_blank')}
+                            title="Open Chat Short URL"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                          </Button>
+                        </>
                       ) : (
                         <Button
                           variant="outline"
@@ -1098,11 +1130,18 @@ const mailHtmlTNSS = useMemo(() => {
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => handleCopy(standardFormatUrl, 'Standard format link copied!')}
+                        title="Copy Standard Format Link"
+                      >
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => window.open(standardFormatUrl, '_blank')}
                         title="Open Standard Format"
                       >
-                        <ExternalLink className="w-4 h-4 mr-1" />
-                        Open
+                        <ExternalLink className="w-3 h-3" />
                       </Button>
                     </div>
                     
@@ -1114,15 +1153,24 @@ const mailHtmlTNSS = useMemo(() => {
                         placeholder="Short Link"
                       />
                       {shortUrls['standard'] ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleCopy(shortUrls['standard'], 'Standard Short URL')}
-                          title="Copy Standard Short URL"
-                        >
-                          <Copy className="w-4 h-4 mr-1" />
-                          Copy
-                        </Button>
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCopy(shortUrls['standard'], 'Standard Short URL')}
+                            title="Copy Standard Short URL"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(shortUrls['standard'], '_blank')}
+                            title="Open Standard Short URL"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                          </Button>
+                        </>
                       ) : (
                         <Button
                           variant="outline"
