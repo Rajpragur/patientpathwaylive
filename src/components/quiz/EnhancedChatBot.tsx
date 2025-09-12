@@ -41,9 +41,11 @@ interface QuizAnswer {
 interface EnhancedChatBotProps {
   quizType: QuizType;
   shareKey?: string;
+  customQuiz?: any;
+  doctorId?: string;
 }
 
-export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
+export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: EnhancedChatBotProps) {
   const [searchParams] = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -392,7 +394,7 @@ export function EnhancedChatBot({ quizType, shareKey }: EnhancedChatBotProps) {
       toast.success('Results saved successfully! You will receive a follow-up soon.');
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: 'Thank you! Your results are now displayed. A team member will get back to you soon.' 
+        content: 'Thank you! Your assessment has been saved. A team member will get back to you soon.' 
       }]);
 
     } catch (error) {

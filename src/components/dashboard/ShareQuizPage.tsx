@@ -30,7 +30,8 @@ import {
   Edit,
   UserRound,
   MessageCircle,
-  Send
+  Send,
+  Square
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -60,6 +61,8 @@ export function ShareQuizPage() {
   const [selectedList, setSelectedList] = useState('');
   const [shortUrl, setShortUrl] = useState<string>('');
   const [isGeneratingShortUrl, setIsGeneratingShortUrl] = useState(false);
+  const [shortUrls, setShortUrls] = useState<{[key: string]: string}>({});
+  const [isGeneratingShortUrls, setIsGeneratingShortUrls] = useState<{[key: string]: boolean}>({});
   const [ctaText, setCtaText] = useState('For more info about non-invasive in office procedure to give you relief, Schedule a 5min screening phone call.');
   const [customMessage, setCustomMessage] = useState('');
   const baseUrl = window.location.origin;
@@ -165,6 +168,51 @@ export function ShareQuizPage() {
     return `${baseQuizUrl}?${trackingParams.toString()}`;
   }, [customQuizId, quizId, doctorProfile, webSource, baseUrl]);
 
+  const getChatFormatUrl = useCallback((source?: string) => {
+    const baseQuizUrl = customQuizId
+      ? `${baseUrl}/embed/custom/${customQuizId}`
+      : `${baseUrl}/embed/${quizId?.toLowerCase()}`;
+    
+    const trackingParams = new URLSearchParams();
+    
+    // Add doctor ID if available
+    if (doctorProfile?.id) {
+      trackingParams.set('doctor', doctorProfile.id);
+    }
+
+    // Add source tracking
+    const sourceParam = source || webSource;
+    trackingParams.set('source', sourceParam);
+    trackingParams.set('utm_source', sourceParam);
+    trackingParams.set('utm_medium', getSourceMedium(sourceParam));
+    trackingParams.set('utm_campaign', 'quiz_share');
+
+    return `${baseQuizUrl}?${trackingParams.toString()}`;
+  }, [customQuizId, quizId, doctorProfile, webSource, baseUrl]);
+
+  const getStandardFormatUrl = useCallback((source?: string) => {
+    const baseQuizUrl = customQuizId
+      ? `${baseUrl}/quiz/custom/${customQuizId}`
+      : `${baseUrl}/quiz/${quizId?.toLowerCase()}`;
+    
+    const trackingParams = new URLSearchParams();
+    
+    // Add doctor ID if available
+    if (doctorProfile?.id) {
+      trackingParams.set('doctor', doctorProfile.id);
+    }
+
+    // Add source tracking
+    const sourceParam = source || webSource;
+    trackingParams.set('source', sourceParam);
+    trackingParams.set('utm_source', sourceParam);
+    trackingParams.set('utm_medium', getSourceMedium(sourceParam));
+    trackingParams.set('utm_campaign', 'quiz_share');
+
+    return `${baseQuizUrl}?${trackingParams.toString()}`;
+  }, [customQuizId, quizId, doctorProfile, webSource, baseUrl]);
+
+
   const getSourceMedium = (source: string) => {
     switch (source) {
       case 'facebook':
@@ -187,6 +235,73 @@ export function ShareQuizPage() {
         return 'referral';
     }
   };
+
+const generateShortUrlForFormat = async (longUrl: string, key: string) => {
+  setIsGeneratingShortUrls(prev => ({ ...prev, [key]: true }));
+  try {
+    // Try multiple URL shortening services directly from client
+    let shortUrl = null;
+    
+    // Try TinyURL first (most reliable)
+    try {
+      const tinyUrlResponse = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`);
+      if (tinyUrlResponse.ok) {
+        const tinyUrl = await tinyUrlResponse.text();
+        if (tinyUrl && tinyUrl.startsWith('http')) {
+          shortUrl = tinyUrl.trim();
+        }
+      }
+    } catch (error) {
+      console.log('TinyURL failed, trying next service...');
+    }
+    
+    // Try is.gd if TinyURL failed
+    if (!shortUrl) {
+      try {
+        const isGdResponse = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`);
+        if (isGdResponse.ok) {
+          const isGdData = await isGdResponse.json();
+          if (isGdData && isGdData.shorturl) {
+            shortUrl = isGdData.shorturl;
+          }
+        }
+      } catch (error) {
+        console.log('is.gd failed, trying next service...');
+      }
+    }
+    
+    // Try v.gd if previous services failed
+    if (!shortUrl) {
+      try {
+        const vGdResponse = await fetch(`https://v.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`);
+        if (vGdResponse.ok) {
+          const vGdData = await vGdResponse.json();
+          if (vGdData && vGdData.shorturl) {
+            shortUrl = vGdData.shorturl;
+          }
+        }
+      } catch (error) {
+        console.log('v.gd failed, using original URL...');
+      }
+    }
+    
+    // If all services fail, use original URL
+    if (!shortUrl) {
+      shortUrl = longUrl;
+    }
+    
+    setShortUrls(prev => ({ ...prev, [key]: shortUrl }));
+    toast.success(shortUrl === longUrl ? 'Using original URL (shortening services unavailable)' : 'Short URL generated successfully!');
+    
+    return shortUrl;
+  } catch (error) {
+    console.error('Error generating short URL:', error);
+    toast.error('Failed to generate short URL');
+    return longUrl;
+  } finally {
+    setIsGeneratingShortUrls(prev => ({ ...prev, [key]: false }));
+  }
+};
 
 const generateShortUrl = async (source?: string) => {
   setIsGeneratingShortUrl(true);
@@ -464,6 +579,8 @@ const createSpecialLinks = () => {
   }, [baseUrl, customQuizId, quizId, doctorProfile?.id]);
 
   const shareUrl = useMemo(() => getQuizUrl(), [getQuizUrl]);
+  const chatFormatUrl = useMemo(() => getChatFormatUrl(), [getChatFormatUrl]);
+  const standardFormatUrl = useMemo(() => getStandardFormatUrl(), [getStandardFormatUrl]);
 
 
   const mailHtmlNOSE = useMemo(() => {
@@ -846,61 +963,185 @@ const mailHtmlTNSS = useMemo(() => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Input
-                      value={shareUrl}
-                      readOnly
-                      className="flex-1 font-mono text-sm"
-                    />
+                <div className="space-y-6">
+                  
+                  {/* LP Link Section */}
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-sm text-gray-700">Landing page Link</h4>
                     <div className="flex gap-2">
+                      <Input
+                        value={shareUrl}
+                        readOnly
+                        className="flex-1 text-xs font-mono"
+                        placeholder="Landing Page Link"
+                      />
                       <Button
                         variant="outline"
+                        size="sm"
                         onClick={() => window.open(doctorLandingUrl, '_blank')}
-                        className="border-[#0E7C9D] text-[#0E7C9D] font-bold hover:bg-blue-50 flex-1 sm:flex-none"
+                        title="Open Landing Page"
                       >
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        <span className="hidden sm:inline">Landing Page</span>
+                        <ExternalLink className="w-4 h-4 mr-1" />
+                        Open
                       </Button>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <Input
+                        value={shortUrls['lp'] || "Generate a short URL for easier sharing"}
+                        readOnly
+                        className="flex-1 text-xs font-mono"
+                        placeholder="Short Link"
+                      />
+                      {shortUrls['lp'] ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleCopy(shortUrls['lp'], 'Short URL')}
+                          title="Copy Short URL"
+                        >
+                          <Copy className="w-4 h-4 mr-1" />
+                          Copy
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => generateShortUrlForFormat(shareUrl, 'lp')}
+                          disabled={isGeneratingShortUrls['lp']}
+                          title="Generate Short URL"
+                        >
+                          {isGeneratingShortUrls['lp'] ? (
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          ) : (
+                            <Link2 className="w-4 h-4 mr-1" />
+                          )}
+                          Generate
+                        </Button>
+                      )}
                     </div>
                   </div>
 
-                  {/* Short URL Generator */}
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Input
-                      value={shortUrl || "Generate a short URL for easier sharing"}
-                      readOnly
-                      className={`flex-1 font-mono text-sm ${shortUrl ? 'cursor-pointer hover:bg-gray-50' : ''}`}
-                      onClick={shortUrl ? () => window.open(shortUrl, '_blank') : undefined}
-                    />
-                    {shortUrl ? (
+                  {/* Quiz Link - Chat Section */}
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-sm text-gray-700 flex items-center gap-2">
+                      <MessageCircle className="w-4 h-4" />
+                      Quiz Link - Chat
+                    </h4>
+                    <div className="flex gap-2">
+                      <Input
+                        value={chatFormatUrl}
+                        readOnly
+                        className="flex-1 text-xs font-mono"
+                        placeholder="Chat Format Link"
+                      />
                       <Button
-                        onClick={() => handleCopy(shortUrl, 'Short URL copied!')}
-                        className="min-w-[100px]"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(chatFormatUrl, '_blank')}
+                        title="Open Chat Format"
                       >
-                        <Copy className="w-4 h-4 mr-2" />
-                        Copy Link
+                        <ExternalLink className="w-4 h-4 mr-1" />
+                        Open
                       </Button>
-                    ) : (
-                      <Button
-                        onClick={() => generateShortUrl()}
-                        disabled={isGeneratingShortUrl}
-                        className="min-w-[140px]"
-                      >
-                        {isGeneratingShortUrl ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Generating...
-                          </>
-                        ) : (
-                          <>
-                            <Link2 className="w-4 h-4 mr-2" />
-                            Generate Short URL
-                          </>
-                        )}
-                      </Button>
-                    )}
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <Input
+                        value={shortUrls['chat'] || "Generate a short URL for easier sharing"}
+                        readOnly
+                        className="flex-1 text-xs font-mono"
+                        placeholder="Short Link"
+                      />
+                      {shortUrls['chat'] ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleCopy(shortUrls['chat'], 'Chat Short URL')}
+                          title="Copy Chat Short URL"
+                        >
+                          <Copy className="w-4 h-4 mr-1" />
+                          Copy
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => generateShortUrlForFormat(chatFormatUrl, 'chat')}
+                          disabled={isGeneratingShortUrls['chat']}
+                          title="Generate Chat Short URL"
+                        >
+                          {isGeneratingShortUrls['chat'] ? (
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          ) : (
+                            <Link2 className="w-4 h-4 mr-1" />
+                          )}
+                          Generate
+                        </Button>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Quiz Link - Standard Section */}
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-sm text-gray-700 flex items-center gap-2">
+                      <FileText className="w-4 h-4" />
+                      Quiz Link - Standard
+                    </h4>
+                    <div className="flex gap-2">
+                      <Input
+                        value={standardFormatUrl}
+                        readOnly
+                        className="flex-1 text-xs font-mono"
+                        placeholder="Standard Format Link"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(standardFormatUrl, '_blank')}
+                        title="Open Standard Format"
+                      >
+                        <ExternalLink className="w-4 h-4 mr-1" />
+                        Open
+                      </Button>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <Input
+                        value={shortUrls['standard'] || "Generate a short URL for easier sharing"}
+                        readOnly
+                        className="flex-1 text-xs font-mono"
+                        placeholder="Short Link"
+                      />
+                      {shortUrls['standard'] ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleCopy(shortUrls['standard'], 'Standard Short URL')}
+                          title="Copy Standard Short URL"
+                        >
+                          <Copy className="w-4 h-4 mr-1" />
+                          Copy
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => generateShortUrlForFormat(standardFormatUrl, 'standard')}
+                          disabled={isGeneratingShortUrls['standard']}
+                          title="Generate Standard Short URL"
+                        >
+                          {isGeneratingShortUrls['standard'] ? (
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          ) : (
+                            <Link2 className="w-4 h-4 mr-1" />
+                          )}
+                          Generate
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -934,14 +1175,6 @@ const mailHtmlTNSS = useMemo(() => {
                         >
                           <Mail className="w-4 h-4 mr-2" />
                           Email
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => navigate('/portal?tab=email')}
-                          className="hover:bg-green-50 hover:text-green-600 flex items-center justify-center"
-                        >
-                          <Send className="w-4 h-4 mr-2" />
-                          Send Direct
                         </Button>
                         <Button
                           variant="outline"

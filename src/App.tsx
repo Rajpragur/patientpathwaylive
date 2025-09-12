@@ -8,18 +8,12 @@ import EmailVerificationPage from './pages/EmailVerificationPage';
 import PortalPage from './pages/PortalPage';
 import UniversalQuizPage from './pages/UniversalQuizPage';
 import CustomQuizPage from './pages/CustomQuizPage';
+import CardQuizPage from './pages/CardQuizPage';
 import SocialAccountsPage from './pages/SocialAccountsPage';
 import NotFound from './pages/NotFound';
 import NoseLandingPage from './pages/NoseLandingPage';
 import EditableNOSELandingPage from './pages/EditableNOSELandingPage';
 import EmbeddedQuiz from './pages/EmbeddedQuiz';
-import { NOSEPage } from './components/quiz/NOSEPage';
-import  DHIPage  from './pages/quizzes/DHIPage';
-import EpworthPage  from './pages/quizzes/EpworthPage';
-import HHIAPage  from './pages/quizzes/HHIAPage';
-import SNOT22Page from './pages/quizzes/SNOT22Page';
-import STOPPage from './pages/quizzes/STOPPage';
-import TNSSPage from './pages/quizzes/TNSSPage';
 import NOSELandingPage from './pages/share/NOSELandingPage';
 import SNOTLandingPage from './pages/share/SNOT12LandingPage';
 import { AuthProvider } from '@/hooks/useAuth';
@@ -32,8 +26,6 @@ import Snot12LandingPage from './pages/SNOT12LandingPage';
 import Snot22LandingPage from './pages/share/SNOT22LandingPage';
 import TNSSLandingPage from './pages/share/TNSSLandingPage';
 import AdminPortal from './pages/AdminPortal';
-import GmailCallback from './pages/GmailCallback';
-import OutlookCallback from './pages/OutlookCallback';
 const queryClient = new QueryClient();
 
 function App() {
@@ -59,20 +51,13 @@ function App() {
               <Route path="/portal/share/custom/:customQuizId" element={<ShareQuizPage />} />
               <Route path="/quiz" element={<UniversalQuizPage />} />
               <Route path="/quiz/custom/:quizId" element={<CustomQuizPage />} />
-              <Route path="/quiz/nose" element={<NOSEPage />} />
-              <Route path="/quiz/dhi" element={<DHIPage />} />
-              <Route path="/quiz/epworth" element={<EpworthPage />} />
-              <Route path="/quiz/hhia" element={<HHIAPage />} />
-              <Route path="/quiz/snot22" element={<SNOT22Page />} />
-              <Route path="/quiz/stop" element={<STOPPage />} />
-              <Route path="/quiz/tnss" element={<TNSSPage />} />
+              <Route path="/quiz/:quizId" element={<CardQuizPage />} />
               <Route path="/embed/quiz" element={<EmbeddedQuiz />} />
               <Route path="/social-accounts" element={<SocialAccountsPage />} />
               <Route path="/nose-editor/:doctorId" element={<NoseEditorPage />} />
               <Route path="/s/:shortId" element={<ShortLinkRedirect />} />
-              <Route path="/auth/gmail/callback" element={<GmailCallback />} />
-              <Route path="/auth/outlook/callback" element={<OutlookCallback />} />
               <Route path="/embed/chatbot/:quizId" element={<EmbeddedChatbotPage />} />
+              <Route path="/embed/custom/:quizId" element={<Embed />} />
               <Route path="/embed/:quizId" element={<Embed />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

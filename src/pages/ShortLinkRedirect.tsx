@@ -10,7 +10,7 @@ export default function ShortLinkRedirect() {
     const fetchAndRedirect = async () => {
       const { data, error } = await supabase
         .from('link_mappings')
-        .select('doctor_id')
+        .select('doctor_id, quiz_type')
         .eq('short_id', shortId)
         .single();
 
@@ -18,7 +18,10 @@ export default function ShortLinkRedirect() {
         navigate('/404');
         return;
       }
-      navigate(`/share/nose/${data.doctor_id}`);
+      
+      // Determine the correct quiz route based on quiz_type
+      const quizType = data.quiz_type || 'nose';
+      navigate(`/share/${quizType}/${data.doctor_id}`);
     };
 
     fetchAndRedirect();

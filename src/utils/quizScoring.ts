@@ -210,6 +210,32 @@ export function calculateQuizScore(quizType: QuizType, answers: QuizAnswer[] | n
         summary: `TNSS Score: ${tnssScore}/12 - ${tnssSeverity} nasal symptoms`
       };
 
+    case 'SNOT12':
+      // SNOT-12 scoring: 0-5 scale for 12 questions (max 60)
+      const snot12Score = answerIndices.reduce((sum, answer) => sum + answer, 0);
+      let snot12Severity: 'normal' | 'mild' | 'moderate' | 'severe' = 'normal';
+      let snot12Interpretation = '';
+
+      if (snot12Score >= 41) {
+        snot12Severity = 'severe';
+        snot12Interpretation = 'Severe nasal/sinus symptoms requiring immediate medical attention.';
+      } else if (snot12Score >= 26) {
+        snot12Severity = 'moderate';
+        snot12Interpretation = 'Moderate nasal/sinus symptoms requiring medical evaluation.';
+      } else if (snot12Score >= 13) {
+        snot12Severity = 'mild';
+        snot12Interpretation = 'Mild nasal/sinus symptoms affecting quality of life. Consider medical consultation.';
+      } else {
+        snot12Interpretation = 'Minimal nasal/sinus symptoms with little impact on quality of life.';
+      }
+
+      return {
+        score: snot12Score,
+        severity: snot12Severity,
+        interpretation: snot12Interpretation,
+        summary: `SNOT-12 Score: ${snot12Score}/60 - ${snot12Severity} symptoms`
+      };
+
     default:
       return {
         score: 0,

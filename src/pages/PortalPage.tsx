@@ -13,7 +13,6 @@ import { SocialIntegrationsPage } from '@/components/dashboard/SocialIntegration
 import { AutomationPage } from '@/components/dashboard/AutomationPage';
 import { SymptomChecker } from '@/components/dashboard/SymptomChecker';
 import { IntegrationsPage } from '@/components/dashboard/IntegrationsPage';
-import { EmailSettingsPage } from '@/components/dashboard/EmailSettingsPage';
 import { toast } from 'sonner';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { PageLoader } from '@/components/ui/PageLoader';
@@ -95,8 +94,6 @@ export default function PortalPage() {
         return <AutomationPage />;
       case 'integrations':
         return <IntegrationsPage />;
-      case 'email':
-        return <EmailSettingsPage />;
       case 'profile':
         return <ProfilePage />;
       case 'configuration':

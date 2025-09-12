@@ -9,7 +9,7 @@ const corsHeaders = {
 
 interface CommunicationRequest {
   leadId: string;
-  type: 'email' | 'sms';
+  type: 'sms';
   message: string;
 }
 

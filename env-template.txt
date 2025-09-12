@@ -1,4 +1,4 @@
-# Email Automation Environment Variables
+# Environment Variables
 # Copy this file to .env and fill in your actual values
 
 # Supabase Configuration
@@ -6,21 +6,13 @@ SUPABASE_URL=your_supabase_project_url
 SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
-# Email Service (Resend recommended)
-RESEND_API_KEY=your_resend_api_key
+# Vite Environment Variables (for Frontend)
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
 # n8n Integration
-N8N_WEBHOOK_URL=https://your-n8n-instance.com/webhook/lead-email-automation
+N8N_WEBHOOK_URL=https://your-n8n-instance.com/webhook/lead-automation
 N8N_API_KEY=your_n8n_api_key
 
-# Email Configuration
-EMAIL_FROM=noreply@yourdomain.com
-EMAIL_REPLY_TO=support@yourdomain.com
 
-# Optional: Alternative Email Services
-# SENDGRID_API_KEY=your_sendgrid_api_key
-# MAILGUN_API_KEY=your_mailgun_api_key
-# SMTP_HOST=your_smtp_host
-# SMTP_PORT=587
-# SMTP_USER=your_smtp_username
-# SMTP_PASS=your_smtp_password
