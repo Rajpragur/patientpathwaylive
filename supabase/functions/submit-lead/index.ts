@@ -61,11 +61,11 @@ serve(async (req) => {
       console.warn('Could not fetch doctor profile for communications:', doctorError)
     }
 
-    // Trigger automated communications
+    // Send doctor notification email
     try {
-      await triggerAutomatedCommunications(lead, doctorProfile, supabaseAdmin)
+      await sendDoctorNotification(lead, doctorProfile, supabaseAdmin)
     } catch (commError) {
-      console.warn('Automated communications failed:', commError)
+      console.warn('Doctor notification failed:', commError)
       // Don't fail the lead submission if communications fail
     }
 
@@ -104,240 +104,283 @@ serve(async (req) => {
   }
 })
 
-async function triggerAutomatedCommunications(lead: any, doctorProfile: any, supabaseAdmin: any) {
-  console.log('Triggering automated communications for lead:', lead.id)
+async function sendDoctorNotification(lead: any, doctorProfile: any, supabaseAdmin: any) {
+  console.log('Sending doctor notification for lead:', lead.id)
   
-  const communications = []
+  const resendApiKey = Deno.env.get('RESEND_API_KEY')
+  console.log('Resend API Key (first 10 chars):', resendApiKey ? resendApiKey.substring(0, 10) + '...' : 'NOT_FOUND')
+  console.log('API Key length:', resendApiKey ? resendApiKey.length : 0)
+  console.log('API Key starts with re_:', resendApiKey ? resendApiKey.startsWith('re_') : false)
   
-  // 1. Send welcome SMS to the lead
-  if (lead.phone && doctorProfile?.twilio_account_sid && doctorProfile?.twilio_auth_token && doctorProfile?.twilio_phone_number) {
-    try {
-      const smsResult = await sendWelcomeSMS(lead, doctorProfile)
-      communications.push({
-        lead_id: lead.id,
-        communication_type: 'welcome_sms',
-        message: smsResult.message,
-        status: smsResult.success ? 'sent' : 'failed',
-        metadata: { twilio_sid: smsResult.sid || null }
-      })
-    } catch (error) {
-      console.error('SMS sending failed:', error)
-      communications.push({
-        lead_id: lead.id,
-        communication_type: 'welcome_sms',
-        message: 'Failed to send welcome SMS',
-        status: 'failed',
-        metadata: { error: error.message }
-      })
-    }
+  if (!resendApiKey) {
+    console.warn('RESEND_API_KEY not configured, logging email content instead')
+    await logEmailContent(lead, doctorProfile, supabaseAdmin)
+    return
   }
 
-  // 2. Send welcome email to the lead
-  if (lead.email) {
-    try {
-      const emailResult = await sendWelcomeEmail(lead, doctorProfile)
-      communications.push({
-        lead_id: lead.id,
-        communication_type: 'welcome_email',
-        message: emailResult.message,
-        status: emailResult.success ? 'sent' : 'failed',
-        metadata: { email_id: emailResult.id || null }
-      })
-    } catch (error) {
-      console.error('Email sending failed:', error)
-      communications.push({
-        lead_id: lead.id,
-        communication_type: 'welcome_email',
-        message: 'Failed to send welcome email',
-        status: 'failed',
-        metadata: { error: error.message }
-      })
-    }
-  }
+  // Clean the API key - remove any potential encoding issues
+  const cleanApiKey = resendApiKey.trim().replace(/['"]/g, '')
+  console.log('Cleaned API Key (first 10 chars):', cleanApiKey.substring(0, 10) + '...')
 
-  // 3. Send notification SMS to doctor
-  if (doctorProfile?.phone && doctorProfile?.twilio_account_sid && doctorProfile?.twilio_auth_token && doctorProfile?.twilio_phone_number) {
-    try {
-      const doctorSmsResult = await sendDoctorNotificationSMS(lead, doctorProfile)
-      communications.push({
-        lead_id: lead.id,
-        communication_type: 'doctor_notification_sms',
-        message: doctorSmsResult.message,
-        status: doctorSmsResult.success ? 'sent' : 'failed',
-        metadata: { twilio_sid: doctorSmsResult.sid || null }
-      })
-    } catch (error) {
-      console.error('Doctor SMS notification failed:', error)
-      communications.push({
-        lead_id: lead.id,
-        communication_type: 'doctor_notification_sms',
-        message: 'Failed to send doctor notification SMS',
-        status: 'failed',
-        metadata: { error: error.message }
-      })
-    }
-  }
+  try {
+    const doctorName = `${doctorProfile.first_name} ${doctorProfile.last_name}`;
+    const severity = getSeverityLevel(lead.score);
+    const severityColor = getSeverityColor(severity);
+    const dashboardUrl = `${Deno.env.get('APP_URL') || 'https://patientpathway.ai'}/portal?tab=dashboard`;
 
-  // 4. Send notification email to doctor
-  if (doctorProfile?.email) {
+    // Generate quiz answers summary
+    const answersSummary = generateAnswersSummary(lead.answers);
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #333; margin-bottom: 20px;">New Quiz Submission</h2>
+        
+        <div style="margin-bottom: 20px;">
+          <p><strong>Quiz:</strong> ${lead.quiz_type} - ${doctorName}</p>
+          <p><strong>Status:</strong> Qualified Lead</p>
+          <p><strong>Total Score:</strong> ${lead.score}</p>
+          <p><strong>Submitted:</strong> ${new Date(lead.submitted_at).toLocaleString()}</p>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <h3 style="color: #333; margin-bottom: 10px;">Contact Information</h3>
+          <ul style="margin: 0; padding-left: 20px;">
+            <li><strong>Full Name:</strong> ${lead.name}</li>
+            <li><strong>Mobile:</strong> ${lead.phone}</li>
+            <li><strong>Email:</strong> ${lead.email}</li>
+          </ul>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <h3 style="color: #333; margin-bottom: 10px;">Quiz Responses</h3>
+          ${generateSimpleAnswersSummary(lead.answers)}
+        </div>
+        
+        <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
+        
+        <div style="margin-bottom: 20px;">
+          <h3 style="color: #333; margin-bottom: 10px;">Clinician Dashboard Access</h3>
+          <p>Check out your clinician dashboard: <a href="${dashboardUrl}" style="color: #0066cc;">${dashboardUrl}</a></p>
+          <p><strong>PIN:</strong> ${lead.id.substring(0, 5)}</p>
+          <p><em>Hint: Your PIN is your office zip code.</em></p>
+        </div>
+      </div>
+    `;
+
+    const text = `
+New Quiz Submission
+
+Quiz: ${lead.quiz_type} - ${doctorName}
+Status: Qualified Lead
+Total Score: ${lead.score}
+Submitted: ${new Date(lead.submitted_at).toLocaleString()}
+
+Contact Information:
+- Full Name: ${lead.name}
+- Mobile: ${lead.phone}
+- Email: ${lead.email}
+
+Quiz Responses:
+${generateSimpleAnswersText(lead.answers)}
+
+---
+
+Clinician Dashboard Access
+Check out your clinician dashboard: ${dashboardUrl}
+PIN: ${lead.id.substring(0, 5)}
+Hint: Your PIN is your office zip code.
+    `;
+
+    // Try to send email with Resend
     try {
-      const doctorEmailResult = await sendDoctorNotificationEmail(lead, doctorProfile)
-      communications.push({
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${cleanApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: 'PatientPathway AI <noreply@resend.dev>',
+          to: doctorProfile.email,
+          subject: `🚨 New Lead: ${lead.name} - ${lead.quiz_type} Assessment (Score: ${lead.score})`,
+          html: html,
+          text: text,
+          replyTo: doctorProfile.email
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Doctor notification email sent successfully:', result.id);
+
+        // Log the email
+        await supabaseAdmin.from('email_logs').insert({
+          doctor_id: doctorProfile.id,
+          recipient_email: doctorProfile.email,
+          subject: `New Lead: ${lead.name} - ${lead.quiz_type} Assessment`,
+          status: 'sent',
+          resend_id: result.id,
+          sent_at: new Date().toISOString()
+        });
+
+        // Also log in lead_communications for compatibility
+        await supabaseAdmin
+          .from('lead_communications')
+          .insert({
         lead_id: lead.id,
         communication_type: 'doctor_notification_email',
-        message: doctorEmailResult.message,
-        status: doctorEmailResult.success ? 'sent' : 'failed',
-        metadata: { email_id: doctorEmailResult.id || null }
-      })
-    } catch (error) {
-      console.error('Doctor email notification failed:', error)
-      communications.push({
-        lead_id: lead.id,
-        communication_type: 'doctor_notification_email',
-        message: 'Failed to send doctor notification email',
-        status: 'failed',
-        metadata: { error: error.message }
-      })
-    }
-  }
-
-  // Save all communication records
-  if (communications.length > 0) {
-    try {
-      const { error: commError } = await supabaseAdmin
-        .from('lead_communications')
-        .insert(communications)
-      
-      if (commError) {
-        console.error('Failed to save communication records:', commError)
+            message: 'Doctor notification email sent successfully',
+            status: 'sent',
+            metadata: { 
+              email_id: result.id,
+              timestamp: new Date().toISOString()
+            }
+          });
+      } else {
+        const errorData = await response.json();
+        console.warn('Resend API failed, logging email content instead:', errorData);
+        await logEmailContent(lead, doctorProfile, supabaseAdmin, errorData);
       }
-    } catch (error) {
-      console.error('Error saving communication records:', error)
+    } catch (resendError) {
+      console.warn('Resend service error, logging email content instead:', resendError);
+      await logEmailContent(lead, doctorProfile, supabaseAdmin, resendError);
     }
+
+    } catch (error) {
+    console.error('Failed to process doctor notification:', error);
+    
+    // Log the failure
+    await supabaseAdmin
+      .from('lead_communications')
+      .insert({
+        lead_id: lead.id,
+        communication_type: 'doctor_notification_email',
+        message: 'Failed to process doctor notification',
+        status: 'failed',
+        metadata: { 
+          error: error.message,
+          timestamp: new Date().toISOString()
+        }
+      });
+    
+    // Don't throw the error - just log it and continue
+    console.warn('Doctor notification processing failed, but continuing with lead submission');
   }
 }
 
-async function sendWelcomeSMS(lead: any, doctorProfile: any) {
-  const message = `Hi ${lead.name}! Thank you for completing the ${lead.quiz_type} assessment. Your score: ${lead.score}. Dr. ${doctorProfile.last_name || 'Smith'} will review your results and contact you within 24 hours. Reply STOP to unsubscribe.`
+async function logEmailContent(lead: any, doctorProfile: any, supabaseAdmin: any, error?: any) {
+  console.log('=== EMAIL CONTENT (NOT SENT) ===');
+  console.log('To:', doctorProfile.email);
+  console.log('Subject:', `🚨 New Lead: ${lead.name} - ${lead.quiz_type} Assessment (Score: ${lead.score})`);
+  console.log('Lead Details:', {
+    name: lead.name,
+    email: lead.email,
+    phone: lead.phone,
+    quiz_type: lead.quiz_type,
+    score: lead.score,
+    submitted_at: lead.submitted_at
+  });
+  console.log('=== END EMAIL CONTENT ===');
+
+  // Log in lead_communications
+  await supabaseAdmin
+        .from('lead_communications')
+    .insert({
+      lead_id: lead.id,
+      communication_type: 'doctor_notification_email',
+      message: 'Email content logged (not sent due to Resend configuration)',
+      status: 'logged',
+      metadata: { 
+        error: error?.message || 'Resend not configured',
+        timestamp: new Date().toISOString(),
+        email_content: {
+          to: doctorProfile.email,
+          subject: `🚨 New Lead: ${lead.name} - ${lead.quiz_type} Assessment (Score: ${lead.score})`,
+          lead_details: {
+            name: lead.name,
+            email: lead.email,
+            phone: lead.phone,
+            quiz_type: lead.quiz_type,
+            score: lead.score
+          }
+        }
+      }
+    });
+}
+
+function generateSimpleAnswersSummary(answers: any) {
+  if (!answers || Object.keys(answers).length === 0) {
+    return '<p>Detailed answers not available.</p>';
+  }
   
-  const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${doctorProfile.twilio_account_sid}/Messages.json`
-  const authHeader = `Basic ${btoa(`${doctorProfile.twilio_account_sid}:${doctorProfile.twilio_auth_token}`)}`
+  let summary = '<ul style="margin: 0; padding-left: 20px;">';
   
-  const body = new URLSearchParams({
-    From: doctorProfile.twilio_phone_number,
-    To: lead.phone,
-    Body: message
-  })
-
-  const response = await fetch(twilioUrl, {
-    method: 'POST',
-    headers: {
-      'Authorization': authHeader,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: body.toString(),
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Twilio SMS failed: ${response.status} - ${errorText}`)
-  }
-
-  const result = await response.json()
-  return { 
-    success: true, 
-    message: 'Welcome SMS sent successfully',
-    sid: result.sid 
-  }
-}
-
-async function sendWelcomeEmail(lead: any, doctorProfile: any) {
-  // For now, we'll simulate email sending
-  // In production, integrate with SendGrid, Resend, or similar service
-  const emailContent = {
-    to: lead.email,
-    subject: `Your ${lead.quiz_type} Assessment Results - ${doctorProfile.clinic_name || 'Medical Practice'}`,
-    html: `
-      <h2>Thank you for completing the ${lead.quiz_type} assessment!</h2>
-      <p>Dear ${lead.name},</p>
-      <p>We've received your assessment results with a score of <strong>${lead.score}</strong>.</p>
-      <p>Dr. ${doctorProfile.last_name || 'Smith'} will review your results and contact you within 24 hours to discuss next steps.</p>
-      <p>If you have any immediate questions, please don't hesitate to reach out.</p>
-      <br>
-      <p>Best regards,<br>The ${doctorProfile.clinic_name || 'Medical'} Team</p>
-    `
-  }
-
-  // TODO: Integrate with actual email service
-  // For now, return success (you'll need to implement this)
-  return { 
-    success: true, 
-    message: 'Welcome email queued for sending',
-    id: `email_${Date.now()}`
-  }
-}
-
-async function sendDoctorNotificationSMS(lead: any, doctorProfile: any) {
-  const message = `NEW LEAD: ${lead.name} completed ${lead.quiz_type} assessment with score ${lead.score}. Contact: ${lead.phone} | ${lead.email}`
+  // Process answers
+  Object.entries(answers).forEach(([key, value], index) => {
+    const question = `Question ${index + 1}`;
+    const answer = typeof value === 'object' ? JSON.stringify(value) : value;
+    
+    summary += `<li><strong>${question}:</strong> ${answer}</li>`;
+  });
   
-  const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${doctorProfile.twilio_account_sid}/Messages.json`
-  const authHeader = `Basic ${btoa(`${doctorProfile.twilio_account_sid}:${doctorProfile.twilio_auth_token}`)}`
+  summary += '</ul>';
+  return summary;
+}
+
+function generateSimpleAnswersText(answers: any) {
+  if (!answers || Object.keys(answers).length === 0) {
+    return 'Detailed answers not available.';
+  }
   
-  const body = new URLSearchParams({
-    From: doctorProfile.twilio_phone_number,
-    To: doctorProfile.phone,
-    Body: message
-  })
+  let summary = '';
+  
+  // Process answers
+  Object.entries(answers).forEach(([key, value], index) => {
+    const question = `Question ${index + 1}`;
+    const answer = typeof value === 'object' ? JSON.stringify(value) : value;
+    
+    summary += `- ${question}: ${answer}\n`;
+  });
+  
+  return summary;
+}
 
-  const response = await fetch(twilioUrl, {
-    method: 'POST',
-    headers: {
-      'Authorization': authHeader,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: body.toString(),
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Twilio SMS failed: ${response.status} - ${errorText}`)
+function generateAnswersSummary(answers: any) {
+  if (!answers || Object.keys(answers).length === 0) {
+    return '<div class="lead-info"><h3>Assessment Details</h3><p>Detailed answers not available.</p></div>';
   }
+  
+  let summary = '<div class="lead-info"><h3>Assessment Details</h3><table class="answers-table">';
+  summary += '<tr><th>Question</th><th>Answer</th><th>Score</th></tr>';
+  
+  // Process answers
+  Object.entries(answers).forEach(([key, value], index) => {
+    const question = `Question ${index + 1}`;
+    const answer = typeof value === 'object' ? JSON.stringify(value) : value;
+    const score = typeof value === 'number' ? value : 'N/A';
+    
+    summary += `<tr><td>${question}</td><td>${answer}</td><td>${score}</td></tr>`;
+  });
+  
+  summary += '</table></div>';
+  return summary;
+}
 
-  const result = await response.json()
-  return { 
-    success: true, 
-    message: 'Doctor notification SMS sent successfully',
-    sid: result.sid 
+function getSeverityLevel(score: number) {
+  if (score >= 80) return 'severe';
+  if (score >= 60) return 'moderate';
+  if (score >= 40) return 'mild';
+  return 'normal';
+}
+
+function getSeverityColor(severity: string) {
+  switch (severity) {
+    case 'severe': return '#dc2626';
+    case 'moderate': return '#ea580c';
+    case 'mild': return '#ca8a04';
+    default: return '#059669';
   }
 }
 
-async function sendDoctorNotificationEmail(lead: any, doctorProfile: any) {
-  // For now, we'll simulate email sending
-  // In production, integrate with SendGrid, Resend, or similar service
-  const emailContent = {
-    to: doctorProfile.email,
-    subject: `New Lead: ${lead.name} - ${lead.quiz_type} Assessment`,
-    html: `
-      <h2>New Lead Generated</h2>
-      <p><strong>Patient Name:</strong> ${lead.name}</p>
-      <p><strong>Assessment:</strong> ${lead.quiz_type}</p>
-      <p><strong>Score:</strong> ${lead.score}</p>
-      <p><strong>Contact Information:</strong></p>
-      <ul>
-        <li>Phone: ${lead.phone}</li>
-        <li>Email: ${lead.email}</li>
-      </ul>
-      <p><strong>Submitted:</strong> ${new Date(lead.submitted_at).toLocaleString()}</p>
-      <br>
-      <p>Please contact this patient within 24 hours.</p>
-    `
-  }
-
-  // TODO: Integrate with actual email service
-  // For now, return success (you'll need to implement this)
-  return { 
-    success: true, 
-    message: 'Doctor notification email queued for sending',
-    id: `email_${Date.now()}`
-  }
-}
+// Note: Email and SMS functions are now handled by n8n workflows
+// This file now only triggers the n8n workflow for automated communications

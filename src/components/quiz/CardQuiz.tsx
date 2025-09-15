@@ -42,6 +42,9 @@ export function CardQuiz() {
   const [submittingLead, setSubmittingLead] = useState(false);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [direction, setDirection] = useState(0);
+  const [leadSubmitted, setLeadSubmitted] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(true);
+  const [quizStarted, setQuizStarted] = useState(false);
   
   // Lead capture form
   const [leadData, setLeadData] = useState({
@@ -76,8 +79,21 @@ export function CardQuiz() {
     fetchDoctorProfile();
   }, [doctorId]);
 
+  // Prevent quiz from restarting randomly by adding guards
+  useEffect(() => {
+    // Only reset quiz state if we're going back to welcome screen
+    if (showWelcome && quizStarted) {
+      setQuizStarted(false);
+    }
+  }, [showWelcome, quizStarted]);
+
 
   const handleAnswer = (answerIndex: number, answer: string) => {
+    // Guard against calling when quiz is not active
+    if (!quizStarted || quizCompleted || leadSubmitted) {
+      return;
+    }
+    
     setSelectedOption(answerIndex);
     
     // Delay to show the selection before moving to next question
@@ -108,6 +124,18 @@ export function CardQuiz() {
     }, 200);
   };
 
+  const startQuiz = () => {
+    setShowWelcome(false);
+    setQuizStarted(true);
+    // Reset any previous quiz state
+    setCurrentQuestion(0);
+    setAnswers([]);
+    setQuizCompleted(false);
+    setShowResults(false);
+    setLeadSubmitted(false);
+    setSelectedOption(null);
+  };
+
   const proceedToLeadCapture = () => {
     setShowResults(false);
     setShowLeadCapture(true);
@@ -116,6 +144,11 @@ export function CardQuiz() {
   const handleLeadSubmit = async () => {
     if (!leadData.name || !leadData.email || !leadData.phone) {
       toast.error('Please fill in all required fields');
+      return;
+    }
+
+    // Prevent multiple submissions
+    if (submittingLead || leadSubmitted) {
       return;
     }
 
@@ -143,12 +176,13 @@ export function CardQuiz() {
         throw error;
       }
       
-      toast.success('Thank you! Your detailed report has been submitted successfully.');
-      
       // Reset form and show success state
       setLeadData({ name: '', email: '', phone: '' });
       setShowLeadCapture(false);
-      setQuizCompleted(true);
+      setLeadSubmitted(true);
+      
+      // Show success message
+      toast.success('Thank you! Your results have been sent to your doctor.');
       
     } catch (error) {
       console.error('Error submitting lead:', error);
@@ -249,7 +283,7 @@ export function CardQuiz() {
                 {/* Doctor Name and Clinic */}
                 <div className="text-center">
                   <motion.h1 
-                    className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white"
+                    className="text-2xl md:text-4xl font-bold text-gray-900 dark:text-white"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.3, delay: 0.3 }}
@@ -257,7 +291,7 @@ export function CardQuiz() {
                     Dr. {doctorProfile.first_name} {doctorProfile.last_name}
                   </motion.h1>
                   <motion.p 
-                    className="text-sm md:text-lg text-gray-600 dark:text-gray-300"
+                    className="text-lg md:text-2xl text-gray-600 dark:text-gray-300"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.3, delay: 0.4 }}
@@ -303,7 +337,36 @@ export function CardQuiz() {
         <Card className="w-full bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-0 shadow-2xl rounded-2xl overflow-hidden">
           <CardContent className="p-8 md:p-12 w-full">
             <AnimatePresence mode="wait">
-              {!quizCompleted ? (
+              {showWelcome ? (
+                <motion.div 
+                  key="welcome"
+                  className="text-center space-y-8"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="space-y-4">
+                    <h1 className="text-2xl md:text-4xl font-bold text-gray-900 dark:text-white">
+                      Start your {quizId.toUpperCase()} test here
+                    </h1>
+                    <p className="text-sm md:text-lg text-gray-600 dark:text-gray-300">
+                      Answer a few questions to get your personalized assessment
+                    </p>
+                  </div>
+                  
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Button
+                      onClick={startQuiz}
+                      className="w-full py-4 md:py-6 text-lg md:text-xl font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0 rounded-xl transition-all duration-300"
+                    >
+                      Start Test
+                    </Button>
+                  </motion.div>
+                </motion.div>
+              ) : quizStarted && !quizCompleted && !leadSubmitted ? (
                 <motion.div 
                   key="question"
                   className="space-y-8"
@@ -338,8 +401,8 @@ export function CardQuiz() {
                             onClick={() => handleAnswer(index, option)}
                             className={`w-full py-4 md:py-6 px-6 md:px-8 text-sm md:text-lg font-medium rounded-xl transition-all duration-300 flex items-center justify-between ${
                               selectedOption === index 
-                                ? 'bg-blue-600 text-white border-blue-700 shadow-lg shadow-blue-200 dark:shadow-blue-900/30' 
-                                : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-2 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700'
+                                ? 'bg-gray-300 text-white border-blue-700 shadow-lg shadow-blue-200 dark:shadow-blue-900/30' 
+                                : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-2 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-300'
                             }`}
                             disabled={selectedOption !== null}
                           >
@@ -362,193 +425,136 @@ export function CardQuiz() {
               ) : showResults ? (
                 <motion.div 
                   key="results"
-                  className="text-center space-y-6"
+                  className="space-y-6"
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <motion.div 
-                    className="text-6xl"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ duration: 0.4, delay: 0.1, type: "spring" }}
-                  >
-                    🎉
-                  </motion.div>
-                  <h2 className="text-xl md:text-3xl font-bold text-gray-900 dark:text-white">Assessment Complete!</h2>
-                  
-                  {/* Results Display */}
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-800">
-                    <h3 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Your Results</h3>
-                    <div className="text-center space-y-3">
-                      <div className="text-2xl md:text-4xl font-bold text-blue-600 dark:text-blue-400">
-                        {quizResult?.score}/{quiz?.maxScore || 100}
-                      </div>
-                      <div className={`text-sm md:text-lg font-medium px-3 md:px-4 py-2 rounded-full inline-block ${
-                        quizResult?.severity === 'severe' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400' :
-                        quizResult?.severity === 'moderate' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' :
-                        quizResult?.severity === 'mild' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' :
-                        'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                      }`}>
-                        {quizResult?.severity?.charAt(0).toUpperCase() + quizResult?.severity?.slice(1)} Symptoms
-                      </div>
-                      <p className="text-gray-600 dark:text-gray-300 text-xs md:text-sm leading-relaxed">
-                        {quizResult?.interpretation}
-                      </p>
+                  {/* Short Results Display */}
+                  <div className="text-center">
+                    <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white mb-2">{quizId.toUpperCase()} Assessment Complete!</h2>
+                    <div className="text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400 mb-2">
+                      Score: {quizResult?.score}/{quiz?.maxScore || 100}
+                    </div>
+                    <div className={`text-sm font-medium px-3 py-1 rounded-full inline-block ${
+                      quizResult?.severity === 'severe' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400' :
+                      quizResult?.severity === 'moderate' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' :
+                      quizResult?.severity === 'mild' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' :
+                      'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                    }`}>
+                      {quizResult?.severity?.charAt(0).toUpperCase() + quizResult?.severity?.slice(1)} Symptoms
                     </div>
                   </div>
                   
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <Button
-                      onClick={proceedToLeadCapture}
-                      className="w-full py-3 md:py-4 text-sm md:text-lg font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0 rounded-xl transition-all duration-300"
-                    >
-                      Submit Your Results <ChevronRight className="ml-2 h-5 w-5" />
-                    </Button>
-                  </motion.div>
+                  {/* Information Form - Show in same area */}
+                  {!leadSubmitted ? (
+                    <div className="space-y-4">
+                      <div className="text-center">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Please provide your information</h3>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div className="relative group">
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200">
+                            <User size={18} />
+                          </div>
+                          <Input
+                            type="text"
+                            placeholder="Full Name *"
+                            value={leadData.name}
+                            onChange={(e) => setLeadData(prev => ({ ...prev, name: e.target.value }))}
+                            className="w-full py-2 md:py-3 pl-10 pr-4 text-sm md:text-lg border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white transition-all duration-200"
+                          />
+                        </div>
+                        
+                        <div className="relative group">
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200">
+                            <Mail size={18} />
+                          </div>
+                          <Input
+                            type="email"
+                            placeholder="Email Address *"
+                            value={leadData.email}
+                            onChange={(e) => setLeadData(prev => ({ ...prev, email: e.target.value }))}
+                            className="w-full py-2 md:py-3 pl-10 pr-4 text-sm md:text-lg border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white transition-all duration-200"
+                          />
+                        </div>
+                        
+                        <div className="relative group">
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200">
+                            <Phone size={18} />
+                          </div>
+                          <Input
+                            type="tel"
+                            placeholder="Phone Number *"
+                            value={leadData.phone}
+                            onChange={(e) => setLeadData(prev => ({ ...prev, phone: e.target.value }))}
+                            className="w-full py-2 md:py-3 pl-10 pr-4 text-sm md:text-lg border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white transition-all duration-200"
+                          />
+                        </div>
+                      </div>
+                      
+                      <Button
+                        onClick={handleLeadSubmit}
+                        disabled={submittingLead || !leadData.name || !leadData.email || !leadData.phone}
+                        className="w-full py-3 md:py-4 text-sm md:text-lg font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {submittingLead ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Submitting...
+                          </>
+                        ) : (
+                          'Submit Information'
+                        )}
+                      </Button>
+                    </div>
+                  ) : (
+                    /* Thank You Message - Show after submission */
+                    <div className="text-center space-y-4">
+                      <h3 className="text-xl md:text-3xl font-bold text-gray-900 dark:text-white">Thank You!</h3>
+                      <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300">
+                        Your Result has been successfully submitted to Dr. {doctorProfile?.first_name} {doctorProfile?.last_name} 
+                      </p>
+                    </div>
+                  )}
                 </motion.div>
-              ) : (
-                <motion.div 
-                  key="completed"
-                  className="text-center space-y-6"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <div className="text-4xl md:text-6xl">✅</div>
-                  <h2 className="text-xl md:text-3xl font-bold text-gray-900 dark:text-white">Thank You!</h2>
-                  <p className="text-sm md:text-lg text-gray-600 dark:text-gray-300">
-                    Your information has been submitted successfully. We'll be in touch soon!
-                  </p>
-                </motion.div>
-              )}
+              ) : null}
             </AnimatePresence>
           </CardContent>
         </Card>
 
-        {/* Progress Bar */}
-        <motion.div 
-          className="w-full space-y-2"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3, delay: 0.3 }}
-        >
-          <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300">
-            <span>Progress</span>
-            <span>{Math.round(progress)}%</span>
-          </div>
-          <div className="relative h-3 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-            <motion.div
-              className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full"
-              initial={{ width: 0 }}
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.3, ease: "easeOut" }}
-            />
-            <motion.div 
-              className="absolute top-0 left-0 h-full w-full bg-gradient-to-r from-transparent via-white/20 to-transparent"
-              animate={{ x: ["0%", "100%"] }}
-              transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-            />
-          </div>
-          <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-            Question {currentQuestion + 1} of {quiz.questions.length}
-          </p>
-        </motion.div>
+        {/* Progress Bar - Only show during quiz */}
+        {quizStarted && !quizCompleted && !leadSubmitted && (
+          <motion.div 
+            className="w-full space-y-2"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3, delay: 0.3 }}
+          >
+            <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300">
+              <span>Progress</span>
+              <span>{Math.round(progress)}%</span>
+            </div>
+            <div className="relative h-3 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+              <motion.div
+                className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full"
+                initial={{ width: 0 }}
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+              />
+              <motion.div 
+                className="absolute top-0 left-0 h-full w-full bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                animate={{ x: ["0%", "100%"] }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+              />
+            </div>
+            <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+              Question {currentQuestion + 1} of {quiz.questions.length}
+            </p>
+          </motion.div>
+        )}
 
-        {/* Lead Capture Form */}
-        <AnimatePresence>
-          {showLeadCapture && (
-            <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 50 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Card className="w-full bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-0 shadow-xl rounded-2xl overflow-hidden">
-                <CardContent className="p-6 md:p-8">
-                  <div className="space-y-6">
-                    <div className="text-center">
-                      <h3 className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white mb-2">Submit your results</h3>
-                      <p className="text-sm md:text-base text-gray-600 dark:text-gray-300">Provide your details for proceeding ahead</p>
-                    </div>
-                    
-                    <div className="space-y-4">
-                      <div className="relative group">
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200">
-                          <User size={18} />
-                        </div>
-                        <Input
-                          type="text"
-                          placeholder="Full Name *"
-                          value={leadData.name}
-                          onChange={(e) => setLeadData(prev => ({ ...prev, name: e.target.value }))}
-                          className="w-full py-2 md:py-3 pl-10 pr-4 text-sm md:text-lg border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white transition-all duration-200"
-                        />
-                      </div>
-                      
-                      <div className="relative group">
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200">
-                          <Mail size={18} />
-                        </div>
-                        <Input
-                          type="email"
-                          placeholder="Email Address *"
-                          value={leadData.email}
-                          onChange={(e) => setLeadData(prev => ({ ...prev, email: e.target.value }))}
-                          className="w-full py-2 md:py-3 pl-10 pr-4 text-sm md:text-lg border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white transition-all duration-200"
-                        />
-                      </div>
-                      
-                      <div className="relative group">
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200">
-                          <Phone size={18} />
-                        </div>
-                        <Input
-                          type="tel"
-                          placeholder="Phone Number *"
-                          value={leadData.phone}
-                          onChange={(e) => setLeadData(prev => ({ ...prev, phone: e.target.value }))}
-                          className="w-full py-2 md:py-3 pl-10 pr-4 text-sm md:text-lg border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white transition-all duration-200"
-                        />
-                      </div>
-                    </div>
-
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <Button
-                        onClick={handleLeadSubmit}
-                        disabled={submittingLead}
-                        className="w-full py-3 md:py-4 text-sm md:text-lg font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0 rounded-xl transition-all duration-300 relative overflow-hidden"
-                      >
-                        <span className={`transition-opacity duration-200 ${submittingLead ? 'opacity-0' : 'opacity-100'} flex items-center justify-center`}>
-                          Submit & Get Report <ChevronRight className="ml-2 h-5 w-5" />
-                        </span>
-                        
-                        {submittingLead && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <Loader2 className="h-6 w-6 animate-spin" />
-                          </div>
-                        )}
-                        
-                        <motion.div 
-                          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                          initial={{ x: "-100%" }}
-                          animate={{ x: "100%" }}
-                          transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                        />
-                      </Button>
-                    </motion.div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </motion.div>
     </div>
   );

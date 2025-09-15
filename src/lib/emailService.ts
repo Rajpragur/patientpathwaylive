@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { generateWelcomeEmail, generateDoctorNotificationEmail, generateFollowUpEmail } from './emailTemplates';
 import type { EmailTemplateData } from './emailTemplates';
+import { resendService } from './resendService';
 
 export interface EmailServiceConfig {
   enabled: boolean;
@@ -107,6 +108,7 @@ export class EmailService {
     html: string;
     text?: string;
     from?: string;
+    doctorId?: string;
   }): Promise<EmailResult> {
     if (!this.config.enabled) {
       return {
@@ -116,9 +118,12 @@ export class EmailService {
     }
 
     try {
-      // Try to send via Supabase edge function first
-      const { data, error } = await supabase.functions.invoke('send-email', {
-        body: emailData
+      // Try to send via Resend edge function first
+      const { data, error } = await supabase.functions.invoke('send-resend-email', {
+        body: {
+          ...emailData,
+          from: emailData.from || 'noreply@patientpathway.ai'
+        }
       });
 
       if (error) {
@@ -128,20 +133,20 @@ export class EmailService {
       if (data?.success) {
         return {
           success: true,
-          id: data.data?.id || `email_${Date.now()}`,
-          message: 'Email sent successfully'
+          id: data.id || `email_${Date.now()}`,
+          message: 'Email sent successfully via Resend'
         };
       } else {
         throw new Error(data?.error || 'Email sending failed');
       }
     } catch (error) {
-      // If Supabase function fails, try fallback
+      // If Supabase function fails, try direct Resend API
       return this.fallbackEmailSending(emailData);
     }
   }
 
   /**
-   * Fallback email sending (for development/testing)
+   * Fallback email sending using Resend directly
    */
   private async fallbackEmailSending(emailData: {
     to: string;
@@ -149,6 +154,7 @@ export class EmailService {
     html: string;
     text?: string;
     from?: string;
+    doctorId?: string;
   }): Promise<EmailResult> {
     // In development, just log the email
     const isDevelopment = typeof window !== 'undefined' && 
@@ -158,7 +164,7 @@ export class EmailService {
       console.log('📧 Email would be sent (development mode):', {
         to: emailData.to,
         subject: emailData.subject,
-        from: emailData.from || 'noreply@patientpathway.com'
+        from: emailData.from || 'noreply@patientpathway.ai'
       });
 
       return {
@@ -168,42 +174,15 @@ export class EmailService {
       };
     }
 
-    // In production, implement actual fallback (e.g., direct API call to email service)
+    // Use Resend service directly as fallback
     try {
-      // This would be a direct call to Resend, SendGrid, etc.
-      const apiKey = typeof window !== 'undefined' ? 
-        (window as any).REACT_APP_RESEND_API_KEY : 
-        process.env.REACT_APP_RESEND_API_KEY;
-        
-      if (!apiKey) {
-        throw new Error('Email API key not configured');
-      }
-
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: emailData.from || 'noreply@patientpathway.com',
-          to: emailData.to,
-          subject: emailData.subject,
-          html: emailData.html,
-          text: emailData.text || emailData.html.replace(/<[^>]*>/g, '')
-        }),
+      return await resendService.sendEmail({
+        to: emailData.to,
+        subject: emailData.subject,
+        html: emailData.html,
+        text: emailData.text,
+        from: emailData.from || 'noreply@patientpathway.ai'
       });
-
-      if (!response.ok) {
-        throw new Error(`Email service error: ${response.status}`);
-      }
-
-      const result = await response.json();
-      return {
-        success: true,
-        id: result.id,
-        message: 'Email sent via fallback service'
-      };
     } catch (error) {
       return {
         success: false,

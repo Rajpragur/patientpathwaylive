@@ -20,6 +20,7 @@ import {
   Globe,
   Users,
   TestTube,
+  Mail,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -59,6 +60,12 @@ const mainMenuItems = [
     label: 'Integrations',
     icon: <Globe size={22} />,
     description: 'Connect services'
+  },
+  {
+    id: 'email-config',
+    label: 'Email Setup',
+    icon: <Mail size={22} />,
+    description: 'Configure email settings'
   },
 ];
 

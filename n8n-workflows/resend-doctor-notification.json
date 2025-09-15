@@ -1,0 +1,331 @@
+{
+  "name": "Resend Doctor Notification Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Lead Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "lead-resend-notification"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract and process lead data from webhook\nconst webhookData = $input.first().json;\nconst lead = webhookData.lead;\nconst doctor = webhookData.doctor;\nconst quizData = webhookData.quiz_data;\n\n// Set workflow variables for easy access\n$vars.set('leadId', lead.id);\n$vars.set('leadName', lead.name);\n$vars.set('leadEmail', lead.email);\n$vars.set('leadPhone', lead.phone);\n$vars.set('quizType', lead.quiz_type);\n$vars.set('quizScore', lead.score);\n$vars.set('leadSource', lead.lead_source || 'website');\n$vars.set('submittedAt', lead.submitted_at);\n$vars.set('leadAnswers', lead.answers || {});\n\n// Doctor information\n$vars.set('doctorId', doctor?.id);\n$vars.set('doctorName', doctor?.first_name && doctor?.last_name ? `${doctor.first_name} ${doctor.last_name}` : 'Dr. Smith');\n$vars.set('doctorEmail', doctor?.email);\n$vars.set('doctorEmailPrefix', doctor?.email_prefix);\n$vars.set('clinicName', doctor?.clinic_name || 'Medical Practice');\n$vars.set('clinicLocation', doctor?.location || '');\n$vars.set('clinicPhone', doctor?.phone || '');\n\n// Generate dashboard URL\nconst dashboardUrl = `${$env.APP_URL || 'https://patientpathway.ai'}/portal?tab=dashboard`;\n$vars.set('dashboardUrl', dashboardUrl);\n\n// Communication preferences\n$vars.set('shouldSendWelcomeEmail', !!lead.email);\n$vars.set('shouldNotifyDoctor', !!doctor?.email);\n\n// Generate email content\nconst welcomeEmailSubject = `Your ${lead.quiz_type} Assessment Results - ${doctor?.clinic_name || 'Medical Practice'}`;\nconst welcomeEmailHtml = generateWelcomeEmail(lead, doctor, quizData);\n\nconst doctorNotificationSubject = `🚨 New Lead: ${lead.name} - ${lead.quiz_type} Assessment (Score: ${lead.score})`;\nconst doctorNotificationHtml = generateDoctorNotificationEmail(lead, doctor, quizData, dashboardUrl);\n\n// Return structured data for next nodes\nreturn {\n  lead,\n  doctor,\n  quizData,\n  emails: {\n    welcome: {\n      to: lead.email,\n      subject: welcomeEmailSubject,\n      html: welcomeEmailHtml,\n      type: 'welcome'\n    },\n    doctorNotification: {\n      to: doctor?.email,\n      subject: doctorNotificationSubject,\n      html: doctorNotificationHtml,\n      type: 'doctor_notification'\n    }\n  },\n  communicationFlags: {\n    welcomeEmail: !!lead.email,\n    doctorNotification: !!doctor?.email\n  }\n};\n\nfunction generateWelcomeEmail(lead, doctor, quizData) {\n  const severity = getSeverityLevel(lead.score, quizData);\n  const severityColor = getSeverityColor(severity);\n  \n  return `\n    <!DOCTYPE html>\n    <html>\n    <head>\n      <meta charset=\"utf-8\">\n      <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n      <title>Assessment Results</title>\n      <style>\n        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n        .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n        .header { background: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }\n        .content { background: #f8fafc; padding: 20px; border-radius: 0 0 8px 8px; }\n        .score-box { background: white; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center; }\n        .severity-badge { display: inline-block; padding: 8px 16px; border-radius: 20px; color: white; font-weight: bold; }\n        .cta-button { display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }\n        .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }\n      </style>\n    </head>\n    <body>\n      <div class=\"container\">\n        <div class=\"header\">\n          <h1>Assessment Complete!</h1>\n          <p>Thank you for completing the ${lead.quiz_type} assessment</p>\n        </div>\n        \n        <div class=\"content\">\n          <h2>Hello ${lead.name},</h2>\n          \n          <p>We've received your assessment results and are reviewing them carefully.</p>\n          \n          <div class=\"score-box\">\n            <h3>Your Assessment Score</h3>\n            <div style=\"font-size: 48px; font-weight: bold; color: #2563eb; margin: 10px 0;\">\n              ${lead.score}\n            </div>\n            <div class=\"severity-badge\" style=\"background: ${severityColor};\">\n              ${severity.toUpperCase()}\n            </div>\n          </div>\n          \n          <p><strong>What happens next?</strong></p>\n          <ul>\n            <li>Dr. ${doctor?.first_name || 'Smith'} will review your results</li>\n            <li>You'll receive a follow-up call within 24 hours</li>\n            <li>We'll discuss your treatment options and next steps</li>\n          </ul>\n          \n          <p><strong>Need immediate assistance?</strong></p>\n          <p>If you have urgent questions or concerns, please call us directly.</p>\n          \n          <a href=\"tel:${doctor?.phone || ''}\" class=\"cta-button\">Call Now</a>\n        </div>\n        \n        <div class=\"footer\">\n          <p>This email was sent to ${lead.email}</p>\n          <p>© ${new Date().getFullYear()} ${doctor?.clinic_name || 'Medical Practice'}. All rights reserved.</p>\n        </div>\n      </div>\n    </body>\n    </html>\n  `;\n}\n\nfunction generateDoctorNotificationEmail(lead, doctor, quizData, dashboardUrl) {\n  const severity = getSeverityLevel(lead.score, quizData);\n  const severityColor = getSeverityColor(severity);\n  \n  // Generate quiz answers summary\n  const answersSummary = generateAnswersSummary(lead.answers, quizData);\n  \n  return `\n    <!DOCTYPE html>\n    <html>\n    <head>\n      <meta charset=\"utf-8\">\n      <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n      <title>New Lead Notification</title>\n      <style>\n        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n        .container { max-width: 700px; margin: 0 auto; padding: 20px; }\n        .header { background: #dc2626; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }\n        .content { background: #f8fafc; padding: 20px; border-radius: 0 0 8px 8px; }\n        .lead-info { background: white; padding: 15px; border-radius: 8px; margin: 20px 0; }\n        .urgent { border-left: 4px solid #dc2626; }\n        .cta-button { display: inline-block; background: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }\n        .dashboard-button { display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 10px 20px 0; }\n        .answers-table { width: 100%; border-collapse: collapse; margin: 15px 0; }\n        .answers-table th, .answers-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }\n        .answers-table th { background-color: #f2f2f2; }\n        .score-highlight { font-size: 24px; font-weight: bold; color: ${severityColor}; }\n      </style>\n    </head>\n    <body>\n      <div class=\"container\">\n        <div class=\"header\">\n          <h1>🚨 New Lead Alert</h1>\n          <p>Patient assessment completed - Action Required</p>\n        </div>\n        \n        <div class=\"content\">\n          <h2>New Patient Assessment</h2>\n          \n          <div class=\"lead-info urgent\">\n            <h3>Patient Information</h3>\n            <p><strong>Name:</strong> ${lead.name}</p>\n            <p><strong>Assessment:</strong> ${lead.quiz_type}</p>\n            <p><strong>Score:</strong> <span class=\"score-highlight\">${lead.score}</span></p>\n            <p><strong>Severity:</strong> <span style=\"color: ${severityColor}; font-weight: bold;\">${severity.toUpperCase()}</span></p>\n            <p><strong>Submitted:</strong> ${new Date(lead.submitted_at).toLocaleString()}</p>\n            <p><strong>Source:</strong> ${lead.lead_source}</p>\n          </div>\n          \n          <div class=\"lead-info\">\n            <h3>Contact Information</h3>\n            <p><strong>Phone:</strong> <a href=\"tel:${lead.phone}\">${lead.phone}</a></p>\n            <p><strong>Email:</strong> <a href=\"mailto:${lead.email}\">${lead.email}</a></p>\n          </div>\n          \n          ${answersSummary}\n          \n          <div class=\"lead-info\">\n            <h3>Quick Actions</h3>\n            <p><strong>Action Required:</strong> Please contact this patient within 24 hours.</p>\n            <a href=\"tel:${lead.phone}\" class=\"cta-button\">📞 Call Patient Now</a>\n            <a href=\"mailto:${lead.email}\" class=\"cta-button\">✉️ Email Patient</a>\n            <a href=\"${dashboardUrl}\" class=\"dashboard-button\">📊 View Dashboard</a>\n          </div>\n          \n          <div class=\"lead-info\">\n            <h3>Next Steps</h3>\n            <ol>\n              <li>Review the patient's assessment results above</li>\n              <li>Contact the patient within 24 hours</li>\n              <li>Schedule an appointment if needed</li>\n              <li>Update the lead status in your dashboard</li>\n            </ol>\n          </div>\n        </div>\n        \n        <div style=\"text-align: center; margin-top: 30px; padding: 20px; background: #f0f9ff; border-radius: 8px;\">\n          <p><strong>Dashboard Access</strong></p>\n          <p>View all leads and manage this patient in your dashboard:</p>\n          <a href=\"${dashboardUrl}\" class=\"dashboard-button\">Open Dashboard</a>\n        </div>\n      </div>\n    </body>\n    </html>\n  `;\n}\n\nfunction generateAnswersSummary(answers, quizData) {\n  if (!answers || Object.keys(answers).length === 0) {\n    return '<div class=\"lead-info\"><h3>Assessment Details</h3><p>Detailed answers not available.</p></div>';\n  }\n  \n  let summary = '<div class=\"lead-info\"><h3>Assessment Details</h3><table class=\"answers-table\">';\n  summary += '<tr><th>Question</th><th>Answer</th><th>Score</th></tr>';\n  \n  // Process answers (this is a simplified version)\n  Object.entries(answers).forEach(([key, value], index) => {\n    const question = `Question ${index + 1}`;\n    const answer = typeof value === 'object' ? JSON.stringify(value) : value;\n    const score = typeof value === 'number' ? value : 'N/A';\n    \n    summary += `<tr><td>${question}</td><td>${answer}</td><td>${score}</td></tr>`;\n  });\n  \n  summary += '</table></div>';\n  return summary;\n}\n\nfunction getSeverityLevel(score, quizData) {\n  if (!quizData || !quizData.maxScore) return 'normal';\n  const percentage = (score / quizData.maxScore) * 100;\n  \n  if (percentage >= 80) return 'severe';\n  if (percentage >= 60) return 'moderate';\n  if (percentage >= 40) return 'mild';\n  return 'normal';\n}\n\nfunction getSeverityColor(severity) {\n  switch (severity) {\n    case 'severe': return '#dc2626';\n    case 'moderate': return '#ea580c';\n    case 'mild': return '#ca8a04';\n    default: return '#059669';\n  }\n}"
+      },
+      "id": "process-lead-data",
+      "name": "Process Lead Data & Generate Emails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-1",
+              "leftValue": "={{ $vars.get('shouldSendWelcomeEmail') }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-welcome-email",
+      "name": "Should Send Welcome Email?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-1",
+              "leftValue": "={{ $vars.get('shouldNotifyDoctor') }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-doctor-notification",
+      "name": "Should Notify Doctor?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "httpHeaderAuth": "Bearer {{ $env.RESEND_API_KEY }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.RESEND_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "from",
+              "value": "noreply@patientpathway.ai"
+            },
+            {
+              "name": "to",
+              "value": "={{ $json.emails.welcome.to }}"
+            },
+            {
+              "name": "subject",
+              "value": "={{ $json.emails.welcome.subject }}"
+            },
+            {
+              "name": "html",
+              "value": "={{ $json.emails.welcome.html }}"
+            }
+          ]
+        }
+      },
+      "id": "send-welcome-email",
+      "name": "Send Welcome Email (Resend)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "httpHeaderAuth": "Bearer {{ $env.RESEND_API_KEY }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.RESEND_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "from",
+              "value": "={{ $vars.get('doctorEmailPrefix') ? 'dr.' + $vars.get('doctorEmailPrefix') + '@patientpathway.ai' : 'noreply@patientpathway.ai' }}"
+            },
+            {
+              "name": "to",
+              "value": "={{ $json.emails.doctorNotification.to }}"
+            },
+            {
+              "name": "subject",
+              "value": "={{ $json.emails.doctorNotification.subject }}"
+            },
+            {
+              "name": "html",
+              "value": "={{ $json.emails.doctorNotification.html }}"
+            },
+            {
+              "name": "reply_to",
+              "value": "={{ $vars.get('doctorEmail') }}"
+            }
+          ]
+        }
+      },
+      "id": "send-doctor-notification",
+      "name": "Send Doctor Notification (Resend)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect all email sending results\nconst results = [];\nconst errors = [];\n\n// Process welcome email result\nif ($input.all()[0]?.json?.id) {\n  results.push({\n    type: 'welcome_email',\n    status: 'sent',\n    recipient: $vars.get('leadEmail'),\n    emailId: $input.all()[0]?.json?.id\n  });\n} else {\n  errors.push({\n    type: 'welcome_email',\n    status: 'failed',\n    recipient: $vars.get('leadEmail'),\n    error: $input.all()[0]?.json?.error || 'Unknown error'\n  });\n}\n\n// Process doctor notification result\nif ($input.all()[1]?.json?.id) {\n  results.push({\n    type: 'doctor_notification',\n    status: 'sent',\n    recipient: $vars.get('doctorEmail'),\n    emailId: $input.all()[1]?.json?.id\n  });\n} else {\n  errors.push({\n    type: 'doctor_notification',\n    status: 'failed',\n    recipient: $vars.get('doctorEmail'),\n    error: $input.all()[1]?.json?.error || 'Unknown error'\n  });\n}\n\n// Create comprehensive summary\nconst summary = {\n  leadId: $vars.get('leadId'),\n  leadName: $vars.get('leadName'),\n  doctorName: $vars.get('doctorName'),\n  quizType: $vars.get('quizType'),\n  quizScore: $vars.get('quizScore'),\n  timestamp: new Date().toISOString(),\n  emailsSent: results.length,\n  emailsFailed: errors.length,\n  totalEmails: results.length + errors.length,\n  results,\n  errors,\n  success: errors.length === 0,\n  dashboardUrl: $vars.get('dashboardUrl')\n};\n\nconsole.log('Resend email automation completed:', summary);\nreturn summary;"
+      },
+      "id": "log-email-results",
+      "name": "Log Email Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "resource": "database",
+        "operation": "insert",
+        "table": "email_logs",
+        "columns": "doctor_id,recipient_email,subject,status,resend_id,metadata",
+        "values": "={{ $vars.get('doctorId') }},{{ $vars.get('doctorEmail') }},New Lead: {{ $vars.get('leadName') }} - {{ $vars.get('quizType') }} Assessment,{{ $json.success ? 'sent' : 'failed' }},{{ $json.results.find(r => r.type === 'doctor_notification')?.emailId || 'N/A' }},{{ JSON.stringify({ workflow: 'n8n-resend-doctor-notification', timestamp: new Date().toISOString(), emailsSent: $json.emailsSent, emailsFailed: $json.emailsFailed, leadId: $json.leadId, quizType: $json.quizType, quizScore: $json.quizScore }) }}"
+      },
+      "id": "save-to-database",
+      "name": "Save Email Log",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, message: 'Lead processed and notifications sent', leadId: $vars.get('leadId'), emailsSent: $json.emailsSent, emailsFailed: $json.emailsFailed }) }}"
+      },
+      "id": "webhook-response",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1560, 300]
+    }
+  ],
+  "connections": {
+    "Lead Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Lead Data & Generate Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Lead Data & Generate Emails": {
+      "main": [
+        [
+          {
+            "node": "Should Send Welcome Email?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Should Notify Doctor?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Send Welcome Email?": {
+      "main": [
+        [
+          {
+            "node": "Send Welcome Email (Resend)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Notify Doctor?": {
+      "main": [
+        [
+          {
+            "node": "Send Doctor Notification (Resend)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Welcome Email (Resend)": {
+      "main": [
+        [
+          {
+            "node": "Log Email Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Doctor Notification (Resend)": {
+      "main": [
+        [
+          {
+            "node": "Log Email Results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Log Email Results": {
+      "main": [
+        [
+          {
+            "node": "Save Email Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Email Log": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "resend-doctor-notification",
+      "name": "Resend Doctor Notification"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}

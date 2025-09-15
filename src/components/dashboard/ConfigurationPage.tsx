@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Building, MapPin, Mail, Phone, Users, Upload } from 'lucide-react';
+import { Loader2, Building, MapPin, Mail, Phone, Users, Upload, UserPlus, X } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
 export function ConfigurationPage() {
@@ -28,6 +28,13 @@ export function ConfigurationPage() {
   const [isContactListOpen, setIsContactListOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doctorId, setDoctorId] = useState<string | null>(null);
+  
+  // Team member states
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteFirstName, setInviteFirstName] = useState('');
+  const [inviteLastName, setInviteLastName] = useState('');
+  const [inviting, setInviting] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -67,6 +74,8 @@ export function ConfigurationPage() {
           logo_url: profile.logo_url || '',
           providers: profile.providers || ''
         });
+        // Fetch team members for existing profile
+        await fetchTeamMembers(profile.id);
       } else {
         console.log('No doctor profile found, creating one...');
         
@@ -101,6 +110,8 @@ export function ConfigurationPage() {
             logo_url: '',
             providers: ''
           });
+          // Fetch team members for the new profile
+          await fetchTeamMembers(newProfile[0].id);
         } else {
           setError('Failed to create doctor profile');
         }
@@ -110,6 +121,93 @@ export function ConfigurationPage() {
       setError('Failed to load clinic configuration');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTeamMembers = async (doctorId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('team_members')
+        .select('*')
+        .eq('doctor_id', doctorId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching team members:', error);
+        return;
+      }
+
+      setTeamMembers(data || []);
+    } catch (error) {
+      console.error('Error fetching team members:', error);
+    }
+  };
+
+  const handleInviteTeamMember = async () => {
+    if (!inviteEmail || !doctorId) {
+      toast.error('Please enter an email address');
+      return;
+    }
+
+    if (!inviteEmail.includes('@')) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    setInviting(true);
+    try {
+      const { data, error } = await supabase
+        .from('team_members')
+        .insert([{
+          doctor_id: doctorId,
+          email: inviteEmail.toLowerCase().trim(),
+          first_name: inviteFirstName.trim() || null,
+          last_name: inviteLastName.trim() || null,
+          invited_by: user?.id,
+          status: 'pending'
+        }])
+        .select();
+
+      if (error) {
+        if (error.code === '23505') { // Unique constraint violation
+          toast.error('This email is already invited to a doctor office');
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      toast.success('Team member invitation sent successfully');
+      
+      // Clear form
+      setInviteEmail('');
+      setInviteFirstName('');
+      setInviteLastName('');
+      
+      // Refresh team members list
+      await fetchTeamMembers(doctorId);
+    } catch (error) {
+      console.error('Error inviting team member:', error);
+      toast.error('Failed to send invitation');
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const handleRemoveTeamMember = async (memberId: string) => {
+    try {
+      const { error } = await supabase
+        .from('team_members')
+        .delete()
+        .eq('id', memberId);
+
+      if (error) throw error;
+
+      toast.success('Team member removed successfully');
+      await fetchTeamMembers(doctorId!);
+    } catch (error) {
+      console.error('Error removing team member:', error);
+      toast.error('Failed to remove team member');
     }
   };
 
@@ -500,6 +598,125 @@ const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
                   </PopoverContent>
                 </Popover>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Team Member Management */}
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-indigo-500" />
+              Team Member Management
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Invite New Team Member */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Invite Team Member</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="invite_email">Email Address *</Label>
+                  <Input
+                    id="invite_email"
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="team.member@example.com"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="invite_first_name">First Name</Label>
+                  <Input
+                    id="invite_first_name"
+                    type="text"
+                    value={inviteFirstName}
+                    onChange={(e) => setInviteFirstName(e.target.value)}
+                    placeholder="John"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="invite_last_name">Last Name</Label>
+                  <Input
+                    id="invite_last_name"
+                    type="text"
+                    value={inviteLastName}
+                    onChange={(e) => setInviteLastName(e.target.value)}
+                    placeholder="Doe"
+                  />
+                </div>
+              </div>
+              <Button 
+                onClick={handleInviteTeamMember} 
+                disabled={inviting || !inviteEmail}
+                className="w-full md:w-auto"
+              >
+                {inviting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <UserPlus className="w-4 h-4 mr-2" />
+                )}
+                Send Invitation
+              </Button>
+            </div>
+
+            {/* Current Team Members */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Current Team Members</h3>
+              {teamMembers.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <UserPlus className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p>No team members yet. Invite someone to get started!</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {teamMembers.map((member) => (
+                    <div 
+                      key={member.id} 
+                      className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-gray-50"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                            <span className="text-sm font-medium text-indigo-600">
+                              {member.first_name ? member.first_name[0] : member.email[0].toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">
+                              {member.first_name && member.last_name 
+                                ? `${member.first_name} ${member.last_name}` 
+                                : member.email
+                              }
+                            </p>
+                            <p className="text-sm text-gray-500">{member.email}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          member.status === 'pending' 
+                            ? 'bg-yellow-100 text-yellow-800' 
+                            : member.status === 'accepted'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {member.status}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveTeamMember(member.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

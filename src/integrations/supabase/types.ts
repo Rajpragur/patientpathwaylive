@@ -184,6 +184,7 @@ export type Database = {
           created_at: string
           doctor_id: string | null
           email: string | null
+          email_prefix: string | null
           email_settings: Json | null
           first_name: string | null
           id: string
@@ -207,6 +208,7 @@ export type Database = {
           created_at?: string
           doctor_id?: string | null
           email?: string | null
+          email_prefix?: string | null
           email_settings?: Json | null
           first_name?: string | null
           id?: string
@@ -230,6 +232,7 @@ export type Database = {
           created_at?: string
           doctor_id?: string | null
           email?: string | null
+          email_prefix?: string | null
           email_settings?: Json | null
           first_name?: string | null
           id?: string
