@@ -166,6 +166,8 @@ export function EnhancedAdminDashboard() {
   const [leadNotes, setLeadNotes] = useState('');
   const [showMaskedLeads, setShowMaskedLeads] = useState(false);
   const [maskedLeads, setMaskedLeads] = useState<QuizLead[]>([]);
+  const [showDeleteLeadDialog, setShowDeleteLeadDialog] = useState(false);
+  const [leadToDelete, setLeadToDelete] = useState<QuizLead | null>(null);
   
   // Doctor editing states
   const [editingDoctor, setEditingDoctor] = useState<DoctorProfile | null>(null);
@@ -484,20 +486,126 @@ export function EnhancedAdminDashboard() {
   // Enhanced functions for lead and doctor management
   const deleteLead = async (leadId: string) => {
     try {
-      const { error } = await supabase
+      console.log('Deleting lead with ID:', leadId);
+      
+      const { data, error } = await supabase
         .from('quiz_leads')
         .delete()
-        .eq('id', leadId);
+        .eq('id', leadId)
+        .select();
 
       if (error) {
-        toast.error('Failed to delete lead');
+        console.error('Error deleting lead:', error);
+        console.error('Error details:', error.message, error.code, error.details);
+        toast.error(`Failed to delete lead: ${error.message}`);
         return;
       }
 
+      console.log('Delete response data:', data);
+      console.log('Number of rows deleted:', data?.length || 0);
+      
+      if (!data || data.length === 0) {
+        console.error('No rows were deleted - lead may not exist or no permission');
+        toast.error('Lead not found or no permission to delete');
+        return;
+      }
+
+      console.log('Lead deleted successfully from database');
+      
+      // Update local state
       setLeads(leads.filter(lead => lead.id !== leadId));
+      setStats(prev => ({ ...prev, totalLeads: prev.totalLeads - 1 }));
+      
+      console.log('Local state updated, lead count:', leads.length - 1);
       toast.success('Lead deleted successfully');
     } catch (error) {
+      console.error('Error in deleteLead:', error);
       toast.error('Failed to delete lead');
+    }
+  };
+
+  // Function to delete a lead from masked leads dialog
+  const deleteMaskedLead = async (leadId: string) => {
+    try {
+      console.log('Deleting masked lead with ID:', leadId);
+      console.log('Current masked leads count:', maskedLeads.length);
+      
+      const { data, error } = await supabase
+        .from('quiz_leads')
+        .delete()
+        .eq('id', leadId)
+        .select();
+
+      if (error) {
+        console.error('Error deleting masked lead:', error);
+        console.error('Error details:', error.message, error.code, error.details);
+        toast.error(`Failed to delete lead: ${error.message}`);
+        return;
+      }
+
+      console.log('Delete response data:', data);
+      console.log('Number of rows deleted:', data?.length || 0);
+      
+      if (!data || data.length === 0) {
+        console.error('No rows were deleted - lead may not exist or no permission');
+        toast.error('Lead not found or no permission to delete');
+        return;
+      }
+
+      console.log('Masked lead deleted successfully from database');
+      
+      // Update local state
+      const updatedMaskedLeads = maskedLeads.filter(lead => lead.id !== leadId);
+      const updatedLeads = leads.filter(lead => lead.id !== leadId);
+      
+      console.log('Updated masked leads count:', updatedMaskedLeads.length);
+      console.log('Updated main leads count:', updatedLeads.length);
+      
+      setMaskedLeads(updatedMaskedLeads);
+      setLeads(updatedLeads);
+      setStats(prev => ({ ...prev, totalLeads: prev.totalLeads - 1 }));
+      
+      toast.success('Lead deleted successfully');
+      setShowDeleteLeadDialog(false);
+      setLeadToDelete(null);
+    } catch (error) {
+      console.error('Error in deleteMaskedLead:', error);
+      toast.error('Failed to delete lead');
+    }
+  };
+
+  // Function to confirm lead deletion
+  const confirmDeleteLead = () => {
+    if (leadToDelete) {
+      console.log('Confirming deletion of lead:', leadToDelete.id, leadToDelete.name);
+      deleteMaskedLead(leadToDelete.id);
+    }
+  };
+
+  // Test function to verify delete permissions
+  const testDeletePermission = async () => {
+    try {
+      console.log('Testing delete permission...');
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      console.log('Current user for delete test:', user?.email, 'Auth error:', authError);
+      
+      // Try to select a lead first to verify we can access the table
+      const { data: testData, error: selectError } = await supabase
+        .from('quiz_leads')
+        .select('id, name, email')
+        .limit(1);
+      
+      if (selectError) {
+        console.error('Error selecting leads:', selectError);
+        toast.error(`Cannot access leads table: ${selectError.message}`);
+        return;
+      }
+      
+      console.log('Successfully accessed leads table, found leads:', testData?.length || 0);
+      toast.success('Delete permission test passed - can access leads table');
+    } catch (error) {
+      console.error('Error in testDeletePermission:', error);
+      toast.error('Delete permission test failed');
     }
   };
 
@@ -782,8 +890,8 @@ export function EnhancedAdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-9xl mx-auto space-y-8">
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-full mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -804,6 +912,14 @@ export function EnhancedAdminDashboard() {
               className="ml-2"
             >
               Test Auth
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={testDeletePermission}
+              className="ml-2"
+            >
+              Test Delete
             </Button>
             </h1>
             <p className="text-gray-500 mt-1">Platform management and analytics</p>
@@ -1206,18 +1322,18 @@ export function EnhancedAdminDashboard() {
                 </div>
 
                 {/* Leads Table */}
-                <div className="border rounded-lg">
-                  <Table>
+                <div className="border rounded-lg overflow-x-auto">
+                  <Table className="min-w-full">
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Contact</TableHead>
-                        <TableHead>Quiz Type</TableHead>
-                        <TableHead>Score</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Doctor</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Actions</TableHead>
+                        <TableHead className="w-[200px]">Name</TableHead>
+                        <TableHead className="w-[250px]">Contact</TableHead>
+                        <TableHead className="w-[150px]">Quiz Type</TableHead>
+                        <TableHead className="w-[100px]">Score</TableHead>
+                        <TableHead className="w-[120px]">Status</TableHead>
+                        <TableHead className="w-[200px]">Doctor</TableHead>
+                        <TableHead className="w-[120px]">Date</TableHead>
+                        <TableHead className="w-[120px]">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1336,20 +1452,20 @@ export function EnhancedAdminDashboard() {
                 </div>
 
                 {/* Doctors Table */}
-                <div className="border rounded-lg">
-                  <Table>
+                <div className="border rounded-lg overflow-x-auto">
+                  <Table className="min-w-full">
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Doctor</TableHead>
-                        <TableHead>Clinic</TableHead>
-                        <TableHead>Specialty</TableHead>
-                        <TableHead>Leads by Quiz Type</TableHead>
-                        <TableHead>Total Leads</TableHead>
-                        <TableHead>Contact</TableHead>
-                        <TableHead>Location</TableHead>
-                        <TableHead>Access</TableHead>
-                        <TableHead>Joined</TableHead>
-                        <TableHead>Actions</TableHead>
+                        <TableHead className="w-[200px]">Doctor</TableHead>
+                        <TableHead className="w-[180px]">Clinic</TableHead>
+                        <TableHead className="w-[120px]">Specialty</TableHead>
+                        <TableHead className="w-[180px]">Leads by Quiz Type</TableHead>
+                        <TableHead className="w-[100px]">Total Leads</TableHead>
+                        <TableHead className="w-[200px]">Contact</TableHead>
+                        <TableHead className="w-[150px]">Location</TableHead>
+                        <TableHead className="w-[100px]">Access</TableHead>
+                        <TableHead className="w-[100px]">Joined</TableHead>
+                        <TableHead className="w-[180px]">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1560,21 +1676,21 @@ export function EnhancedAdminDashboard() {
                 </div>
 
                 {/* Detailed Doctor Analytics Table */}
-                <div className="border rounded-lg">
-                  <Table>
+                <div className="border rounded-lg overflow-x-auto">
+                  <Table className="min-w-full">
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Doctor</TableHead>
-                        <TableHead>Clinic</TableHead>
-                        <TableHead>Specialty</TableHead>
-                        <TableHead>NOSE</TableHead>
-                        <TableHead>SNOT22</TableHead>
-                        <TableHead>SNOT12</TableHead>
-                        <TableHead>TNSS</TableHead>
-                        <TableHead>Other</TableHead>
-                        <TableHead>Total</TableHead>
-                        <TableHead>Access</TableHead>
-                        <TableHead>Actions</TableHead>
+                        <TableHead className="w-[180px]">Doctor</TableHead>
+                        <TableHead className="w-[150px]">Clinic</TableHead>
+                        <TableHead className="w-[100px]">Specialty</TableHead>
+                        <TableHead className="w-[80px]">NOSE</TableHead>
+                        <TableHead className="w-[80px]">SNOT22</TableHead>
+                        <TableHead className="w-[80px]">SNOT12</TableHead>
+                        <TableHead className="w-[80px]">TNSS</TableHead>
+                        <TableHead className="w-[80px]">Other</TableHead>
+                        <TableHead className="w-[80px]">Total</TableHead>
+                        <TableHead className="w-[100px]">Access</TableHead>
+                        <TableHead className="w-[150px]">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1990,7 +2106,7 @@ export function EnhancedAdminDashboard() {
 
       {/* Lead Details Dialog */}
       <Dialog open={showLeadDetails} onOpenChange={setShowLeadDetails}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>Lead Details</DialogTitle>
           </DialogHeader>
@@ -2275,7 +2391,7 @@ export function EnhancedAdminDashboard() {
 
       {/* Notifications Dialog */}
       <Dialog open={showNotifications} onOpenChange={setShowNotifications}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Bell className="w-5 h-5" />
@@ -2326,7 +2442,7 @@ export function EnhancedAdminDashboard() {
 
       {/* Quick Actions Dialog */}
       <Dialog open={showQuickActions} onOpenChange={setShowQuickActions}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Settings className="w-5 h-5" />
@@ -2489,7 +2605,7 @@ export function EnhancedAdminDashboard() {
 
       {/* Masked Leads Dialog */}
       <Dialog open={showMaskedLeads} onOpenChange={setShowMaskedLeads}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <TrendingUp className="w-5 h-5" />
@@ -2500,17 +2616,18 @@ export function EnhancedAdminDashboard() {
           {selectedDoctor && (
             <div className="space-y-4">
               {maskedLeads.length > 0 ? (
-                <div className="border rounded-lg">
-                  <Table>
+                <div className="border rounded-lg overflow-x-auto">
+                  <Table className="min-w-full">
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Phone</TableHead>
-                        <TableHead>Quiz Type</TableHead>
-                        <TableHead>Score</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Date</TableHead>
+                        <TableHead className="w-[180px]">Name</TableHead>
+                        <TableHead className="w-[200px]">Email</TableHead>
+                        <TableHead className="w-[150px]">Phone</TableHead>
+                        <TableHead className="w-[120px]">Quiz Type</TableHead>
+                        <TableHead className="w-[80px]">Score</TableHead>
+                        <TableHead className="w-[100px]">Status</TableHead>
+                        <TableHead className="w-[100px]">Date</TableHead>
+                        <TableHead className="w-[100px]">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -2546,6 +2663,20 @@ export function EnhancedAdminDashboard() {
                           </TableCell>
                           <TableCell className="text-sm text-gray-500">
                             {new Date(lead.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setLeadToDelete(lead);
+                                setShowDeleteLeadDialog(true);
+                              }}
+                              className="h-8 px-2 text-xs text-red-600 hover:text-red-700"
+                              title="Delete Lead"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -2637,7 +2768,7 @@ export function EnhancedAdminDashboard() {
 
       {/* Doctor Edit Dialog */}
       <Dialog open={showDoctorEdit} onOpenChange={setShowDoctorEdit}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Edit className="w-5 h-5" />
@@ -2784,6 +2915,40 @@ export function EnhancedAdminDashboard() {
               className="bg-red-600 hover:bg-red-700"
             >
               Yes, Revoke Access
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Lead Confirmation Dialog */}
+      <AlertDialog open={showDeleteLeadDialog} onOpenChange={setShowDeleteLeadDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-red-600" />
+              Delete Lead
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this lead? This action cannot be undone.
+            </AlertDialogDescription>
+            {leadToDelete && (
+              <div className="mt-2 p-3 bg-gray-50 rounded-md">
+                <div className="text-sm font-medium">Lead Details:</div>
+                <div className="text-sm text-gray-600">Name: {maskName(leadToDelete.name)}</div>
+                <div className="text-sm text-gray-600">Email: {maskEmail(leadToDelete.email)}</div>
+                <div className="text-sm text-gray-600">Quiz: {leadToDelete.quiz_type}</div>
+              </div>
+            )}
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowDeleteLeadDialog(false)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteLead}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Yes, Delete Lead
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
