@@ -2258,12 +2258,6 @@ export function EnhancedAdminDashboard() {
                         </div>
                       </div>
                       <div>
-                        <Label className="text-sm font-medium text-gray-600">Doctor ID</Label>
-                        <div className="text-sm text-gray-900">
-                          {formatFieldValue(selectedDoctor.doctor_id)}
-                        </div>
-                      </div>
-                      <div>
                         <Label className="text-sm font-medium text-gray-600">Location</Label>
                         <div className="text-sm text-gray-900">
                           {formatFieldValue(selectedDoctor.location)}
