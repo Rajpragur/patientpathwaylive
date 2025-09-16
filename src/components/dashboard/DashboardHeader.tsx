@@ -50,7 +50,8 @@ export function DashboardHeader() {
             first_name: 'Doctor',
             last_name: 'User',
             email: user.email,
-            doctor_id: Math.floor(100000 + Math.random() * 900000).toString()
+            doctor_id: Math.floor(100000 + Math.random() * 900000).toString(),
+            access_control: true
           }])
           .select();
 

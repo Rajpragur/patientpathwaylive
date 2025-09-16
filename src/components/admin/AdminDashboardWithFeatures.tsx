@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   Users, 
@@ -37,7 +38,17 @@ import {
   UserPlus,
   Settings2,
   Lock,
-  Database
+  Database,
+  ChevronRight,
+  ExternalLink,
+  MoreHorizontal,
+  Filter,
+  ArrowLeft,
+  Activity,
+  Clock,
+  CheckCircle,
+  XCircle,
+  AlertCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -95,7 +106,6 @@ export function AdminDashboardWithFeatures() {
   
   const [doctors, setDoctors] = useState<DoctorProfile[]>([]);
   const [leads, setLeads] = useState<QuizLead[]>([]);
-  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState('overview');
   const [searchTerm, setSearchTerm] = useState('');
@@ -108,6 +118,17 @@ export function AdminDashboardWithFeatures() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showLeadDetails, setShowLeadDetails] = useState(false);
   const [selectedLead, setSelectedLead] = useState<QuizLead | null>(null);
+  
+  // Enhanced states for office/lead management
+  const [selectedDoctor, setSelectedDoctor] = useState<DoctorProfile | null>(null);
+  const [showDoctorDetails, setShowDoctorDetails] = useState(false);
+  const [doctorLeads, setDoctorLeads] = useState<QuizLead[]>([]);
+  const [showLeadEdit, setShowLeadEdit] = useState(false);
+  const [editingLead, setEditingLead] = useState<QuizLead | null>(null);
+  const [leadStatus, setLeadStatus] = useState('');
+  const [leadNotes, setLeadNotes] = useState('');
+  const [showMaskedLeads, setShowMaskedLeads] = useState(false);
+  const [maskedLeads, setMaskedLeads] = useState<QuizLead[]>([]);
 
   useEffect(() => {
     fetchAdminData();
@@ -296,6 +317,126 @@ export function AdminDashboardWithFeatures() {
     }
   };
 
+  // Enhanced functions for lead and doctor management
+  const deleteLead = async (leadId: string) => {
+    try {
+      const { error } = await supabase
+        .from('quiz_leads')
+        .delete()
+        .eq('id', leadId);
+
+      if (error) {
+        toast.error('Failed to delete lead');
+        return;
+      }
+
+      setLeads(leads.filter(lead => lead.id !== leadId));
+      toast.success('Lead deleted successfully');
+    } catch (error) {
+      toast.error('Failed to delete lead');
+    }
+  };
+
+  const viewDoctorDetails = async (doctor: DoctorProfile) => {
+    setSelectedDoctor(doctor);
+    
+    // Fetch leads for this doctor
+    const { data: leadsData } = await supabase
+      .from('quiz_leads')
+      .select('*')
+      .eq('doctor_id', doctor.id)
+      .order('created_at', { ascending: false });
+
+    setDoctorLeads(leadsData || []);
+    setShowDoctorDetails(true);
+  };
+
+  const updateLeadStatus = async (leadId: string, newStatus: string, notes?: string) => {
+    try {
+      const { error } = await supabase
+        .from('quiz_leads')
+        .update({ 
+          lead_status: newStatus,
+          ...(notes && { notes })
+        })
+        .eq('id', leadId);
+
+      if (error) {
+        toast.error('Failed to update lead status');
+        return;
+      }
+
+      // Update local state
+      setLeads(leads.map(lead => 
+        lead.id === leadId 
+          ? { ...lead, lead_status: newStatus }
+          : lead
+      ));
+
+      // Update doctor leads if viewing doctor details
+      if (selectedDoctor) {
+        setDoctorLeads(doctorLeads.map(lead => 
+          lead.id === leadId 
+            ? { ...lead, lead_status: newStatus }
+            : lead
+        ));
+      }
+
+      toast.success('Lead status updated successfully');
+      setShowLeadEdit(false);
+      setEditingLead(null);
+    } catch (error) {
+      toast.error('Failed to update lead status');
+    }
+  };
+
+  const editLead = (lead: QuizLead) => {
+    setEditingLead(lead);
+    setLeadStatus(lead.lead_status || '');
+    setLeadNotes('');
+    setShowLeadEdit(true);
+  };
+
+  // Function to mask contact information
+  const maskEmail = (email: string | null) => {
+    if (!email) return 'N/A';
+    const [localPart, domain] = email.split('@');
+    if (localPart.length <= 2) return email;
+    const maskedLocal = localPart[0] + '*'.repeat(localPart.length - 2) + localPart[localPart.length - 1];
+    return `${maskedLocal}@${domain}`;
+  };
+
+  const maskPhone = (phone: string | null) => {
+    if (!phone) return 'N/A';
+    if (phone.length <= 4) return phone;
+    const lastFour = phone.slice(-4);
+    const masked = '*'.repeat(phone.length - 4);
+    return `${masked}${lastFour}`;
+  };
+
+  const maskName = (name: string) => {
+    if (!name) return 'N/A';
+    const words = name.split(' ');
+    return words.map(word => {
+      if (word.length <= 2) return word;
+      return word[0] + '*'.repeat(word.length - 2) + word[word.length - 1];
+    }).join(' ');
+  };
+
+  const viewMaskedLeads = async (doctor: DoctorProfile) => {
+    setSelectedDoctor(doctor);
+    
+    // Fetch leads for this doctor
+    const { data: leadsData } = await supabase
+      .from('quiz_leads')
+      .select('*')
+      .eq('doctor_id', doctor.id)
+      .order('created_at', { ascending: false });
+
+    setMaskedLeads(leadsData || []);
+    setShowMaskedLeads(true);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -305,22 +446,22 @@ export function AdminDashboardWithFeatures() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-4xl font-bold text-slate-800 flex items-center gap-3">
-              <Shield className="w-10 h-10 text-red-600" />
+            <h1 className="text-3xl font-semibold text-gray-900 flex items-center gap-3">
+              <Shield className="w-8 h-8 text-gray-700" />
               Admin Dashboard
             </h1>
-            <p className="text-slate-600 mt-2">Comprehensive platform management and analytics</p>
+            <p className="text-gray-500 mt-1">Platform management and analytics</p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-2">
             {/* Password Change Dialog */}
             <Dialog open={showPasswordChange} onOpenChange={setShowPasswordChange}>
               <DialogTrigger asChild>
-                <Button variant="outline">
+                <Button variant="outline" size="sm" className="border-gray-300">
                   <Key className="w-4 h-4 mr-2" />
                   Change Password
                 </Button>
@@ -357,7 +498,7 @@ export function AdminDashboardWithFeatures() {
               </DialogContent>
             </Dialog>
 
-            <Button className="bg-red-600 hover:bg-red-700">
+            <Button size="sm" className="bg-gray-900 hover:bg-gray-800">
               <Lock className="w-4 h-4 mr-2" />
               Admin Controls
             </Button>
@@ -365,80 +506,80 @@ export function AdminDashboardWithFeatures() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="border-l-4 border-l-blue-500">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-                <Users className="w-4 h-4" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="bg-white border border-gray-200 hover:shadow-sm transition-shadow">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                <Users className="w-4 h-4 text-gray-500" />
                 Total Doctors
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-blue-600">{stats.totalDoctors}</div>
-              <p className="text-xs text-slate-500 mt-1">Registered practitioners</p>
+              <div className="text-2xl font-semibold text-gray-900">{stats.totalDoctors}</div>
+              <p className="text-xs text-gray-500 mt-1">Registered practitioners</p>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-green-500">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4" />
+          <Card className="bg-white border border-gray-200 hover:shadow-sm transition-shadow">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-gray-500" />
                 Total Leads
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-green-600">{stats.totalLeads}</div>
-              <p className="text-xs text-slate-500 mt-1">Patient assessments</p>
+              <div className="text-2xl font-semibold text-gray-900">{stats.totalLeads}</div>
+              <p className="text-xs text-gray-500 mt-1">Patient assessments</p>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-purple-500">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-                <Target className="w-4 h-4" />
+          <Card className="bg-white border border-gray-200 hover:shadow-sm transition-shadow">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                <Target className="w-4 h-4 text-gray-500" />
                 This Month
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-purple-600">{stats.leadsThisMonth}</div>
-              <p className="text-xs text-slate-500 mt-1">New leads generated</p>
+              <div className="text-2xl font-semibold text-gray-900">{stats.leadsThisMonth}</div>
+              <p className="text-xs text-gray-500 mt-1">New leads generated</p>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-orange-500">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-                <BarChart3 className="w-4 h-4" />
+          <Card className="bg-white border border-gray-200 hover:shadow-sm transition-shadow">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-gray-500" />
                 Avg Score
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-orange-600">{stats.averageScore}</div>
-              <p className="text-xs text-slate-500 mt-1">Patient assessment scores</p>
+              <div className="text-2xl font-semibold text-gray-900">{stats.averageScore}</div>
+              <p className="text-xs text-gray-500 mt-1">Patient assessment scores</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Main Content Tabs */}
         <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 bg-white p-1 rounded-lg shadow-sm">
-            <TabsTrigger value="overview" className="flex items-center gap-2">
+          <TabsList className="grid w-full grid-cols-5 bg-white p-1 rounded-lg border border-gray-200">
+            <TabsTrigger value="overview" className="flex items-center gap-2 text-sm">
               <BarChart3 className="w-4 h-4" />
               Overview
             </TabsTrigger>
-            <TabsTrigger value="leads" className="flex items-center gap-2">
+            <TabsTrigger value="leads" className="flex items-center gap-2 text-sm">
               <TrendingUp className="w-4 h-4" />
               Leads ({filteredLeads.length})
             </TabsTrigger>
-            <TabsTrigger value="doctors" className="flex items-center gap-2">
+            <TabsTrigger value="doctors" className="flex items-center gap-2 text-sm">
               <Users className="w-4 h-4" />
               Doctors ({filteredDoctors.length})
             </TabsTrigger>
-            <TabsTrigger value="users" className="flex items-center gap-2">
+            <TabsTrigger value="users" className="flex items-center gap-2 text-sm">
               <Shield className="w-4 h-4" />
               User Management
             </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center gap-2">
+            <TabsTrigger value="settings" className="flex items-center gap-2 text-sm">
               <Settings2 className="w-4 h-4" />
               Settings
             </TabsTrigger>
@@ -606,13 +747,52 @@ export function AdminDashboardWithFeatures() {
                               {new Date(lead.created_at).toLocaleDateString()}
                             </TableCell>
                             <TableCell>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => viewLeadDetails(lead)}
-                              >
-                                <Eye className="w-4 h-4" />
-                              </Button>
+                              <div className="flex gap-1">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => viewLeadDetails(lead)}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => editLead(lead)}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm"
+                                      className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete Lead</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Are you sure you want to delete this lead? This action cannot be undone.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => deleteLead(lead.id)}
+                                        className="bg-red-600 hover:bg-red-700"
+                                      >
+                                        Delete
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -722,11 +902,32 @@ export function AdminDashboardWithFeatures() {
                             {new Date(doctor.created_at).toLocaleDateString()}
                           </TableCell>
                           <TableCell>
-                            <div className="flex gap-2">
-                              <Button variant="ghost" size="sm">
+                            <div className="flex gap-1">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => viewDoctorDetails(doctor)}
+                                className="h-8 w-8 p-0"
+                                title="View Details"
+                              >
                                 <Eye className="w-4 h-4" />
                               </Button>
-                              <Button variant="ghost" size="sm">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => viewMaskedLeads(doctor)}
+                                className="h-8 px-2 text-xs"
+                                title="View Leads"
+                              >
+                                <TrendingUp className="w-3 h-3 mr-1" />
+                                Leads
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                title="Edit"
+                              >
                                 <Edit className="w-4 h-4" />
                               </Button>
                             </div>
@@ -932,6 +1133,337 @@ export function AdminDashboardWithFeatures() {
                   />
                 </div>
               )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Doctor Details Dialog */}
+      <Dialog open={showDoctorDetails} onOpenChange={setShowDoctorDetails}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building className="w-5 h-5" />
+              Doctor Profile & Leads
+            </DialogTitle>
+          </DialogHeader>
+          {selectedDoctor && (
+            <div className="space-y-6">
+              {/* Doctor Info */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Doctor Information</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Name</Label>
+                      <div className="text-sm font-medium">
+                        {selectedDoctor.first_name} {selectedDoctor.last_name}
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Clinic</Label>
+                      <div className="text-sm">{selectedDoctor.clinic_name || 'N/A'}</div>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Specialty</Label>
+                      <div className="text-sm">{selectedDoctor.specialty || 'General'}</div>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Location</Label>
+                      <div className="text-sm">{selectedDoctor.location || 'N/A'}</div>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Email</Label>
+                      <div className="text-sm">{selectedDoctor.email || 'N/A'}</div>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Phone</Label>
+                      <div className="text-sm">{selectedDoctor.phone || 'N/A'}</div>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Joined</Label>
+                      <div className="text-sm">{new Date(selectedDoctor.created_at).toLocaleDateString()}</div>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Status</Label>
+                      <Badge variant={selectedDoctor.is_active ? "default" : "secondary"}>
+                        {selectedDoctor.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Doctor's Leads */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5" />
+                    Associated Leads ({doctorLeads.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {doctorLeads.length > 0 ? (
+                    <div className="border rounded-lg">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Contact</TableHead>
+                            <TableHead>Quiz Type</TableHead>
+                            <TableHead>Score</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {doctorLeads.map((lead) => (
+                            <TableRow key={lead.id}>
+                              <TableCell className="font-medium">{lead.name}</TableCell>
+                              <TableCell>
+                                <div className="space-y-1">
+                                  {lead.email && (
+                                    <div className="flex items-center gap-1 text-sm">
+                                      <Mail className="w-3 h-3" />
+                                      {lead.email}
+                                    </div>
+                                  )}
+                                  {lead.phone && (
+                                    <div className="flex items-center gap-1 text-sm">
+                                      <Phone className="w-3 h-3" />
+                                      {lead.phone}
+                                    </div>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline">{lead.quiz_type}</Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={lead.score >= 7 ? "default" : lead.score >= 4 ? "secondary" : "destructive"}>
+                                  {lead.score}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={lead.lead_status === 'scheduled' ? "default" : "secondary"}>
+                                  {lead.lead_status || 'New'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-sm text-gray-500">
+                                {new Date(lead.created_at).toLocaleDateString()}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex gap-1">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => viewLeadDetails(lead)}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => editLead(lead)}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </Button>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Delete Lead</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Are you sure you want to delete this lead? This action cannot be undone.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() => deleteLead(lead.id)}
+                                          className="bg-red-600 hover:bg-red-700"
+                                        >
+                                          Delete
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                      <p>No leads found for this doctor</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Lead Edit Dialog */}
+      <Dialog open={showLeadEdit} onOpenChange={setShowLeadEdit}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Lead Status</DialogTitle>
+          </DialogHeader>
+          {editingLead && (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-sm font-medium">Lead Name</Label>
+                <div className="text-sm text-gray-600">{editingLead.name}</div>
+              </div>
+              
+              <div>
+                <Label htmlFor="leadStatus" className="text-sm font-medium">Status</Label>
+                <Select value={leadStatus} onValueChange={setLeadStatus}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="new">New</SelectItem>
+                    <SelectItem value="contacted">Contacted</SelectItem>
+                    <SelectItem value="scheduled">Scheduled</SelectItem>
+                    <SelectItem value="converted">Converted</SelectItem>
+                    <SelectItem value="lost">Lost</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="leadNotes" className="text-sm font-medium">Notes (Optional)</Label>
+                <Textarea
+                  id="leadNotes"
+                  value={leadNotes}
+                  onChange={(e) => setLeadNotes(e.target.value)}
+                  placeholder="Add notes about this lead..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowLeadEdit(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={() => updateLeadStatus(editingLead.id, leadStatus, leadNotes)}
+                  className="flex-1"
+                >
+                  Update Status
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Masked Leads Dialog */}
+      <Dialog open={showMaskedLeads} onOpenChange={setShowMaskedLeads}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5" />
+              Leads for {selectedDoctor?.clinic_name || selectedDoctor?.first_name + ' ' + selectedDoctor?.last_name}
+            </DialogTitle>
+            <p className="text-sm text-gray-500">Contact information is masked for privacy</p>
+          </DialogHeader>
+          {selectedDoctor && (
+            <div className="space-y-4">
+              {maskedLeads.length > 0 ? (
+                <div className="border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead>Quiz Type</TableHead>
+                        <TableHead>Score</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {maskedLeads.map((lead) => (
+                        <TableRow key={lead.id}>
+                          <TableCell className="font-medium">
+                            {maskName(lead.name)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1 text-sm">
+                              <Mail className="w-3 h-3 text-gray-400" />
+                              {maskEmail(lead.email)}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1 text-sm">
+                              <Phone className="w-3 h-3 text-gray-400" />
+                              {maskPhone(lead.phone)}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{lead.quiz_type}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={lead.score >= 7 ? "default" : lead.score >= 4 ? "secondary" : "destructive"}>
+                              {lead.score}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={lead.lead_status === 'scheduled' ? "default" : "secondary"}>
+                              {lead.lead_status || 'New'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-gray-500">
+                            {new Date(lead.created_at).toLocaleDateString()}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <TrendingUp className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p>No leads found for this doctor</p>
+                </div>
+              )}
+              
+              <div className="flex justify-between items-center pt-4 border-t">
+                <div className="text-sm text-gray-600">
+                  Total leads: {maskedLeads.length}
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowMaskedLeads(false)}
+                >
+                  Close
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>

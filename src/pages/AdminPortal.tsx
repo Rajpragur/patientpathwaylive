@@ -77,10 +77,10 @@ export default function AdminPortal() {
     <div className="min-h-screen bg-slate-50">
       {/* Admin Header with Logout */}
       <div className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+        <div className="max-w-9xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center">
-              <span className="text-white text-lg font-bold">A</span>
+              <span className="text-white text-lg font-bold">PP</span>
             </div>
             <div>
               <h1 className="text-2xl font-bold text-slate-800">Patient Pathway Admin</h1>

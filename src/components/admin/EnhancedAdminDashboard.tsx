@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
@@ -67,6 +68,11 @@ interface DoctorProfile {
   is_active?: boolean;
   access_level?: string;
   phone?: string;
+  logo_url?: string | null;
+  avatar_url?: string | null;
+  website?: string | null;
+  email_prefix?: string | null;
+  access_control?: boolean;
 }
 
 interface QuizLead {
@@ -153,6 +159,27 @@ export function EnhancedAdminDashboard() {
     users: ''
   });
 
+  // Enhanced states for lead and doctor management
+  const [showLeadEdit, setShowLeadEdit] = useState(false);
+  const [editingLead, setEditingLead] = useState<QuizLead | null>(null);
+  const [leadStatus, setLeadStatus] = useState('');
+  const [leadNotes, setLeadNotes] = useState('');
+  const [showMaskedLeads, setShowMaskedLeads] = useState(false);
+  const [maskedLeads, setMaskedLeads] = useState<QuizLead[]>([]);
+  
+  // Doctor editing states
+  const [editingDoctor, setEditingDoctor] = useState<DoctorProfile | null>(null);
+  const [showDoctorEdit, setShowDoctorEdit] = useState(false);
+  const [doctorEditData, setDoctorEditData] = useState({
+    first_name: '',
+    last_name: '',
+    clinic_name: '',
+    location: '',
+    website: ''
+  });
+  const [showAccessWarning, setShowAccessWarning] = useState(false);
+  const [doctorToRevoke, setDoctorToRevoke] = useState<DoctorProfile | null>(null);
+
   useEffect(() => {
     fetchAdminData();
   }, [selectedTimeframe]);
@@ -181,19 +208,9 @@ export function EnhancedAdminDashboard() {
         console.error('Error fetching leads:', leadError);
       }
 
-      // Fetch admin users
-      const { data: userData, error: userError } = await supabase
-        .from('admin_users')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (userError) {
-        console.error('Error fetching admin users:', userError);
-      }
-
       setDoctors(doctorData || []);
       setLeads(leadData || []);
-      setAdminUsers(userData || []);
+      setAdminUsers([]); // Remove admin_users table dependency
       
       // Calculate comprehensive stats
       const totalDoctors = doctorData?.length || 0;
@@ -239,8 +256,8 @@ export function EnhancedAdminDashboard() {
         leadsThisWeek,
         averageScore: Math.round(averageScore * 100) / 100,
         topSpecialties,
-        activeUsers: userData?.filter(u => u.is_active).length || 0,
-        suspendedUsers: userData?.filter(u => !u.is_active).length || 0
+        activeUsers: 1, // Admin user
+        suspendedUsers: 0
       });
 
     } catch (error) {
@@ -308,27 +325,6 @@ export function EnhancedAdminDashboard() {
     return Array.from(values);
   };
 
-  // Doctor access control with safe fallback if the column doesn't exist yet
-  const revokeDoctorAccess = async (doctorId: string) => {
-    try {
-      const { error } = await supabase
-        .from('doctor_profiles')
-        .update({ is_active: false })
-        .eq('id', doctorId);
-
-      if (error) {
-        // Fallback to local-only toggle if the column doesn't exist
-        setLocallySuspendedDoctorIds(prev => new Set(prev).add(doctorId));
-        toast.info('Doctor marked suspended locally (add is_active column to persist).');
-        return;
-      }
-
-      setDoctors(prev => prev.map(d => d.id === doctorId ? { ...d, is_active: false } : d));
-      toast.success('Doctor access revoked');
-    } catch (e) {
-      toast.error('Failed to revoke access');
-    }
-  };
 
   const restoreDoctorAccess = async (doctorId: string) => {
     try {
@@ -485,7 +481,294 @@ export function EnhancedAdminDashboard() {
     }
   };
 
-  // Function to create sample leads for testing (remove in production)
+  // Enhanced functions for lead and doctor management
+  const deleteLead = async (leadId: string) => {
+    try {
+      const { error } = await supabase
+        .from('quiz_leads')
+        .delete()
+        .eq('id', leadId);
+
+      if (error) {
+        toast.error('Failed to delete lead');
+        return;
+      }
+
+      setLeads(leads.filter(lead => lead.id !== leadId));
+      toast.success('Lead deleted successfully');
+    } catch (error) {
+      toast.error('Failed to delete lead');
+    }
+  };
+
+  const updateLeadStatus = async (leadId: string, newStatus: string, notes?: string) => {
+    try {
+      const { error } = await supabase
+        .from('quiz_leads')
+        .update({ 
+          lead_status: newStatus,
+          ...(notes && { notes })
+        })
+        .eq('id', leadId);
+
+      if (error) {
+        toast.error('Failed to update lead status');
+        return;
+      }
+
+      // Update local state
+      setLeads(leads.map(lead => 
+        lead.id === leadId 
+          ? { ...lead, lead_status: newStatus }
+          : lead
+      ));
+
+      toast.success('Lead status updated successfully');
+      setShowLeadEdit(false);
+      setEditingLead(null);
+    } catch (error) {
+      toast.error('Failed to update lead status');
+    }
+  };
+
+  const editLead = (lead: QuizLead) => {
+    setEditingLead(lead);
+    setLeadStatus(lead.lead_status || '');
+    setLeadNotes('');
+    setShowLeadEdit(true);
+  };
+
+  // Function to mask contact information
+  const maskEmail = (email: string | null) => {
+    if (!email) return 'N/A';
+    const [localPart, domain] = email.split('@');
+    if (localPart.length <= 2) return email;
+    const maskedLocal = localPart[0] + '*'.repeat(localPart.length - 2) + localPart[localPart.length - 1];
+    return `${maskedLocal}@${domain}`;
+  };
+
+  const maskPhone = (phone: string | null) => {
+    if (!phone) return 'N/A';
+    if (phone.length <= 4) return phone;
+    const lastFour = phone.slice(-4);
+    const masked = '*'.repeat(phone.length - 4);
+    return `${masked}${lastFour}`;
+  };
+
+  const maskName = (name: string) => {
+    if (!name) return 'N/A';
+    const words = name.split(' ');
+    return words.map(word => {
+      if (word.length <= 2) return word;
+      return word[0] + '*'.repeat(word.length - 2) + word[word.length - 1];
+    }).join(' ');
+  };
+
+  const viewMaskedLeads = async (doctor: DoctorProfile) => {
+    setSelectedDoctor(doctor);
+    
+    // Fetch leads for this doctor
+    const { data: leadsData } = await supabase
+      .from('quiz_leads')
+      .select('*')
+      .eq('doctor_id', doctor.id)
+      .order('created_at', { ascending: false });
+
+    setMaskedLeads(leadsData || []);
+    setShowMaskedLeads(true);
+  };
+
+  // Doctor editing functions
+  const editDoctor = (doctor: DoctorProfile) => {
+    setEditingDoctor(doctor);
+    setDoctorEditData({
+      first_name: doctor.first_name || '',
+      last_name: doctor.last_name || '',
+      clinic_name: doctor.clinic_name || '',
+      location: doctor.location || '',
+      website: doctor.website || ''
+    });
+    setShowDoctorEdit(true);
+  };
+
+  const updateDoctor = async () => {
+    if (!editingDoctor) return;
+
+    try {
+      // Check current user authentication
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      console.log('Current user for doctor update:', user?.email, 'Auth error:', authError);
+      
+      const { error } = await supabase
+        .from('doctor_profiles')
+        .update({
+          first_name: doctorEditData.first_name,
+          last_name: doctorEditData.last_name,
+          clinic_name: doctorEditData.clinic_name,
+          location: doctorEditData.location,
+          website: doctorEditData.website,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', editingDoctor.id);
+
+      if (error) {
+        console.error('Error updating doctor profile:', error);
+        console.error('Error details:', error.message, error.code, error.details);
+        toast.error(`Failed to update doctor profile: ${error.message}`);
+        return;
+      }
+
+      // Update local state
+      setDoctors(doctors.map(doctor => 
+        doctor.id === editingDoctor.id 
+          ? { 
+              ...doctor, 
+              first_name: doctorEditData.first_name,
+              last_name: doctorEditData.last_name,
+              clinic_name: doctorEditData.clinic_name,
+              location: doctorEditData.location,
+              website: doctorEditData.website
+            }
+          : doctor
+      ));
+
+      toast.success('Doctor profile updated successfully');
+      setShowDoctorEdit(false);
+      setEditingDoctor(null);
+    } catch (error) {
+      toast.error('Failed to update doctor profile');
+    }
+  };
+
+  const formatFieldValue = (value: string | null | undefined) => {
+    if (value === null || value === undefined || value === '') {
+      return 'undefined';
+    }
+    return value;
+  };
+
+  // Function to determine if a doctor has access to the portal
+  const getDoctorAccess = (doctor: DoctorProfile) => {
+    // Only grant access if access_control is explicitly true
+    const hasAccess = doctor.access_control === true;
+    return { hasAccess, reason: hasAccess ? 'Has portal access' : 'Access revoked' };
+  };
+
+  // Function to check real-time access status of a doctor
+  const checkDoctorAccessStatus = async (doctorId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('doctor_profiles')
+        .select('id, access_control, first_name, last_name, email')
+        .eq('id', doctorId);
+      
+      if (error) {
+        console.error('Error checking doctor access status:', error);
+        toast.error(`Error: ${error.message}`);
+        return;
+      }
+      
+      console.log('Doctor access status check:', data);
+      if (data && data.length > 0) {
+        const doctor = data[0];
+        const hasAccess = doctor.access_control === true;
+        toast.success(`Doctor ${doctor.first_name} ${doctor.last_name}: access_control = ${doctor.access_control} (${hasAccess ? 'HAS ACCESS' : 'NO ACCESS'})`);
+      } else {
+        toast.error('Doctor not found');
+      }
+    } catch (error) {
+      console.error('Error in checkDoctorAccessStatus:', error);
+      toast.error('Failed to check doctor access status');
+    }
+  };
+
+  // Function to revoke doctor access (with warning)
+  const revokeDoctorAccess = (doctor: DoctorProfile) => {
+    console.log('Revoke access clicked for doctor:', doctor.id, doctor.first_name, doctor.last_name);
+    setDoctorToRevoke(doctor);
+    setShowAccessWarning(true);
+  };
+
+  // Function to give doctor access
+  const giveDoctorAccess = async (doctorId: string) => {
+    try {
+      console.log('Giving access to doctor:', doctorId);
+      
+      // Check current user authentication
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      console.log('Current user:', user?.email, 'Auth error:', authError);
+      
+      const { error } = await supabase
+        .from('doctor_profiles')
+        .update({ access_control: true })
+        .eq('id', doctorId);
+
+      if (error) {
+        console.error('Error giving doctor access:', error);
+        console.error('Error details:', error.message, error.code, error.details);
+        toast.error(`Failed to give doctor access: ${error.message}`);
+        return;
+      }
+
+      // Update local state
+      setDoctors(doctors.map(doctor => 
+        doctor.id === doctorId 
+          ? { ...doctor, access_control: true }
+          : doctor
+      ));
+
+      toast.success('Doctor access granted successfully');
+    } catch (error) {
+      console.error('Error in giveDoctorAccess:', error);
+      toast.error('Failed to give doctor access');
+    }
+  };
+
+  // Function to confirm access revocation (sets access_control = false, keeps profile)
+  const confirmRevokeAccess = async () => {
+    if (!doctorToRevoke) return;
+
+    try {
+      console.log('Revoking access for doctor:', doctorToRevoke.id, doctorToRevoke.first_name, doctorToRevoke.last_name);
+      
+      // Check current user authentication
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      console.log('Current user:', user?.email, 'Auth error:', authError);
+      
+      // Update access_control to false to revoke access
+      const { error } = await supabase
+        .from('doctor_profiles')
+        .update({ access_control: false })
+        .eq('id', doctorToRevoke.id);
+
+      if (error) {
+        console.error('Error revoking doctor access:', error);
+        console.error('Error details:', error.message, error.code, error.details);
+        toast.error(`Failed to revoke doctor access: ${error.message}`);
+        return;
+      }
+
+      console.log('Doctor access revoked successfully in database');
+
+      // Update local state to reflect the access change
+      setDoctors(doctors.map(doctor => 
+        doctor.id === doctorToRevoke.id 
+          ? { ...doctor, access_control: false }
+          : doctor
+      ));
+
+      const doctorName = doctorToRevoke.first_name && doctorToRevoke.last_name 
+        ? `${doctorToRevoke.first_name} ${doctorToRevoke.last_name}`
+        : 'Unknown Doctor';
+        
+      toast.success(`Doctor ${doctorName} access revoked successfully`);
+      setShowAccessWarning(false);
+      setDoctorToRevoke(null);
+    } catch (error) {
+      console.error('Error in confirmRevokeAccess:', error);
+      toast.error('Failed to revoke doctor access');
+    }
+  };
 
 
 
@@ -499,16 +782,31 @@ export function EnhancedAdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-9xl mx-auto space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-4xl font-bold text-slate-800 flex items-center gap-3">
-              <Shield className="w-10 h-10 text-red-600" />
+            <h1 className="text-3xl font-semibold text-gray-900 flex items-center gap-3">
+              <Shield className="w-8 h-8 text-gray-700" />
               Admin Dashboard
+            <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 border-green-200">
+              Access Control Active
+            </Badge>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={async () => {
+                const { data: { user }, error } = await supabase.auth.getUser();
+                console.log('Admin user check:', user?.email, error);
+                toast.info(`Logged in as: ${user?.email || 'Not authenticated'}`);
+              }}
+              className="ml-2"
+            >
+              Test Auth
+            </Button>
             </h1>
-            <p className="text-slate-600 mt-2">Comprehensive platform management and analytics</p>
+            <p className="text-gray-500 mt-1">Platform management and analytics</p>
           </div>
           <div className="flex gap-3">
             <Select value={selectedTimeframe} onValueChange={setSelectedTimeframe}>
@@ -636,56 +934,56 @@ export function EnhancedAdminDashboard() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="border-l-4 border-l-blue-500">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-                <Users className="w-4 h-4" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="bg-white border border-gray-200 hover:shadow-sm transition-shadow">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                <Users className="w-4 h-4 text-gray-500" />
                 Total Doctors
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-blue-600">{stats.totalDoctors}</div>
-              <p className="text-xs text-slate-500 mt-1">Registered practitioners</p>
+              <div className="text-2xl font-semibold text-gray-900">{stats.totalDoctors}</div>
+              <p className="text-xs text-gray-500 mt-1">Registered practitioners</p>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-green-500">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4" />
+          <Card className="bg-white border border-gray-200 hover:shadow-sm transition-shadow">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-gray-500" />
                 Total Leads
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-green-600">{stats.totalLeads}</div>
-              <p className="text-xs text-slate-500 mt-1">Patient assessments</p>
+              <div className="text-2xl font-semibold text-gray-900">{stats.totalLeads}</div>
+              <p className="text-xs text-gray-500 mt-1">Patient assessments</p>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-purple-500">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-                <Target className="w-4 h-4" />
+          <Card className="bg-white border border-gray-200 hover:shadow-sm transition-shadow">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                <Target className="w-4 h-4 text-gray-500" />
                 This Month
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-purple-600">{stats.leadsThisMonth}</div>
-              <p className="text-xs text-slate-500 mt-1">New leads generated</p>
+              <div className="text-2xl font-semibold text-gray-900">{stats.leadsThisMonth}</div>
+              <p className="text-xs text-gray-500 mt-1">New leads generated</p>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-orange-500">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-                <BarChart3 className="w-4 h-4" />
+          <Card className="bg-white border border-gray-200 hover:shadow-sm transition-shadow">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-gray-500" />
                 Avg Score
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-orange-600">{stats.averageScore}</div>
-              <p className="text-xs text-slate-500 mt-1">Patient assessment scores</p>
+              <div className="text-2xl font-semibold text-gray-900">{stats.averageScore}</div>
+              <p className="text-xs text-gray-500 mt-1">Patient assessment scores</p>
             </CardContent>
           </Card>
         </div>
@@ -1049,17 +1347,33 @@ export function EnhancedAdminDashboard() {
                         <TableHead>Total Leads</TableHead>
                         <TableHead>Contact</TableHead>
                         <TableHead>Location</TableHead>
+                        <TableHead>Access</TableHead>
                         <TableHead>Joined</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredDoctors.map((doctor) => (
+                      {filteredDoctors.map((doctor) => {
+                        const doctorAccess = getDoctorAccess(doctor);
+                        return (
                         <TableRow key={doctor.id}>
                           <TableCell>
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center">
-                                <Users className="w-5 h-5 text-slate-600" />
+                              <div className="w-10 h-10 bg-gray-100 rounded-full overflow-hidden flex items-center justify-center">
+                                {doctor.avatar_url ? (
+                                  <img 
+                                    src={doctor.avatar_url} 
+                                    alt={`${doctor.first_name} ${doctor.last_name}`}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                      e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                    }}
+                                  />
+                                ) : null}
+                                <div className={`w-full h-full flex items-center justify-center text-gray-500 ${doctor.avatar_url ? 'hidden' : ''}`}>
+                                  <Users className="w-5 h-5" />
+                                </div>
                               </div>
                               <div>
                                 <div className="font-medium">
@@ -1126,27 +1440,70 @@ export function EnhancedAdminDashboard() {
                           <TableCell className="text-sm text-slate-500">
                             {doctor.location || 'N/A'}
                           </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Badge 
+                                variant={doctorAccess.hasAccess ? "default" : "secondary"}
+                                className={doctorAccess.hasAccess ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
+                              >
+                                {doctorAccess.hasAccess ? 'Has Access' : 'No Access'}
+                              </Badge>
+                              <div className="text-xs text-gray-500" title={doctorAccess.reason}>
+                                {doctorAccess.reason}
+                              </div>
+                            </div>
+                          </TableCell>
                           <TableCell className="text-sm text-slate-500">
                             {new Date(doctor.created_at).toLocaleDateString()}
                           </TableCell>
                           <TableCell>
-                            <div className="flex gap-2">
-                              <Button variant="outline" size="sm" onClick={() => openDoctorLeads(doctor)}>
-                                View Leads
+                            <div className="flex gap-1">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => openDoctorLeads(doctor)}
+                                className="h-8 px-2 text-xs"
+                                title="View Details"
+                              >
+                                <Eye className="w-3 h-3 mr-1" />
+                                Details
                               </Button>
-                              {(doctor.is_active === false || locallySuspendedDoctorIds.has(doctor.id)) ? (
-                                <Button variant="ghost" size="sm" onClick={() => restoreDoctorAccess(doctor.id)}>
-                                  Restore
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => viewMaskedLeads(doctor)}
+                                className="h-8 px-2 text-xs"
+                                title="View Leads"
+                              >
+                                <TrendingUp className="w-3 h-3 mr-1" />
+                                Leads
+                              </Button>
+                              {doctorAccess.hasAccess ? (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => revokeDoctorAccess(doctor)}
+                                  className="h-8 px-2 text-xs text-red-600 hover:text-red-700"
+                                  title="Revoke Access"
+                                >
+                                  Revoke Access
                                 </Button>
                               ) : (
-                                <Button variant="ghost" size="sm" onClick={() => revokeDoctorAccess(doctor.id)}>
-                                  Revoke
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => giveDoctorAccess(doctor.id)}
+                                  className="h-8 px-2 text-xs text-green-600 hover:text-green-700"
+                                  title="Give Access"
+                                >
+                                  Give Access
                                 </Button>
                               )}
                             </div>
                           </TableCell>
                         </TableRow>
-                      ))}
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
@@ -1216,11 +1573,13 @@ export function EnhancedAdminDashboard() {
                         <TableHead>TNSS</TableHead>
                         <TableHead>Other</TableHead>
                         <TableHead>Total</TableHead>
+                        <TableHead>Access</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredDoctors.map((doctor) => {
+                        const doctorAccess = getDoctorAccess(doctor);
                         const doctorLeads = leads.filter(l => l.doctor_id === doctor.id);
                         const totalLeads = doctorLeads.length;
                         
@@ -1235,8 +1594,21 @@ export function EnhancedAdminDashboard() {
                           <TableRow key={doctor.id}>
                             <TableCell>
                               <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center">
-                                  <Users className="w-5 h-5 text-slate-600" />
+                                <div className="w-10 h-10 bg-gray-100 rounded-full overflow-hidden flex items-center justify-center">
+                                  {doctor.avatar_url ? (
+                                    <img 
+                                      src={doctor.avatar_url} 
+                                      alt={`${doctor.first_name} ${doctor.last_name}`}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                      }}
+                                    />
+                                  ) : null}
+                                  <div className={`w-full h-full flex items-center justify-center text-gray-500 ${doctor.avatar_url ? 'hidden' : ''}`}>
+                                    <Users className="w-5 h-5" />
+                                  </div>
                                 </div>
                                 <div>
                                   <div className="font-medium">
@@ -1287,9 +1659,45 @@ export function EnhancedAdminDashboard() {
                               </div>
                             </TableCell>
                             <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Badge 
+                                  variant={doctorAccess.hasAccess ? "default" : "secondary"}
+                                  className={doctorAccess.hasAccess ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
+                                >
+                                  {doctorAccess.hasAccess ? 'Has Access' : 'No Access'}
+                                </Badge>
+                                <div className="text-xs text-gray-500" title={doctorAccess.reason}>
+                                  {doctorAccess.reason}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
                               <Button variant="outline" size="sm" onClick={() => openDoctorLeads(doctor)}>
                                 View Details
                               </Button>
+                                {doctorAccess.hasAccess ? (
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => revokeDoctorAccess(doctor)}
+                                    className="text-xs text-red-600 hover:text-red-700"
+                                    title="Revoke Access"
+                                  >
+                                    Revoke Access
+                                  </Button>
+                                ) : (
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => giveDoctorAccess(doctor.id)}
+                                    className="text-xs text-green-600 hover:text-green-700"
+                                    title="Give Access"
+                                  >
+                                    Give Access
+                                  </Button>
+                                )}
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -1641,25 +2049,168 @@ export function EnhancedAdminDashboard() {
 
       {/* Doctor Leads Analytics Dialog */}
       <Dialog open={showDoctorLeads} onOpenChange={setShowDoctorLeads}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Doctor Lead Analytics</DialogTitle>
+            <DialogTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Building className="w-5 h-5" />
+                Doctor Profile & Analytics
+              </span>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => editDoctor(selectedDoctor!)}
+                className="h-8"
+              >
+                <Edit className="w-4 h-4 mr-2" />
+                Edit Profile
+              </Button>
+            </DialogTitle>
           </DialogHeader>
           {selectedDoctor && (
+            <div className="space-y-6">
+              {/* Doctor Profile Details */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center">
+                      {selectedDoctor.avatar_url ? (
+                        <img 
+                          src={selectedDoctor.avatar_url} 
+                          alt={`${selectedDoctor.first_name} ${selectedDoctor.last_name}`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                          }}
+                        />
+                      ) : null}
+                      <div className={`w-full h-full flex items-center justify-center text-gray-500 ${selectedDoctor.avatar_url ? 'hidden' : ''}`}>
+                        <Users className="w-6 h-6" />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-semibold">
+                        {formatFieldValue(selectedDoctor.first_name)} {formatFieldValue(selectedDoctor.last_name)}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {formatFieldValue(selectedDoctor.specialty)} • {formatFieldValue(selectedDoctor.clinic_name)}
+                      </div>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm font-medium">Doctor</Label>
-                  <div className="text-sm font-medium">
-                    {selectedDoctor.first_name} {selectedDoctor.last_name}
+                        <Label className="text-sm font-medium text-gray-600">First Name</Label>
+                        <div className="text-sm font-medium text-gray-900">
+                          {formatFieldValue(selectedDoctor.first_name)}
                   </div>
-                  <div className="text-xs text-slate-500">{selectedDoctor.clinic_name || 'N/A'}</div>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Specialty</Label>
-                  <div className="text-sm">{selectedDoctor.specialty || 'General'}</div>
+                        <Label className="text-sm font-medium text-gray-600">Last Name</Label>
+                        <div className="text-sm font-medium text-gray-900">
+                          {formatFieldValue(selectedDoctor.last_name)}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Email</Label>
+                        <div className="text-sm text-gray-900">
+                          {formatFieldValue(selectedDoctor.email)}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Phone</Label>
+                        <div className="text-sm text-gray-900">
+                          {formatFieldValue(selectedDoctor.phone)}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Specialty</Label>
+                        <div className="text-sm text-gray-900">
+                          {formatFieldValue(selectedDoctor.specialty)}
+                        </div>
                 </div>
               </div>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Clinic Name</Label>
+                        <div className="text-sm text-gray-900">
+                          {formatFieldValue(selectedDoctor.clinic_name)}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Doctor ID</Label>
+                        <div className="text-sm text-gray-900">
+                          {formatFieldValue(selectedDoctor.doctor_id)}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Location</Label>
+                        <div className="text-sm text-gray-900">
+                          {formatFieldValue(selectedDoctor.location)}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Website</Label>
+                        <div className="text-sm text-gray-900">
+                          {selectedDoctor.website ? (
+                            <a 
+                              href={selectedDoctor.website} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline"
+                            >
+                              {selectedDoctor.website}
+                            </a>
+                          ) : (
+                            'undefined'
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Email Prefix</Label>
+                        <div className="text-sm text-gray-900">
+                          {formatFieldValue(selectedDoctor.email_prefix)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 pt-4 border-t">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Doctor ID</Label>
+                        <div className="text-sm text-gray-900 font-mono">
+                          {formatFieldValue(selectedDoctor.user_id)}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Joined On</Label>
+                        <div className="text-sm text-gray-900">
+                          {new Date(selectedDoctor.created_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Portal Access</Label>
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            variant={getDoctorAccess(selectedDoctor).hasAccess ? "default" : "secondary"}
+                            className={getDoctorAccess(selectedDoctor).hasAccess ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
+                          >
+                            {getDoctorAccess(selectedDoctor).hasAccess ? 'Has Access' : 'No Access'}
+                          </Badge>
+                          <div className="text-xs text-gray-500" title={getDoctorAccess(selectedDoctor).reason}>
+                            {getDoctorAccess(selectedDoctor).reason}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
               {(() => {
                 const breakdown = getDoctorLeadBreakdown(selectedDoctor.id);
@@ -1674,7 +2225,6 @@ export function EnhancedAdminDashboard() {
                       <CardContent>
                         <div className="text-2xl font-bold">{breakdown.total} leads</div>
                         <div className="text-xs text-slate-500 mt-1">All time leads for this doctor</div>
-                        <div className="text-xs text-slate-400 mt-1">Debug: Doctor ID: {selectedDoctor.id}</div>
                       </CardContent>
                     </Card>
 
@@ -1712,21 +2262,6 @@ export function EnhancedAdminDashboard() {
                               <Badge variant="secondary">{count}</Badge>
                             </div>
                           ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                    
-                    {/* Debug Information */}
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-600">Debug Info</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-xs space-y-1">
-                          <div>Total leads in system: {leads.length}</div>
-                          <div>Leads for this doctor: {leads.filter(l => l.doctor_id === selectedDoctor.id).length}</div>
-                          <div>Doctor ID: {selectedDoctor.id}</div>
-                          <div>Sample lead doctor_id: {leads[0]?.doctor_id}</div>
                         </div>
                       </CardContent>
                     </Card>
@@ -1951,6 +2486,308 @@ export function EnhancedAdminDashboard() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Masked Leads Dialog */}
+      <Dialog open={showMaskedLeads} onOpenChange={setShowMaskedLeads}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5" />
+              Leads for {selectedDoctor?.clinic_name || selectedDoctor?.first_name || 'Unknown Doctor'}
+            </DialogTitle>
+            <p className="text-sm text-gray-500">Contact information is masked for privacy</p>
+          </DialogHeader>
+          {selectedDoctor && (
+            <div className="space-y-4">
+              {maskedLeads.length > 0 ? (
+                <div className="border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead>Quiz Type</TableHead>
+                        <TableHead>Score</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {maskedLeads.map((lead) => (
+                        <TableRow key={lead.id}>
+                          <TableCell className="font-medium">
+                            {maskName(lead.name)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1 text-sm">
+                              <Mail className="w-3 h-3 text-gray-400" />
+                              {maskEmail(lead.email)}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1 text-sm">
+                              <Phone className="w-3 h-3 text-gray-400" />
+                              {maskPhone(lead.phone)}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{lead.quiz_type}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={lead.score >= 7 ? "default" : lead.score >= 4 ? "secondary" : "destructive"}>
+                              {lead.score}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={lead.lead_status === 'scheduled' ? "default" : "secondary"}>
+                              {lead.lead_status || 'New'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-gray-500">
+                            {new Date(lead.created_at).toLocaleDateString()}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <TrendingUp className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p>No leads found for this doctor</p>
+                </div>
+              )}
+              
+              <div className="flex justify-between items-center pt-4 border-t">
+                <div className="text-sm text-gray-600">
+                  Total leads: {maskedLeads.length}
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowMaskedLeads(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Lead Edit Dialog */}
+      <Dialog open={showLeadEdit} onOpenChange={setShowLeadEdit}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Lead Status</DialogTitle>
+          </DialogHeader>
+          {editingLead && (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-sm font-medium">Lead Name</Label>
+                <div className="text-sm text-gray-600">{editingLead.name}</div>
+              </div>
+              
+              <div>
+                <Label htmlFor="leadStatus" className="text-sm font-medium">Status</Label>
+                <Select value={leadStatus} onValueChange={setLeadStatus}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="new">New</SelectItem>
+                    <SelectItem value="contacted">Contacted</SelectItem>
+                    <SelectItem value="scheduled">Scheduled</SelectItem>
+                    <SelectItem value="converted">Converted</SelectItem>
+                    <SelectItem value="lost">Lost</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="leadNotes" className="text-sm font-medium">Notes (Optional)</Label>
+                <Textarea
+                  id="leadNotes"
+                  value={leadNotes}
+                  onChange={(e) => setLeadNotes(e.target.value)}
+                  placeholder="Add notes about this lead..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowLeadEdit(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={() => updateLeadStatus(editingLead.id, leadStatus, leadNotes)}
+                  className="flex-1"
+                >
+                  Update Status
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Doctor Edit Dialog */}
+      <Dialog open={showDoctorEdit} onOpenChange={setShowDoctorEdit}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="w-5 h-5" />
+              Edit Doctor Profile
+            </DialogTitle>
+            <p className="text-sm text-gray-500">Edit doctor information (only editable fields are shown)</p>
+          </DialogHeader>
+          {editingDoctor && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="editFirstName" className="text-sm font-medium">First Name *</Label>
+                  <Input
+                    id="editFirstName"
+                    value={doctorEditData.first_name}
+                    onChange={(e) => setDoctorEditData(prev => ({ ...prev, first_name: e.target.value }))}
+                    placeholder="Enter first name"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="editLastName" className="text-sm font-medium">Last Name *</Label>
+                  <Input
+                    id="editLastName"
+                    value={doctorEditData.last_name}
+                    onChange={(e) => setDoctorEditData(prev => ({ ...prev, last_name: e.target.value }))}
+                    placeholder="Enter last name"
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="editClinicName" className="text-sm font-medium">Clinic Name</Label>
+                <Input
+                  id="editClinicName"
+                  value={doctorEditData.clinic_name}
+                  onChange={(e) => setDoctorEditData(prev => ({ ...prev, clinic_name: e.target.value }))}
+                  placeholder="Enter clinic name"
+                  className="mt-1"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="editLocation" className="text-sm font-medium">Location</Label>
+                <Input
+                  id="editLocation"
+                  value={doctorEditData.location}
+                  onChange={(e) => setDoctorEditData(prev => ({ ...prev, location: e.target.value }))}
+                  placeholder="Enter location (City, State)"
+                  className="mt-1"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="editWebsite" className="text-sm font-medium">Website</Label>
+                <Input
+                  id="editWebsite"
+                  value={doctorEditData.website}
+                  onChange={(e) => setDoctorEditData(prev => ({ ...prev, website: e.target.value }))}
+                  placeholder="https://example.com"
+                  className="mt-1"
+                />
+              </div>
+
+              {/* Read-only fields for reference */}
+              <div className="pt-4 border-t">
+                <h4 className="text-sm font-medium text-gray-600 mb-3">Read-only Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-500">Email:</span>
+                    <span className="ml-2 text-gray-900">{formatFieldValue(editingDoctor.email)}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Phone:</span>
+                    <span className="ml-2 text-gray-900">{formatFieldValue(editingDoctor.phone)}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Specialty:</span>
+                    <span className="ml-2 text-gray-900">{formatFieldValue(editingDoctor.specialty)}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Doctor ID:</span>
+                    <span className="ml-2 text-gray-900 font-mono">{formatFieldValue(editingDoctor.doctor_id)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowDoctorEdit(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={updateDoctor}
+                  className="flex-1"
+                  disabled={!doctorEditData.first_name.trim() || !doctorEditData.last_name.trim()}
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Update Profile
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Access Control Warning Dialog */}
+      <AlertDialog open={showAccessWarning} onOpenChange={setShowAccessWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-red-600" />
+              Revoke Doctor Access
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Are you sure you want to revoke access for{' '}
+                <span className="font-semibold">
+                  {doctorToRevoke?.first_name && doctorToRevoke?.last_name 
+                    ? `${doctorToRevoke.first_name} ${doctorToRevoke.last_name}`
+                    : 'Unknown Doctor'
+                  }
+                </span>
+                ?
+              </p>
+              <p className="text-red-600 font-medium">
+                ⚠️ This action will revoke the doctor's access to the portal.
+              </p>
+              <p className="text-sm text-gray-600">
+                The doctor will no longer be able to access their dashboard, view leads, or manage their profile. Their profile will remain in the database but they won't be able to log in.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowAccessWarning(false)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmRevokeAccess}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Yes, Revoke Access
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
