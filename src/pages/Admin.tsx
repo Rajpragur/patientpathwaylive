@@ -4,9 +4,7 @@ import { AdminAuth } from '@/components/admin/AdminAuth';
 import { EnhancedAdminDashboard } from '@/components/admin/EnhancedAdminDashboard';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
-
 const ADMIN_EMAIL = 'patientpathway@admin.com';
-
 export default function AdminPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
