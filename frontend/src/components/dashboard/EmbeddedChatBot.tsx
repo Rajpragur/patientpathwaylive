@@ -107,6 +107,9 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
     if (urlDoctorId) {
       console.log('Found doctor ID:', urlDoctorId);
       setFinalDoctorId(urlDoctorId);
+    } else if (customQuiz && customQuiz.id) {
+      // For custom quizzes, find the doctor who owns this quiz
+      findDoctorForCustomQuiz(customQuiz.id);
     } else if (shareKey) {
       // Try to find doctor from share key
       findDoctorByShareKey();
@@ -114,7 +117,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
       // Fallback to first available doctor
       findFirstDoctor();
     }
-  }, [doctorId, shareKey, searchParams]);
+  }, [doctorId, shareKey, searchParams, customQuiz]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -176,6 +179,34 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
       findFirstDoctor();
     } catch (error) {
       console.error('Error finding doctor by share key:', error);
+      findFirstDoctor();
+    }
+  };
+
+  const findDoctorForCustomQuiz = async (customQuizId: string) => {
+    try {
+      console.log('Finding doctor for custom quiz:', customQuizId);
+      const { data: customQuiz, error } = await supabase
+        .from('custom_quizzes')
+        .select('doctor_id')
+        .eq('id', customQuizId)
+        .single();
+      
+      if (error) {
+        console.error('Error finding custom quiz:', error);
+        findFirstDoctor();
+        return;
+      }
+      
+      if (customQuiz && customQuiz.doctor_id) {
+        console.log('Found doctor ID for custom quiz:', customQuiz.doctor_id);
+        setFinalDoctorId(customQuiz.doctor_id);
+      } else {
+        console.log('No doctor found for custom quiz, using fallback');
+        findFirstDoctor();
+      }
+    } catch (error) {
+      console.error('Error finding doctor for custom quiz:', error);
       findFirstDoctor();
     }
   };
@@ -480,7 +511,7 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
         custom_quiz_id: quizData.isCustom ? quizData.id : null,
         score: result.score,
         answers: result.detailedAnswers,
-        lead_source: shareKey ? 'shared_link' : 'website',
+        lead_source: shareKey ? 'shared_link' : 'chatbot_page',
         lead_status: 'NEW',
         doctor_id: finalDoctorId,
         share_key: shareKey || null,
@@ -503,7 +534,6 @@ export function EmbeddedChatBot({ quizType, shareKey, doctorId, customQuiz, quiz
       console.log('Lead saved successfully via edge function:', data);
       toast.success('Results saved successfully! Your information has been sent to the healthcare provider.');
 
-      // Create notification for the doctor
       if (finalDoctorId) {
         const { error: notificationError } = await supabase
           .from('doctor_notifications')

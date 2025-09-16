@@ -17,6 +17,10 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    console.log('=== SEND DOCTOR NOTIFICATION EDGE FUNCTION STARTED ===');
+    console.log('Request method:', req.method);
+    console.log('Request headers:', Object.fromEntries(req.headers.entries()));
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -24,29 +28,43 @@ const handler = async (req: Request): Promise<Response> => {
     );
 
     const { leadId, doctorId }: DoctorNotificationRequest = await req.json();
+    console.log('Received request data:', { leadId, doctorId });
 
     // Get lead details
+    console.log('Fetching lead details for ID:', leadId);
     const { data: lead, error: leadError } = await supabaseClient
       .from('quiz_leads')
       .select('*')
       .eq('id', leadId)
       .single();
 
-    if (leadError) throw leadError;
+    if (leadError) {
+      console.error('Error fetching lead:', leadError);
+      throw leadError;
+    }
+    console.log('Lead found:', { id: lead.id, name: lead.name, email: lead.email, phone: lead.phone, quiz_type: lead.quiz_type, score: lead.score });
 
     // Get doctor profile
+    console.log('Fetching doctor profile for ID:', doctorId);
     const { data: doctorProfile, error: doctorError } = await supabaseClient
       .from('doctor_profiles')
       .select('*')
       .eq('id', doctorId)
       .single();
 
-    if (doctorError) throw doctorError;
+    if (doctorError) {
+      console.error('Error fetching doctor profile:', doctorError);
+      throw doctorError;
+    }
+    console.log('Doctor profile found:', { id: doctorProfile.id, name: `${doctorProfile.first_name} ${doctorProfile.last_name}`, email: doctorProfile.email });
 
     // Send doctor notification email via Resend
+    console.log('Sending doctor notification email...');
     const emailResult = await sendDoctorNotificationEmail(lead, doctorProfile);
+    console.log('Email result:', emailResult);
 
     // Log the email
+    console.log('Logging email to database...');
     await supabaseClient.from('email_logs').insert({
       doctor_id: doctorId,
       recipient_email: doctorProfile.email,
@@ -57,6 +75,7 @@ const handler = async (req: Request): Promise<Response> => {
       sent_at: new Date().toISOString()
     });
 
+    console.log('=== SEND DOCTOR NOTIFICATION EDGE FUNCTION COMPLETED ===');
     return new Response(JSON.stringify({
       success: true,
       message: 'Doctor notification sent successfully',
@@ -78,8 +97,14 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 async function sendDoctorNotificationEmail(lead: any, doctorProfile: any) {
+  console.log('=== SENDING DOCTOR NOTIFICATION EMAIL ===');
   const resendApiKey = Deno.env.get('RESEND_API_KEY');
+  console.log('Resend API Key available:', !!resendApiKey);
+  console.log('API Key length:', resendApiKey ? resendApiKey.length : 0);
+  console.log('API Key starts with re_:', resendApiKey ? resendApiKey.startsWith('re_') : false);
+  
   if (!resendApiKey) {
+    console.error('RESEND_API_KEY not configured');
     throw new Error('RESEND_API_KEY not configured');
   }
 
@@ -92,145 +117,476 @@ async function sendDoctorNotificationEmail(lead: any, doctorProfile: any) {
   const answersSummary = generateAnswersSummary(lead.answers);
 
   const html = `
-    <!DOCTYPE html>
+      <!DOCTYPE html>
     <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>New Lead Notification</title>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 700px; margin: 0 auto; padding: 20px; }
-        .header { background: #dc2626; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { background: #f8fafc; padding: 20px; border-radius: 0 0 8px 8px; }
-        .lead-info { background: white; padding: 15px; border-radius: 8px; margin: 20px 0; }
-        .urgent { border-left: 4px solid #dc2626; }
-        .cta-button { display: inline-block; background: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-        .dashboard-button { display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 10px 20px 0; }
-        .answers-table { width: 100%; border-collapse: collapse; margin: 15px 0; }
-        .answers-table th, .answers-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        .answers-table th { background-color: #f2f2f2; }
-        .score-highlight { font-size: 24px; font-weight: bold; color: ${severityColor}; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>🚨 New Lead Alert</h1>
-          <p>Patient assessment completed - Action Required</p>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>New Quiz Submission - PatientPathway.ai</title>
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #1f2937;
+            background-color: #f9fafb;
+            margin: 0;
+            padding: 0;
+          }
+
+          .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+          }
+
+          .info-table td {
+            padding: 6px 0;
+            vertical-align: middle;
+          }
+
+          .info-label {
+            font-weight: 600;
+            font-size: 13px;
+            color: #6b7280;
+            width: 120px;
+            /* fixed width so values line up */
+            text-transform: uppercase;
+          }
+
+          .info-value {
+            font-size: 15px;
+            color: #111827;
+          }
+
+          .score-badge {
+            display: inline-block;
+            background-color: #2563eb;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 14px;
+          }
+
+          .submitted-row {
+            margin-top: 12px;
+            font-size: 13px;
+            color: #6b7280;
+          }
+
+          .info-value a {
+            color: #2563eb !important;
+            /* ensures quiz/email links inside info-value stay blue */
+            text-decoration: underline !important;
+            font-weight: 600 !important;
+          }
+
+          .email-container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+            overflow: hidden;
+          }
+
+          .header {
+            padding: 24px 24px 0 24px;
+            text-align: center;
+          }
+
+          .logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 12px;
+            display: block;
+            object-fit: contain;
+          }
+
+          .header-title {
+            font-size: 22px;
+            font-weight: 700;
+            margin: 0 0 6px 0;
+            color: #111827;
+          }
+
+          .header-subtitle {
+            font-size: 13px;
+            color: #6b7280;
+            margin: 0;
+          }
+
+          .content {
+            padding: 20px 20px 0 20px;
+          }
+
+          .main-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #111827;
+            margin: 0 0 12px;
+            text-align: center;
+          }
+
+          .section {
+            border-top: 1px solid #e5e7eb;
+            padding-top: 20px;
+            margin-top: 20px;
+          }
+
+          .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0 0 12px;
+            color: #374151;
+          }
+
+          .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+          }
+
+          .info-item {
+            display: flex;
+            flex-direction: column;
+          }
+
+          .info-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+          }
+
+          .info-value {
+            font-size: 15px;
+            font-weight: 500;
+            color: #111827;
+          }
+
+          .score-badge {
+            display: inline-block;
+            background-color: #2563eb;
+            color: white;
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 15px;
+          }
+
+          .contact-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+          }
+
+          .contact-item {
+            padding: 6px 0;
+            font-size: 14px;
+          }
+
+          .contact-label {
+            font-weight: 600;
+            margin-right: 4px;
+            color: #000000;
+          }
+
+          .quiz-responses {
+            background-color: #f9fafb;
+            border-radius: 6px;
+            padding: 12px;
+            font-size: 14px;
+          }
+
+          .quiz-item {
+            padding: 6px 0;
+            border-bottom: 1px solid #e5e7eb;
+          }
+
+          .quiz-item:last-child {
+            border-bottom: none;
+          }
+
+          .quiz-question {
+            font-weight: 500;
+          }
+
+          .quiz-answer {
+            font-weight: 600;
+            color: #111827;
+          }
+
+          .dashboard-section {
+            text-align: center;
+            padding: 24px;
+          }
+
+          .dashboard-link {
+            display: inline-block;
+            background-color: #0c97e8;
+            padding: 12px 22px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+          }
+
+          .dashboard-link:hover {
+            background-color: #1d4ed8;
+          }
+
+          .dashboard-link a {
+            color: white;
+            font-weight: bold;
+          }
+
+          .footer {
+            background-color: #f9fafb;
+            padding: 16px;
+            text-align: center;
+            font-size: 12px;
+            color: #6b7280;
+            border-top: 1px solid #e5e7eb;
+          }
+
+          @media (max-width: 600px) {
+            .info-grid {
+              grid-template-columns: 1fr;
+            }
+
+            .main-title {
+              font-size: 20px;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="email-container">
+          <div class="header">
+            <img src="https://drvitjhhggcywuepyncx.supabase.co/storage/v1/object/public/logo/WhatsApp%20Image%202025-05-26%20at%2009.26.08.jpeg" alt="PatientPathway.ai Logo" class="logo">
+            <h1 class="header-title">PatientPathway.ai</h1>
+            <p class="header-subtitle">New Quiz Submission</p>
+          </div>
+          <div class="content">
+            <h2 class="main-title">New Lead Submission</h2>
+            <div class="section">
+              <h3 class="section-title">Patient Contact Information</h3>
+              <ul class="contact-list">
+                <li class="contact-item">
+                  <span class="contact-label">Name:</span>${lead.name}
+                </li>
+                <li class="contact-item">
+                  <span class="contact-label">Mobile:</span>${lead.phone}
+                </li>
+                <li class="contact-item">
+                  <span class="contact-label">Email:</span>
+                  <a href="mailto:${lead.email}" style="color:#2563eb; text-decoration:underline;">${lead.email || 'Not provided'}</a>
+                </li>
+              </ul>
+            </div>
+            <div class="section">
+              <h3 class="section-title">Assessment Details</h3>
+              <table class="info-table">
+                <tr>
+                  <td class="info-label">Quiz Type</td>
+                  <td class="info-value">${lead.quiz_type}</td>
+                </tr>
+                <tr>
+                  <td class="info-label">Doctor</td>
+                  <td class="info-value">${doctorName}</td>
+                </tr>
+                <tr>
+                  <td class="info-label">Status</td>
+                  <td class="info-value">Qualified Lead</td>
+                </tr>
+                <tr>
+                  <td class="info-label">Score</td>
+                  <td class="info-value">
+                    <span class="score-badge">${lead.score}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="info-label">Source</td>
+                  <td class="info-value">${lead.lead_source}</td>
+                </tr>
+              </table>
+              <p class="submitted-row"> Submitted: ${new Date(lead.submitted_at).toLocaleString()} </p>
+            </div>
+          </div>
+          <div class="section">
+            <h3 class="section-title">Quiz Responses</h3>
+            <div class="quiz-responses"> ${generateMinimalAnswersSummary(lead.answers)} </div>
+          </div>
+          <div class="dashboard-section">
+            <h3 style="font-size:16px; margin:0 0 12px; color:#374151;">Access Your Clinician Dashboard</h3>
+            <a href="${dashboardUrl}" class="dashboard-link">Open Dashboard</a>
+          </div>
         </div>
-        
-        <div class="content">
-          <h2>New Patient Assessment</h2>
-          
-          <div class="lead-info urgent">
-            <h3>Patient Information</h3>
-            <p><strong>Name:</strong> ${lead.name}</p>
-            <p><strong>Assessment:</strong> ${lead.quiz_type}</p>
-            <p><strong>Score:</strong> <span class="score-highlight">${lead.score}</span></p>
-            <p><strong>Severity:</strong> <span style="color: ${severityColor}; font-weight: bold;">${severity.toUpperCase()}</span></p>
-            <p><strong>Submitted:</strong> ${new Date(lead.submitted_at).toLocaleString()}</p>
-            <p><strong>Source:</strong> ${lead.lead_source || 'Website'}</p>
-          </div>
-          
-          <div class="lead-info">
-            <h3>Contact Information</h3>
-            <p><strong>Phone:</strong> <a href="tel:${lead.phone}">${lead.phone}</a></p>
-            <p><strong>Email:</strong> <a href="mailto:${lead.email}">${lead.email}</a></p>
-          </div>
-          
-          ${answersSummary}
-          
-          <div class="lead-info">
-            <h3>Quick Actions</h3>
-            <p><strong>Action Required:</strong> Please contact this patient within 24 hours.</p>
-            <a href="tel:${lead.phone}" class="cta-button">📞 Call Patient Now</a>
-            <a href="mailto:${lead.email}" class="cta-button">✉️ Email Patient</a>
-            <a href="${dashboardUrl}" class="dashboard-button">📊 View Dashboard</a>
-          </div>
-          
-          <div class="lead-info">
-            <h3>Next Steps</h3>
-            <ol>
-              <li>Review the patient's assessment results above</li>
-              <li>Contact the patient within 24 hours</li>
-              <li>Schedule an appointment if needed</li>
-              <li>Update the lead status in your dashboard</li>
-            </ol>
-          </div>
-        </div>
-        
-        <div style="text-align: center; margin-top: 30px; padding: 20px; background: #f0f9ff; border-radius: 8px;">
-          <p><strong>Dashboard Access</strong></p>
-          <p>View all leads and manage this patient in your dashboard:</p>
-          <a href="${dashboardUrl}" class="dashboard-button">Open Dashboard</a>
-        </div>
-      </div>
-    </body>
+      </body>
     </html>
   `;
 
   const text = `
-New Lead Alert - Patient Assessment Completed
+New Quiz Submission
 
-Patient Information:
-- Name: ${lead.name}
-- Assessment: ${lead.quiz_type}
-- Score: ${lead.score}
-- Severity: ${severity.toUpperCase()}
-- Submitted: ${new Date(lead.submitted_at).toLocaleString()}
-- Source: ${lead.lead_source || 'Website'}
+Quiz: ${lead.quiz_type} - ${doctorName}
+Status: Qualified Lead
+Total Score: ${lead.score}
+Submitted: ${new Date(lead.submitted_at).toLocaleString()}
 
-Contact Information:
-- Phone: ${lead.phone}
-- Email: ${lead.email}
+Contact Information
+• Full Name: ${lead.name}
+• Mobile: ${lead.phone}
 
-Action Required: Please contact this patient within 24 hours.
+All Contact Fields
+name: ${lead.name}
+phone: ${lead.phone}
+email: ${lead.email}
 
-Dashboard: ${dashboardUrl}
+Quiz Responses
+${generateMinimalTextAnswers(lead.answers)}
 
-Next Steps:
-1. Review the patient's assessment results
-2. Contact the patient within 24 hours
-3. Schedule an appointment if needed
-4. Update the lead status in your dashboard
+Clinician Dashboard Access
+Check out your clinician dashboard:
+${dashboardUrl}
+PIN: 29108
+Hint: Your PIN is your office zip code.
   `;
 
   try {
+    console.log('Preparing email data...');
+    const emailData = {
+        from: 'PatientPathway.ai <office@patientpathway.ai>', // Using verified domain
+      to: doctorProfile.email,
+      subject: `Quiz Notifications`,
+      html: html,
+      text: text,
+      reply_to: doctorProfile.email
+    };
+    console.log('Email data prepared:', { 
+      to: emailData.to, 
+      subject: emailData.subject,
+      from: emailData.from 
+    });
+
+    console.log('Sending request to Resend API...');
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${resendApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        from: 'PatientPathway AI <onboarding@resend.dev>', // Using Resend's default domain
-        to: doctorProfile.email,
-        subject: `🚨 New Lead: ${lead.name} - ${lead.quiz_type} Assessment (Score: ${lead.score})`,
-        html: html,
-        text: text,
-        reply_to: doctorProfile.email
-      }),
+      body: JSON.stringify(emailData),
     });
+
+    console.log('Resend API response status:', response.status);
+    console.log('Resend API response headers:', Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
       const errorData = await response.json();
+      console.error('Resend API error response:', errorData);
       throw new Error(`Resend API error: ${response.status} - ${errorData.message || 'Unknown error'}`);
     }
 
     const result = await response.json();
+    console.log('Resend API success response:', result);
     return {
       success: true,
       id: result.id,
       message: 'Doctor notification email sent successfully'
     };
   } catch (error) {
+    console.error('Error in sendDoctorNotificationEmail:', error);
     return {
       success: false,
       error: error.message,
       message: 'Failed to send doctor notification email'
     };
   }
+}
+
+function generateMinimalAnswersSummary(answers: any) {
+  if (!answers || Object.keys(answers).length === 0) {
+    return '<div class="quiz-item"><span class="quiz-question">No answers provided</span></div>';
+  }
+  
+  let summary = '';
+  
+  // Process answers in minimal format with proper destructuring
+  Object.entries(answers).forEach(([key, value], index) => {
+    const question = `Question ${index + 1}`;
+    let answerText = '';
+    
+    // Handle different answer formats
+    if (typeof value === 'object' && value !== null) {
+      // If it's an object with answer, answerIndex, questionIndex
+      if (value.answer !== undefined) {
+        answerText = value.answer;
+      } else if (value.answerIndex !== undefined) {
+        // Convert answerIndex to readable text
+        const answerIndex = value.answerIndex;
+        if (answerIndex === 0) answerText = 'None (0)';
+        else if (answerIndex === 1) answerText = 'Mild (1)';
+        else if (answerIndex === 2) answerText = 'Moderate (2)';
+        else if (answerIndex === 3) answerText = 'Severe (3)';
+        else answerText = `Option ${answerIndex}`;
+      } else {
+        answerText = JSON.stringify(value);
+      }
+    } else {
+      // Handle primitive values
+      answerText = String(value);
+    }
+    
+    summary += `<div class="quiz-item">
+      <span class="quiz-question">${question}</span>
+      <span class="quiz-answer">${answerText}</span>
+    </div>`;
+  });
+  
+  return summary;
+}
+
+function generateMinimalTextAnswers(answers: any) {
+  if (!answers || Object.keys(answers).length === 0) {
+    return 'Detailed answers not available.';
+  }
+  
+  let summary = '';
+  
+  // Process answers in minimal text format with proper destructuring
+  Object.entries(answers).forEach(([key, value], index) => {
+    const question = `Question ${index + 1}`;
+    let answerText = '';
+    
+    // Handle different answer formats
+    if (typeof value === 'object' && value !== null) {
+      // If it's an object with answer, answerIndex, questionIndex
+      if (value.answer !== undefined) {
+        answerText = value.answer;
+      } else if (value.answerIndex !== undefined) {
+        // Convert answerIndex to readable text
+        const answerIndex = value.answerIndex;
+        if (answerIndex === 0) answerText = 'None (0)';
+        else if (answerIndex === 1) answerText = 'Mild (1)';
+        else if (answerIndex === 2) answerText = 'Moderate (2)';
+        else if (answerIndex === 3) answerText = 'Severe (3)';
+        else answerText = `Option ${answerIndex}`;
+      } else {
+        // Fallback to JSON string for other object formats
+        answerText = JSON.stringify(value);
+      }
+    } else {
+      // Handle primitive values
+      answerText = String(value);
+    }
+    
+    summary += `${question}: ${answerText}\n`;
+  });
+  
+  return summary;
 }
 
 function generateAnswersSummary(answers: any) {

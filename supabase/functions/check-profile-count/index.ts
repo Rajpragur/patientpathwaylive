@@ -1,32 +1,55 @@
-import { createClient } from './node_modules/@supabase/supabase-js';
-import { Database } from './types';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
-const supabase = createClient<Database>(supabaseUrl, supabaseKey);
-
-export default async function handler(req: any, res: any) {
-  const { user_id } = req.body;
-
-  if (!user_id) {
-    return res.status(400).json({ error: 'Missing user_id' });
+const handler = async (req: Request): Promise<Response> => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { data, error, count } = await supabase
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const { user_id } = await req.json();
+
+    if (!user_id) {
+      return new Response(JSON.stringify({ error: 'Missing user_id' }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    const { data, error, count } = await supabaseClient
       .from('doctor_profiles')
       .select('*', { count: 'exact' })
-      .eq('user_id', user_id)
+      .eq('user_id', user_id);
 
     if (error) {
       console.error(error);
-      return res.status(500).json({ error: error.message });
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
 
-    return res.status(200).json({ count: count });
+    return new Response(JSON.stringify({ count: count }), {
+      status: 200,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ error: error.message });
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
   }
-}
+};
+
+serve(handler);

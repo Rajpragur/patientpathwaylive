@@ -154,7 +154,7 @@ export function CardQuiz() {
 
     setSubmittingLead(true);
     try {
-      // Submit lead data to quiz_leads table (same as EnhancedChatBot)
+      // Submit lead data using the edge function (same as other components)
       const leadDataToSubmit = {
         name: leadData.name,
         email: leadData.email,
@@ -162,19 +162,26 @@ export function CardQuiz() {
         quiz_type: quizType,
         score: quizResult.score,
         answers: answers,
-        lead_source: searchParams.get('utm_source') || 'quiz_card',
+        lead_source: searchParams.get('utm_source') || 'card_page',
         lead_status: 'NEW',
         doctor_id: doctorId,
         share_key: null,
+        submitted_at: new Date().toISOString()
       };
 
-      const { error } = await supabase
-        .from('quiz_leads')
-        .insert(leadDataToSubmit);
+      console.log('Submitting lead via edge function:', leadDataToSubmit);
+
+      // Use the Supabase edge function to submit the lead
+      const { data, error } = await supabase.functions.invoke('submit-lead', {
+        body: leadDataToSubmit
+      });
 
       if (error) {
+        console.error('Edge function error:', error);
         throw error;
       }
+      
+      console.log('Lead saved successfully via edge function:', data);
       
       // Reset form and show success state
       setLeadData({ name: '', email: '', phone: '' });

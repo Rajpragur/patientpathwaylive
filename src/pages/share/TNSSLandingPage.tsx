@@ -33,6 +33,7 @@ const defaultChatbotColors = {
 const TNSSLandingPage: React.FC = () => {
   const { doctorId } = useParams<{ doctorId: string }>();
   const [utmSource, setUtmSource] = useState<string | null>(null);
+  const [shareKey, setShareKey] = useState<string | null>(null);
   const [doctor, setDoctor] = useState<DoctorProfile | null>(null);
   const [aiContent, setAIContent] = useState<any>(null);
   const [loadingAI, setLoadingAI] = useState(false);
@@ -50,12 +51,17 @@ const TNSSLandingPage: React.FC = () => {
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const source = searchParams.get('utm_source');
+    const shareKeyParam = searchParams.get('share_key') || searchParams.get('shareKey');
     if (source) {
       setUtmSource(source);
+    }
+    if (shareKeyParam) {
+      setShareKey(shareKeyParam);
     }
     
     console.log('TNSSLandingPage - doctorId from URL:', doctorId);
     console.log('TNSSLandingPage - URL search params:', Object.fromEntries(searchParams));
+    console.log('TNSSLandingPage - shareKey:', shareKeyParam);
     
     const fetchDoctorData = async () => {
       // Check both route params and query parameters for doctor ID
@@ -541,6 +547,7 @@ const TNSSLandingPage: React.FC = () => {
                   doctorAvatarUrl={doctorAvatarUrl}
                   chatbotColors={chatbotColors}
                   utm_source={utmSource}
+                  shareKey={shareKey}
                 />
               </div>
             </div>

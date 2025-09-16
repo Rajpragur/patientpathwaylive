@@ -44,8 +44,8 @@ export class ResendService {
   private apiKey: string | undefined;
 
   constructor() {
-    this.defaultFrom = 'noreply@resend.dev';
-    this.defaultReplyTo = 'noreply@resend.dev';
+    this.defaultFrom = 'office@patientpathway.ai';
+    this.defaultReplyTo = 'office@patientpathway.ai';
     this.apiKey = getResendApiKey();
   }
 
@@ -116,8 +116,8 @@ export class ResendService {
     }
 
     try {
-      // Use Resend's default domain with doctor's name in the from field
-      const fromAddress = `${doctorName} <noreply@resend.dev>`;
+      // Use verified domain with doctor's name in the from field
+      const fromAddress = `${doctorName} <office@patientpathway.ai>`;
       
       const { data, error } = await resend.emails.send({
         from: fromAddress,

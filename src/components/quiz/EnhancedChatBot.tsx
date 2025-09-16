@@ -57,6 +57,7 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
   const [userInfo, setUserInfo] = useState({ name: '', email: '', phone: '' });
   const [collectingInfo, setCollectingInfo] = useState(false);
   const [infoStep, setInfoStep] = useState(0);
+  const [leadSubmitted, setLeadSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -145,12 +146,15 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
     const urlDoctorId = searchParams.get('doctor');
     if (urlDoctorId) {
       setFinalDoctorId(urlDoctorId);
+    } else if (customQuiz && customQuiz.id) {
+      // For custom quizzes, find the doctor who owns this quiz
+      findDoctorForCustomQuiz(customQuiz.id);
     } else if (shareKey) {
       findDoctorByShareKey();
     } else {
       findFirstDoctor();
     }
-  }, [shareKey, searchParams]);
+  }, [shareKey, searchParams, customQuiz]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -212,6 +216,34 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
       findFirstDoctor();
     } catch (error) {
       console.error('Error finding doctor by share key:', error);
+      findFirstDoctor();
+    }
+  };
+
+  const findDoctorForCustomQuiz = async (customQuizId: string) => {
+    try {
+      console.log('Finding doctor for custom quiz:', customQuizId);
+      const { data: customQuiz, error } = await supabase
+        .from('custom_quizzes')
+        .select('doctor_id')
+        .eq('id', customQuizId)
+        .single();
+      
+      if (error) {
+        console.error('Error finding custom quiz:', error);
+        findFirstDoctor();
+        return;
+      }
+      
+      if (customQuiz && customQuiz.doctor_id) {
+        console.log('Found doctor ID for custom quiz:', customQuiz.doctor_id);
+        setFinalDoctorId(customQuiz.doctor_id);
+      } else {
+        console.log('No doctor found for custom quiz, using fallback');
+        findFirstDoctor();
+      }
+    } catch (error) {
+      console.error('Error finding doctor for custom quiz:', error);
       findFirstDoctor();
     }
   };
@@ -300,13 +332,28 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
     const quizResult = calculateQuizScore(quizType, finalAnswers);
     setResult(quizResult);
 
+    // Show results first
     setMessages(prev => [
       ...prev,
       {
         role: 'assistant',
-        content: `🎉 Congratulations! You've completed the ${quizData.title}. Here are your results. Proceed with submitting details ahead.`
+        content: `🎉 Congratulations! You've completed the ${quizData.title}. Thank you!\n\nYour Results:\n\nScore: ${quizResult.score}/${quizData.maxScore}\nSeverity: ${quizResult.severity.charAt(0).toUpperCase() + quizResult.severity.slice(1)}\n\nInterpretation: ${quizResult.interpretation}\n\nA healthcare provider will review your results and may contact you for follow-up care if needed.}`
       }
     ]);
+    
+    // Ask for details in a separate message
+    setTimeout(() => {
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Please enter your full name:'
+        }
+      ]);
+    }, 1000);
+    
+    // Start collecting info after showing results
+    setCollectingInfo(true);
   };
   
   const handleInfoSubmit = async () => {
@@ -379,23 +426,35 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
         quiz_type: quizType,
         score: result.score,
         answers: answers,
-        lead_source: searchParams.get('utm_source') || (shareKey ? 'shared_link' : 'website'),
+        lead_source: searchParams.get('utm_source') || (shareKey ? 'shared_link' : 'chatbot_page'),
         lead_status: 'NEW',
         doctor_id: finalDoctorId,
         share_key: shareKey || null,
+        submitted_at: new Date().toISOString()
       };
 
-      const { error } = await supabase.from('quiz_leads').insert(leadData);
+      console.log('Submitting lead with data:', leadData);
+
+      // Use the Supabase edge function to submit the lead
+      const { data, error } = await supabase.functions.invoke('submit-lead', {
+        body: leadData
+      });
 
       if (error) {
+        console.error('Edge function error:', error);
         throw error;
       }
       
-      toast.success('Results saved successfully! You will receive a follow-up soon.');
+      console.log('Lead saved successfully via edge function:', data);
+      toast.success('Results saved successfully! Your information has been sent to the healthcare provider.');
       setMessages(prev => [...prev, { 
         role: 'assistant', 
         content: 'Thank you! Your assessment has been saved. A team member will get back to you soon.' 
       }]);
+      
+      // Hide the input form after successful submission
+      setCollectingInfo(false);
+      setLeadSubmitted(true);
 
     } catch (error) {
       console.error('Error submitting lead:', error);
@@ -438,6 +497,7 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
     setUserInfo({ name: '', email: '', phone: '' });
     setCollectingInfo(false);
     setInfoStep(0);
+    setLeadSubmitted(false);
     setInput('');
     setTimeout(() => {
       setMessages([{
@@ -609,25 +669,7 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
           transition={{ duration: 0.4, ease: 'easeOut' }}
           className="p-4 sticky bottom-0 z-10 bg-white/90 backdrop-blur rounded-b-2xl border-t border-gray-200"
         >
-          {result && quizCompleted && !collectingInfo && (
-            <Button
-              onClick={() => {
-                setCollectingInfo(true);
-                setMessages(prev => [
-                  ...prev,
-                  {
-                    role: 'assistant',
-                    content: 'To save your results, please enter your full name:'
-                  }
-                ]);
-              }}
-              className="w-full rounded-xl text-white"
-              style={{ backgroundColor: chatbotColors.primary, borderColor: chatbotColors.primary }}
-            >
-              Save My Results
-            </Button>
-          )}
-          {collectingInfo && (
+          {collectingInfo && !leadSubmitted && (
             <div className="flex gap-2">
               <Input
                 value={input}
@@ -651,6 +693,16 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
               >
                 {isSubmittingLead ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </Button>
+            </div>
+          )}
+          
+          {leadSubmitted && (
+            <div className="text-center py-4">
+              <div className="flex items-center justify-center gap-2 text-green-600 mb-2">
+                <CheckCircle className="w-5 h-5" />
+                <span className="font-semibold">Assessment Complete!</span>
+              </div>
+              <p className="text-sm text-gray-600">Your results have been saved and sent to your healthcare provider.</p>
             </div>
           )}
         </motion.div>

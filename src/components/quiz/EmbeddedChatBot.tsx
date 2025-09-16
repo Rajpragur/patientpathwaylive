@@ -45,9 +45,10 @@ interface EmbeddedChatBotProps {
   doctorAvatarUrl?: string;
   chatbotColors?: typeof defaultChatbotColors;
   utm_source: string;
+  shareKey?: string;
 }
 
-export function EmbeddedChatBot({ quizType, doctorId, customQuiz, quizData, doctorAvatarUrl,chatbotColors,utm_source }: EmbeddedChatBotProps) {
+export function EmbeddedChatBot({ quizType, doctorId, customQuiz, quizData, doctorAvatarUrl,chatbotColors,utm_source, shareKey }: EmbeddedChatBotProps) {
   const [searchParams] = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -132,14 +133,31 @@ export function EmbeddedChatBot({ quizType, doctorId, customQuiz, quizData, doct
   }, [quizData]);
 
   useEffect(() => {
+    console.log('🔍 Setting up doctor ID...', {
+      doctorId,
+      searchParamsDoctor: searchParams.get('doctor'),
+      customQuiz: customQuiz?.id,
+      shareKey
+    });
+    
     const urlDoctorId = doctorId || searchParams.get('doctor');
     if (urlDoctorId) {
+      console.log('✅ Using URL doctor ID:', urlDoctorId);
       setFinalDoctorId(urlDoctorId);
+    } else if (customQuiz && customQuiz.id) {
+      console.log('🔍 Looking up doctor for custom quiz:', customQuiz.id);
+      // For custom quizzes, find the doctor who owns this quiz
+      findDoctorForCustomQuiz(customQuiz.id);
+    } else if (shareKey) {
+      console.log('🔍 Looking up doctor by share key:', shareKey);
+      // For shared quizzes, find doctor by share key
+      findDoctorByShareKey();
     } else {
+      console.log('🔍 Using fallback - finding first available doctor');
       // Fallback to first available doctor
       findFirstDoctor();
     }
-  }, [doctorId, searchParams]);
+  }, [doctorId, searchParams, customQuiz, shareKey]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -175,20 +193,55 @@ export function EmbeddedChatBot({ quizType, doctorId, customQuiz, quizData, doct
   }, [finalDoctorId]);
 
 
-  const findFirstDoctor = async () => {
+  const findDoctorForCustomQuiz = async (customQuizId: string) => {
     try {
-      console.log('Finding first available doctor');
-      const { data: doctorProfiles } = await supabase
-        .from('doctor_profiles')
-        .select('id')
-        .limit(1);
+      console.log('Finding doctor for custom quiz:', customQuizId);
+      const { data: customQuiz, error } = await supabase
+        .from('custom_quizzes')
+        .select('doctor_id')
+        .eq('id', customQuizId)
+        .single();
       
-      if (doctorProfiles && doctorProfiles.length > 0) {
-        console.log('Using fallback doctor ID:', doctorProfiles[0].id);
-        setFinalDoctorId(doctorProfiles[0].id);
+      if (error) {
+        console.error('Error finding custom quiz:', error);
+        findFirstDoctor();
+        return;
+      }
+      
+      if (customQuiz && customQuiz.doctor_id) {
+        console.log('Found doctor ID for custom quiz:', customQuiz.doctor_id);
+        setFinalDoctorId(customQuiz.doctor_id);
+      } else {
+        console.log('No doctor found for custom quiz, using fallback');
+        findFirstDoctor();
       }
     } catch (error) {
-      console.error('Error finding first doctor:', error);
+      console.error('Error finding doctor for custom quiz:', error);
+      findFirstDoctor();
+    }
+  };
+
+  const findFirstDoctor = async () => {
+    try {
+      console.log('🔍 Finding first available doctor...');
+      const { data: doctorProfiles, error } = await supabase
+        .from('doctor_profiles')
+        .select('id, email')
+        .limit(1);
+      
+      if (error) {
+        console.error('❌ Error fetching doctor profiles:', error);
+        return;
+      }
+      
+      if (doctorProfiles && doctorProfiles.length > 0) {
+        console.log('✅ Using fallback doctor ID:', doctorProfiles[0].id, 'Email:', doctorProfiles[0].email);
+        setFinalDoctorId(doctorProfiles[0].id);
+      } else {
+        console.error('❌ No doctor profiles found in database');
+      }
+    } catch (error) {
+      console.error('❌ Error finding first doctor:', error);
     }
   };
 
@@ -426,6 +479,7 @@ export function EmbeddedChatBot({ quizType, doctorId, customQuiz, quizData, doct
   };
 
   const submitLead = async () => {
+    console.log('=== SUBMIT LEAD CALLED ===');
     console.log('Starting lead submission process...', {
       finalDoctorId,
       userInfo,
@@ -434,10 +488,15 @@ export function EmbeddedChatBot({ quizType, doctorId, customQuiz, quizData, doct
     });
 
     if (!finalDoctorId) {
-      console.error('No doctor ID available for lead submission');
+      console.error('❌ No doctor ID available for lead submission');
+      console.error('finalDoctorId is:', finalDoctorId);
+      console.error('doctorId prop is:', doctorId);
+      console.error('searchParams doctor:', searchParams.get('doctor'));
       toast.error('Unable to save results - no doctor associated with this quiz');
       return;
     }
+
+    console.log('✅ Doctor ID found:', finalDoctorId);
 
     setIsSubmittingLead(true);
     
@@ -450,7 +509,7 @@ export function EmbeddedChatBot({ quizType, doctorId, customQuiz, quizData, doct
         custom_quiz_id: quizData.isCustom ? quizData.id : null,
         score: result.score,
         answers: result.detailedAnswers,
-        lead_source: source || 'website',
+        lead_source: source || 'chatbot_page',
         lead_status: 'NEW',
         doctor_id: finalDoctorId,
         incident_source: 'default',
@@ -460,16 +519,17 @@ export function EmbeddedChatBot({ quizType, doctorId, customQuiz, quizData, doct
       console.log('Submitting lead with data:', leadData);
 
       // Use the Supabase edge function to submit the lead
+      console.log('🚀 Calling supabase.functions.invoke("submit-lead")...');
       const { data, error } = await supabase.functions.invoke('submit-lead', {
         body: leadData
       });
 
       if (error) {
-        console.error('Edge function error:', error);
+        console.error('❌ Edge function error:', error);
         throw error;
       }
       
-      console.log('Lead saved successfully via edge function:', data);
+      console.log('✅ Lead saved successfully via edge function:', data);
       toast.success('Results saved successfully! Your information has been sent to the healthcare provider.');
 
       // Create notification for the doctor
