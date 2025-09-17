@@ -3,7 +3,7 @@ import { Quiz } from '@/types/quiz';
 export const quizzes: Record<string, Quiz> = {
   SNOT22: {
     id: 'SNOT22',
-    title: 'SNOT-22 Assessment',
+    title: 'SNOT-22',
     description: 'Comprehensive evaluation of sinus and nasal symptoms',
     maxScore: 110,
     scoring: {
@@ -128,7 +128,7 @@ export const quizzes: Record<string, Quiz> = {
   
   NOSE: {
     id: 'NOSE',
-    title: 'NOSE Scale Assessment',
+    title: 'NOSE Score',
     description: 'Nasal Obstruction Symptom Evaluation for breathing difficulties',
     maxScore: 100,
     scoring: {
@@ -363,7 +363,7 @@ export const quizzes: Record<string, Quiz> = {
   
   SNOT12: {
     id: 'SNOT12',
-    title: 'SNOT-12 Assessment',
+    title: 'SNOT12',
     description: 'Short-form evaluation of sinus and nasal symptoms impact on quality of life',
     maxScore: 60,
     scoring: {
@@ -633,7 +633,7 @@ export const quizzes: Record<string, Quiz> = {
 
   TNSS: {
     id: 'TNSS',
-    title: 'Total Nasal Symptom Score',
+    title: 'TNSS',
     description: 'Assessment of nasal congestion and rhinitis symptoms',
     maxScore: 12,
     scoring: {
