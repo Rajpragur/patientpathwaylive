@@ -113,13 +113,56 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
       setTimeout(() => {
         setShowTyping(false);
         const question = quizData.questions[questionIndex];
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: `Question ${questionIndex + 1} of ${quizData.questions.length}:\n\n${question.text}`,
-          isQuestion: true,
-          questionIndex,
-          options: question.options
-        }]);
+        
+        // For NOSE, SNOT12, and TNSS quizzes, include the first question in the initial message
+        if ((quizType === 'NOSE' || quizType === 'SNOT12' || quizType === 'TNSS') && questionIndex === 0) {
+          const firstQuestion = quizData.questions[0];
+          let consolidatedMessage = '';
+          let optionsText = '';
+          
+          if (quizType === 'NOSE') {
+            optionsText = firstQuestion.options.map((option, index) => {
+              const score = option.match(/\((\d+)\)/)?.[1] || index;
+              const label = option.replace(/\s*\(\d+\)$/, '');
+              return `${score} – ${label}`;
+            }).join('\n• ');
+            
+            consolidatedMessage = `Start your Nasal Obstruction Symptom Evaluation (NOSE) to get your 0–100 nasal obstruction score.\n\nQuestion 1 of 5:\n${firstQuestion.text}\n`;
+          } else if (quizType === 'SNOT12') {
+            optionsText = firstQuestion.options.map((option, index) => {
+              const letter = String.fromCharCode(65 + index); // A, B, C, etc.
+              const score = option.match(/\((\d+)\)/)?.[1] || index;
+              const label = option.replace(/\s*\(\d+\)$/, '');
+              return `${letter} – ${label} (${score})`;
+            }).join('\n• ');
+            
+            consolidatedMessage = `Start your SNOT-12 assessment to get your 0–60 sinus severity score. \n\nQuestion 1 of 12:\n\n${firstQuestion.text}\n`;
+          } else if (quizType === 'TNSS') {
+            optionsText = firstQuestion.options.map((option, index) => {
+              const score = option.match(/\((\d+)\)/)?.[1] || index;
+              const label = option.replace(/\s*\(\d+\)$/, '');
+              return `${score} – ${label}`;
+            }).join('\n• ');
+            
+            consolidatedMessage = `Start your TNSS assessment to get your 0–12 rhinitis severity score.\n\nQuestion 1 of 4:\n\n${firstQuestion.text}\n`;
+          }
+          
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: consolidatedMessage,
+            isQuestion: true,
+            questionIndex,
+            options: question.options
+          }]);
+        } else {
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: `Question ${questionIndex + 1} of ${quizData.questions.length}:\n\n${question.text}`,
+            isQuestion: true,
+            questionIndex,
+            options: question.options
+          }]);
+        }
         setCurrentQuestionIndex(questionIndex);
       }, 700);
     } else {
@@ -130,15 +173,22 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
   useEffect(() => {
     if (quizData && !quizStarted) {
       setLoading(false);
-      setMessages([
-        {
-          role: 'assistant',
-          content: `Hello! Welcome to the ${quizData.title}. ${quizData.description}\n\nThis assessment will help evaluate your symptoms. Let's get started.`
-        }
-      ]);
-      // Automatically start the quiz
-      setQuizStarted(true);
-      askNextQuestion(0);
+      
+      // For NOSE, SNOT12, and TNSS quizzes, show consolidated message and start immediately
+      if (quizType === 'NOSE' || quizType === 'SNOT12' || quizType === 'TNSS') {
+        setQuizStarted(true);
+        askNextQuestion(0);
+      } else {
+        // For other quizzes, show the traditional welcome message
+        setMessages([
+          {
+            role: 'assistant',
+            content: `Hello! Welcome to the ${quizData.title}. ${quizData.description}\n\nThis assessment will help evaluate your symptoms. Let's get started.`
+          }
+        ]);
+        setQuizStarted(true);
+        askNextQuestion(0);
+      }
     }
   }, [quizData, quizStarted]);
 
@@ -447,14 +497,7 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
       
       console.log('Lead saved successfully via edge function:', data);
       toast.success('Results saved successfully! Your information has been sent to the healthcare provider.');
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: 'Thank you! Your assessment has been saved. A team member will get back to you soon.' 
-      }]);
-      
-      // Hide the input form after successful submission
       setCollectingInfo(false);
-      setLeadSubmitted(true);
 
     } catch (error) {
       console.error('Error submitting lead:', error);
@@ -499,12 +542,21 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
     setInfoStep(0);
     setLeadSubmitted(false);
     setInput('');
-    setTimeout(() => {
-      setMessages([{
-        role: 'assistant',
-        content: `Hello! Welcome to the ${quizData.title}. ${quizData.description}\n\nThis assessment will help evaluate your symptoms. Click "Start Assessment" when you're ready to begin.`
-      }]);
-    }, 100);
+    
+    // For NOSE, SNOT12, and TNSS quizzes, show consolidated message and start immediately
+    if (quizType === 'NOSE' || quizType === 'SNOT12' || quizType === 'TNSS') {
+      setTimeout(() => {
+        setQuizStarted(true);
+        askNextQuestion(0);
+      }, 100);
+    } else {
+      setTimeout(() => {
+        setMessages([{
+          role: 'assistant',
+          content: `Hello! Welcome to the ${quizData.title}. ${quizData.description}\n\nThis assessment will help evaluate your symptoms. Click "Start Assessment" when you're ready to begin.`
+        }]);
+      }, 100);
+    }
   };
 
   const getSeverityColor = (severity: string) => {
@@ -583,7 +635,7 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
                     }`}
                     style={message.role === 'user' ? { backgroundColor: chatbotColors.userBubble, color: chatbotColors.userText , borderColor: chatbotColors.primary } : {backgroundColor: chatbotColors.botBubble, color: chatbotColors.botText , borderColor: chatbotColors.primary}}
                   >
-                    <span className="whitespace-pre-wrap text-base leading-relaxed">{message.content}</span>
+                    <span className="whitespace-pre-wrap font-medium text-base leading-relaxed">{message.content}</span>
                     {message.isQuestion && message.options && !quizCompleted && (
                       <div className="mt-4 space-y-2 w-full">
                         {Array.isArray(message.options) && message.options.map((option: any, optionIndex: number) =>
@@ -620,9 +672,9 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
             <div className="overflow-y-auto">
               <Card className="rounded-2xl mt-6 border" style={{ borderColor: chatbotColors.primary }}>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2" style={{ color: chatbotColors.primary }}>
+                  <CardTitle className="flex justify-center items-center gap-2" style={{ color: chatbotColors.primary }}>
                     <CheckCircle className="w-5 h-5" />
-                    Assessment Complete
+                    Thank You!
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -647,14 +699,6 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
                     <h4 className="font-semibold mb-2" style={{ color: chatbotColors.primary }}>Results Summary:</h4>
                     <p style={{ color: chatbotColors.primary }}>{result.interpretation}</p>
                   </div>
-                  <Button 
-                    onClick={resetQuiz} 
-                    className="w-full rounded-xl text-white"
-                    style={{ backgroundColor: chatbotColors.primary, borderColor: chatbotColors.primary }}
-                  >
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                    Retake Quiz
-                  </Button>
                 </CardContent>
               </Card>
             </div>
@@ -696,13 +740,13 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
             </div>
           )}
           
-          {leadSubmitted && (
+          {result && quizCompleted && !collectingInfo && (
             <div className="text-center py-4">
               <div className="flex items-center justify-center gap-2 text-green-600 mb-2">
                 <CheckCircle className="w-5 h-5" />
-                <span className="font-semibold">Assessment Complete!</span>
+                <span className="font-semibold">{quizData.title.toUpperCase()} Assessment Complete!</span>
               </div>
-              <p className="text-sm text-gray-600">Your results have been saved and sent to your healthcare provider.</p>
+              <p className="text-sm text-gray-600">Your Result has been successfully submitted to Dr. {doctorProfile?.first_name} {doctorProfile?.last_name}.</p>
             </div>
           )}
         </motion.div>

@@ -104,6 +104,13 @@ export function EmbeddedChatBot({ quizType, doctorId, customQuiz, quizData, doct
       setTimeout(() => {
         setShowTyping(false);
         const question = quizData.questions[questionIndex];
+        
+        // Skip the first question for NOSE, SNOT12, and TNSS since it's already shown in the initial message
+        if ((quizType === 'NOSE' || quizType === 'SNOT12' || quizType === 'TNSS') && questionIndex === 0) {
+          setCurrentQuestionIndex(questionIndex);
+          return;
+        }
+        
         setMessages(prev => [...prev, {
           role: 'assistant',
           content: `Question ${questionIndex + 1} of ${quizData.questions.length}:\n\n${question.text}`,
@@ -121,14 +128,56 @@ export function EmbeddedChatBot({ quizType, doctorId, customQuiz, quizData, doct
   useEffect(() => {
     if (quizData) {
       setLoading(false);
-      setMessages([
-        {
-          role: 'assistant',
-          content: `Hello! Welcome to the ${quizData.title}. ${quizData.description}\n\nThis assessment will help evaluate your symptoms. Click "Start Assessment" when you're ready to begin.`
+      
+      // For NOSE, SNOT12, and TNSS quizzes, show consolidated message immediately
+      if (quizType === 'NOSE' || quizType === 'SNOT12' || quizType === 'TNSS') {
+        let consolidatedMessage = '';
+        
+        if (quizType === 'NOSE') {
+          const firstQuestion = quizData.questions[0];
+          const optionsText = firstQuestion.options.join('\n• ');
+          
+          consolidatedMessage = `Start your Nasal Obstruction Symptom Evaluation (NOSE) to get your 0–100 nasal obstruction score.\n\nQuestion 1 of 5:\n\n${firstQuestion.text}\n`;
+        } else if (quizType === 'SNOT12') {
+          const firstQuestion = quizData.questions[0];
+          const optionsText = firstQuestion.options.map((option, index) => {
+            const letter = String.fromCharCode(65 + index); // A, B, C, etc.
+            const score = option.match(/\((\d+)\)/)?.[1] || index;
+            const label = option.replace(/\s*\(\d+\)$/, '');
+            return `${letter} – ${label} (${score})`;
+          }).join('\n• ');
+          
+          consolidatedMessage = `Start your SNOT-12 assessment to get your 0–60 sinus severity score.\n\nQuestion 1 of 12: \n\n${firstQuestion.text}\n`;
+        } else if (quizType === 'TNSS') {
+          const firstQuestion = quizData.questions[0];
+          const optionsText = firstQuestion.options.map((option, index) => {
+            const score = option.match(/\((\d+)\)/)?.[1] || index;
+            const label = option.replace(/\s*\(\d+\)$/, '');
+            return `${score} – ${label}`;
+          }).join('\n• ');
+          
+          consolidatedMessage = `Start your TNSS assessment to get your 0–12 rhinitis severity score.\n\nQuestion 1 of 4:\n\n${firstQuestion.text}\n`;
         }
-      ]);
-      setMessages(prev => [...prev, { role: 'user', content: 'Start Assessment' }]);
-      askNextQuestion(0);
+        
+        setMessages([{
+          role: 'assistant',
+          content: consolidatedMessage,
+          isQuestion: true,
+          questionIndex: 0,
+          options: quizType === 'NOSE' ? quizData.questions[0].options : quizData.questions[0].options
+        }]);
+        setQuizStarted(true);
+        setCurrentQuestionIndex(0);
+      } else {
+        // For other quizzes, show the traditional welcome message
+        setMessages([
+          {
+            role: 'assistant',
+            content: `Hello! Welcome to the ${quizData.title}. ${quizData.description}\n\nThis assessment will help evaluate your symptoms. Click "Start Assessment" when you're ready to begin.`
+          }
+        ]);
+        askNextQuestion(0);
+      }
     }
   }, [quizData]);
 
@@ -467,13 +516,6 @@ export function EmbeddedChatBot({ quizType, doctorId, customQuiz, quizData, doct
       
       // Submit lead to database
       await submitLead();
-      
-      setTimeout(() => {
-        setMessages(prev => [...prev, { 
-          role: 'assistant', 
-          content: 'If you have any questions or want to chat, type below! Or click Retake Quiz to start again.' 
-        }]);
-      }, 300);
       return;
     }
   };
@@ -606,12 +648,55 @@ export function EmbeddedChatBot({ quizType, doctorId, customQuiz, quizData, doct
     setInput('');
     setPostQuizChat([]);
     setPostQuizInput('');
-    setTimeout(() => {
-      setMessages([{
-        role: 'assistant',
-        content: `Hello! Welcome to the ${quizData.title}. ${quizData.description}\n\nThis assessment will help evaluate your symptoms. Click "Start Assessment" when you're ready to begin.`
-      }]);
-    }, 100);
+    // For NOSE, SNOT12, and TNSS quizzes, show consolidated message immediately
+    if (quizType === 'NOSE' || quizType === 'SNOT12' || quizType === 'TNSS') {
+      setTimeout(() => {
+        let consolidatedMessage = '';
+        
+        if (quizType === 'NOSE') {
+          const firstQuestion = quizData.questions[0];
+          const optionsText = firstQuestion.options.join('\n• ');
+          
+          consolidatedMessage = `Start your Nasal Obstruction Symptom Evaluation (NOSE) to get your 0–100 nasal obstruction score.\n\nQuestion 1 of 5:\n\n${firstQuestion.text}\n`;
+        } else if (quizType === 'SNOT12') {
+          const firstQuestion = quizData.questions[0];
+          const optionsText = firstQuestion.options.map((option, index) => {
+            const letter = String.fromCharCode(65 + index); // A, B, C, etc.
+            const score = option.match(/\((\d+)\)/)?.[1] || index;
+            const label = option.replace(/\s*\(\d+\)$/, '');
+            return `${letter} – ${label} (${score})`;
+          }).join('\n• ');
+          
+          consolidatedMessage = `Start your SNOT-12 assessment to get your 0–60 sinus severity score.\n\nQuestion 1 of 12:\n\n${firstQuestion.text}\n`;
+        } else if (quizType === 'TNSS') {
+          const firstQuestion = quizData.questions[0];
+          const optionsText = firstQuestion.options.map((option, index) => {
+            const score = option.match(/\((\d+)\)/)?.[1] || index;
+            const label = option.replace(/\s*\(\d+\)$/, '');
+            return `${score} – ${label}`;
+          }).join('\n• ');
+          
+          consolidatedMessage = `Start your TNSS assessment to get your 0–12 rhinitis severity score.\n\nQuestion 1 of 4:\n\n${firstQuestion.text}\n\n• ${optionsText}`;
+        }
+        
+        setMessages([{
+          role: 'assistant',
+          content: consolidatedMessage,
+          isQuestion: true,
+          questionIndex: 0,
+          options: quizType === 'NOSE' ? quizData.questions[0].options : quizData.questions[0].options
+        }]);
+        setQuizStarted(true);
+        setCurrentQuestionIndex(0);
+      }, 100);
+    } else {
+      setTimeout(() => {
+        setMessages([{
+          role: 'assistant',
+          content: `Hello! Welcome to the ${quizData.title}. ${quizData.description}\n\nThis assessment will help evaluate your symptoms. Click "Start Assessment" when you're ready to begin.`
+        }]);
+      }, 100);
+    }
   };
 
   const getSeverityColor = (severity: string) => {
@@ -765,7 +850,7 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
                     }`}
                     style={message.role === 'user' ? { backgroundColor: colors.userBubble, color: colors.userText , borderColor: colors.primary	 } : {backgroundColor: colors.botBubble, color: colors.botText , borderColor: colors.primary}}
                   >
-                    <span className="whitespace-pre-wrap text-base leading-relaxed">{message.content}</span>
+                    <span className="whitespace-pre-wrap text-base font-medium leading-relaxed">{message.content}</span>
                     {message.isQuestion && message.options && !quizCompleted && (
                       <div className="mt-4 space-y-2 w-full">
                         {Array.isArray(message.options) && message.options.map((option: any, optionIndex: number) =>
@@ -801,9 +886,9 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
           {result && quizCompleted && !collectingInfo && (
             <Card className="rounded-2xl mt-6 border" style={{ borderColor: colors.primary	}}>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2" style={{ color: colors.primary	 }}>
+                <CardTitle className="flex justify-center items-center gap-2" style={{ color: colors.primary	 }}>
                   <CheckCircle className="w-5 h-5" />
-                  Assessment Complete
+                  Thank You!
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -878,22 +963,13 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
           )}
           
           {result && quizCompleted && !collectingInfo && (
-            <div className="flex gap-2">
-              <Input
-                value={postQuizInput}
-                onChange={(e) => setPostQuizInput(e.target.value)}
-                placeholder="Type your message..."
-                onKeyDown={handleKeyDown}
-                className="flex-1 rounded-xl border border-gray-200 px-4 py-2 text-base bg-white shadow focus:ring-2 focus:outline-none transition-all duration-150"
-              />
-              <Button 
-                onClick={handlePostQuizSend} 
-                className="rounded-xl shadow text-white" 
-                style={{ backgroundColor: colors.primary	, borderColor: colors.primary	 }}
-              >
-                <Send className="w-4 h-4" />
-              </Button>
+            <div className="text-center py-4">
+            <div className="flex items-center justify-center gap-2 text-green-600 mb-2">
+              <CheckCircle className="w-5 h-5" />
+              <span className="font-semibold">{quizData.title.toUpperCase()} Assessment Complete!</span>
             </div>
+            <p className="text-sm text-gray-600">Your Result has been successfully submitted to Dr. {doctorProfile?.first_name} {doctorProfile?.last_name}.</p>
+          </div>
           )}
         </motion.div>
       </div>

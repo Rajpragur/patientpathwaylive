@@ -582,8 +582,8 @@ const SNOT12LandingPage: React.FC = () => {
                 <div className="flex items-center space-x-4">
                   <img src={doctorAvatarUrl} alt="Doctor" className="w-12 h-12 rounded-full object-cover border-2 border-white/30" />
                   <div>
-                    <h3 className="font-bold text-lg">SNOT-12 Assessment</h3>
-                    <p className="text-sm">Quick sinus evaluation with {doctor.name}</p>
+                    <h3 className="font-bold text-lg">SNOT-12</h3>
+                    <p className="text-sm">{quizzes.SNOT12.description}</p>
                   </div>
                 </div>
                 <button

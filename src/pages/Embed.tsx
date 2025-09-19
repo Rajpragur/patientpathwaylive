@@ -93,7 +93,15 @@ const Embed = () => {
       };
     }
   };
-
+  const getQuizDescription = (s: string) => {
+    if (s === 'NOSE') {
+      return 'Quick Nasal Obstruction Evaluation';
+    } else if (quizType === 'SNOT12') {
+      return 'Quick Sinus Evaluation';
+    } else if (quizType === 'TNSS') {
+      return 'Assessment of nasal congestion and rhinitis symptoms';
+    }
+  }
   const quizData = getQuizData();
 
   return (
@@ -102,7 +110,7 @@ const Embed = () => {
       <div className="bg-blue-300 border-b border-gray-200 px-6 py-4">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">{quizData.title}</h1>
-          <p className="text-gray-600">{quizData.description}</p>
+          <p className="text-gray-600">{getQuizDescription(quizType)}</p>
         </div>
       </div>
       

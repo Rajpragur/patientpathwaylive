@@ -129,7 +129,7 @@ export const quizzes: Record<string, Quiz> = {
   NOSE: {
     id: 'NOSE',
     title: 'NOSE Score',
-    description: 'Nasal Obstruction Symptom Evaluation for breathing difficulties',
+    description: 'Quick Nasal Obstruction Evaluation',
     maxScore: 100,
     scoring: {
       normal: 'Normal (0-25): Minimal nasal obstruction',
@@ -140,28 +140,28 @@ export const quizzes: Record<string, Quiz> = {
     questions: [
       {
         id: '1',
-        text: 'Nasal congestion or stuffiness',
-        options: ['Not a problem (0)', 'Very mild problem (5)', 'Moderate problem (10)', 'Fairly bad problem (15)', 'Severe problem (20)']
+        text: 'Rate your nasal blockage or obstruction',
+        options: ['0 – NO Blockage or Obstruction', '1 – MILD Blockage or Obstruction', '2 – MODERATE Blockage or Obstruction', '3 – FAIRLY BAD Blockage or Obstruction', '4 – SEVERE Blockage or Obstruction']
       },
       {
         id: '2',
-        text: 'Nasal blockage or obstruction',
-        options: ['Not a problem (0)', 'Very mild problem (5)', 'Moderate problem (10)', 'Fairly bad problem (15)', 'Severe problem (20)']
+        text: 'Trouble breathing through your nose?',
+        options: ['0 – NO Trouble Breathing', '1 – MILD Trouble Breathing', '2 – MODERATE Trouble Breathing', '3 – FAIRLY BAD Trouble Breathing', '4 – SEVERE Trouble Breathing']
       },
       {
         id: '3',
-        text: 'Trouble breathing through my nose',
-        options: ['Not a problem (0)', 'Very mild problem (5)', 'Moderate problem (10)', 'Fairly bad problem (15)', 'Severe problem (20)']
+        text: 'Trouble sleeping?',
+        options: ['0 – NO Problem Sleeping', '1 – MILD Problem Sleeping', '2 – MODERATE Problem Sleeping', '3 – FAIRLY BAD Problem Sleeping', '4 – SEVERE Problem Sleeping']
       },
       {
         id: '4',
-        text: 'Trouble sleeping',
-        options: ['Not a problem (0)', 'Very mild problem (5)', 'Moderate problem (10)', 'Fairly bad problem (15)', 'Severe problem (20)']
+        text: 'Rate your ability to get enough air through your nose during exercise or exertion?',
+        options: ['0 – NO Problem Getting Enough Air', '1 – MILD Problem Getting Enough Air', '2 – MODERATE Problem Getting Enough Air', '3 – FAIRLY BAD Problem Getting Enough Air', '4 – SEVERE Problem Getting Enough Air']
       },
       {
         id: '5',
-        text: 'Unable to get enough air through my nose during exercise or exertion',
-        options: ['Not a problem (0)', 'Very mild problem (5)', 'Moderate problem (10)', 'Fairly bad problem (15)', 'Severe problem (20)']
+        text: 'Rate your nasal congestion or stuffiness',
+        options: ['0 – NO Congestion or Stuffiness', '1 – MILD Congestion or Stuffiness', '2 – MODERATE Congestion or Stuffiness', '3 – FAIRLY BAD Congestion or Stuffiness', '4 – SEVERE Congestion or Stuffiness']
       }
     ]
   },
@@ -364,7 +364,7 @@ export const quizzes: Record<string, Quiz> = {
   SNOT12: {
     id: 'SNOT12',
     title: 'SNOT12',
-    description: 'Short-form evaluation of sinus and nasal symptoms impact on quality of life',
+    description: 'Quick Sinus Evaluation',
     maxScore: 60,
     scoring: {
       normal: 'Normal (0-12): Minimal symptoms with little impact',
@@ -375,63 +375,63 @@ export const quizzes: Record<string, Quiz> = {
     questions: [
       {
         id: '1',
-        text: 'Need to blow nose',
-        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+        text: 'Rate your Need to blow nose',
+        options: ['0 – No problem', '1 - Very Mild Problem', '2 - Mild or Slight Problem', '3 - Moderate Problem', '4 - Severe Problem', '5 - Problem as Bad as it Can Be']
       },
       {
         id: '2',
-        text: 'Runny nose',
-        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+        text: 'Rate your Runny nose',
+        options: ['0 - No problem', '1 - Very Mild Problem', '2 - Mild or Slight Problem', '3 - Moderate Problem', '4 - Severe Problem', '5 - Problem as Bad as it Can Be']
       },
       {
         id: '3',
-        text: 'Nasal blockage',
-        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+        text: 'Rate your Nasal blockage',
+        options: ['0 - No problem', '1 - Very Mild Problem', '2 - Mild or Slight Problem', '3 - Moderate Problem', '4 - Severe Problem', '5 - Problem as Bad as it Can Be']
       },
       {
         id: '4',
-        text: 'Thick nasal discharge',
-        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+        text: 'Rate the thickness of your nasal discharge',
+        options: ['0 - No problem', '1 - Very Mild Problem', '2 - Mild or Slight Problem', '3 - Moderate Problem', '4 - Severe Problem', '5 - Problem as Bad as it Can Be']
       },
       {
         id: '5',
-        text: 'Decreased sense of smell/taste',
-        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+        text: 'Rate your Decreased sense of smell/taste',
+        options: ['0 - No problem', '1 - Very Mild Problem', '2 - Mild or Slight Problem', '3 - Moderate Problem', '4 - Severe Problem', '5 - Problem as Bad as it Can Be']
       },
       {
         id: '6',
-        text: 'Post-nasal drip',
-        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+        text: 'Rate your Post-nasal drip',
+        options: ['0 - No problem', '1 - Very Mild Problem', '2 - Mild or Slight Problem', '3 - Moderate Problem', '4 - Severe Problem', '5 - Problem as Bad as it Can Be']
       },
       {
         id: '7',
-        text: 'Sneezing',
-        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+        text: 'Rate your Sneezing',
+        options: ['0 - No problem', '1 - Very Mild Problem', '2 - Mild or Slight Problem', '3 - Moderate Problem', '4 - Severe Problem', '5 - Problem as Bad as it Can Be']
       },
       {
         id: '8',
-        text: 'Cough',
-        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+        text: 'Rate your Cough',
+        options: ['0 - No problem', '1 - Very Mild Problem', '2 - Mild or Slight Problem', '3 - Moderate Problem', '4 - Severe Problem', '5 - Problem as Bad as it Can Be']
       },
       {
         id: '9',
-        text: 'Facial pressure/pain',
-        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+        text: 'Rate your Facial pressure/pain',
+        options: ['0 - No problem', '1 - Very Mild Problem', '2 - Mild or Slight Problem', '3 - Moderate Problem', '4 - Severe Problem', '5 - Problem as Bad as it Can Be']
       },
       {
         id: '10',
-        text: 'Ear fullness',
-        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+        text: 'Rate your Ear fullness',
+        options: ['0 - No problem', '1 - Very Mild Problem', '2 - Mild or Slight Problem', '3 - Moderate Problem', '4 - Severe Problem', '5 - Problem as Bad as it Can Be']
       },
       {
         id: '11',
-        text: 'Difficulty falling asleep or staying asleep',
-        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+        text: 'Rate your Difficulty falling asleep or staying asleep',
+        options: ['0 - No problem', '1 - Very Mild Problem', '2 - Mild or Slight Problem', '3 - Moderate Problem', '4 - Severe Problem', '5 - Problem as Bad as it Can Be']
       },
       {
         id: '12',
-        text: 'Reduced productivity or quality of life',
-        options: ['No problem (0)', 'Very mild problem (1)', 'Mild or slight problem (2)', 'Moderate problem (3)', 'Severe problem (4)', 'Problem as bad as it can be (5)']
+        text: 'Rate your Reduced productivity or quality of life',
+        options: ['0 - No problem', '1 - Very Mild Problem', '2 - Mild or Slight Problem', '3 - Moderate Problem', '4 - Severe Problem', '5 - Problem as Bad as it Can Be']
       }
     ]
   },
@@ -645,23 +645,23 @@ export const quizzes: Record<string, Quiz> = {
     questions: [
       {
         id: '1',
-        text: 'Nasal congestion/stuffiness',
-        options: ['None (0)', 'Mild (1)', 'Moderate (2)', 'Severe (3)']
+        text: 'Rate your runny nose',
+        options: ['0 – NO Symptoms', '1 – MILD Symptoms present but easily tolerated', '2 – MODERATE Symptoms present and bothersome, but tolerable', '3 – SEVERE Symptoms present and interfere with activities of daily living and/or sleep']
       },
       {
         id: '2',
-        text: 'Runny nose',
-        options: ['None (0)', 'Mild (1)', 'Moderate (2)', 'Severe (3)']
+        text: 'Rate your sneezing',
+        options: ['0 – NO Symptoms', '1 – MILD Symptoms present but easily tolerated', '2 – MODERATE Symptoms present and bothersome, but tolerable', '3 – SEVERE Symptoms present and interfere with activities of daily living and/or sleep']
       },
       {
         id: '3',
-        text: 'Nasal itching',
-        options: ['None (0)', 'Mild (1)', 'Moderate (2)', 'Severe (3)']
+        text: 'Rate your nasal congestion',
+        options: ['0 – NO Symptoms', '1 – MILD Symptoms present but easily tolerated', '2 – MODERATE Symptoms present and bothersome, but tolerable', '3 – SEVERE Symptoms present and interfere with activities of daily living and/or sleep']
       },
       {
         id: '4',
-        text: 'Sneezing',
-        options: ['None (0)', 'Mild (1)', 'Moderate (2)', 'Severe (3)']
+        text: 'Rate your nasal itching',
+        options: ['0 – NO Symptoms', '1 – MILD Symptoms present but easily tolerated', '2 – MODERATE Symptoms present and bothersome, but tolerable', '3 – SEVERE Symptoms present and interfere with activities of daily living and/or sleep']
       }
     ]
   }

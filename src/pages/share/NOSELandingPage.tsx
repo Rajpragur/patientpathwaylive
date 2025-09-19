@@ -555,30 +555,30 @@ const NOSELandingPage: React.FC = () => {
               }
             }}
           >
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl relative overflow-hidden transform transition-all duration-300 ease-out animate-slideIn" style={{ height: '90vh' }}>
-              <div className="bg-gradient-to-r from-blue-500 to-teal-500 p-6 flex justify-between items-center sticky top-0 z-10" 
+            <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-4xl relative overflow-hidden transform transition-all duration-300 ease-out animate-slideIn" style={{ height: '95vh', maxHeight: '95vh' }}>
+              <div className="bg-gradient-to-r from-blue-500 to-teal-500 p-4 sm:p-6 flex justify-between items-center sticky top-0 z-10" 
               style={{
                 backgroundColor: (chatbotColors || defaultChatbotColors).primary,
                 color: (chatbotColors || defaultChatbotColors).text
               }}>
-                <div className="flex items-center space-x-4">
-                  <img src={doctorAvatarUrl} alt="Doctor" className="w-12 h-12 rounded-full object-cover border-2 border-white/30" />
+                <div className="flex items-center space-x-2 sm:space-x-4">
+                  <img src={doctorAvatarUrl} alt="Doctor" className="w-8 h-8 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-white/30" />
                   <div>
-                    <h3 className="font-bold text-lg">NOSE Assessment</h3>
-                    <p className="text-sm">Quick breathing evaluation with {doctor.name}</p>
+                    <h3 className="font-bold text-sm sm:text-lg">NOSE Score</h3>
+                    <p className="text-xs sm:text-sm">{quizzes.NOSE.description}</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setShowChatModal(false)}
-                  className="text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/10 rounded-full"
+                  className="text-white hover:text-gray-200 transition-colors p-1 sm:p-2 hover:bg-white/10 rounded-full"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
               
-              <div className="overflow-y-auto overflow-x-hidden" style={{ height: 'calc(90vh - 96px)' }}>
+              <div className="overflow-y-auto overflow-x-hidden" style={{ height: 'calc(95vh - 80px)' }}>
                 <EmbeddedChatBot
                   quizType="NOSE"
                   doctorId={doctorId || doctor?.id}
@@ -624,24 +624,24 @@ const NOSELandingPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50">
                       {/* Hero Section */}
-        <section className="w-full bg-white border-b border-slate-200 py-20">
-          <div className="max-w-7xl mx-auto px-8 text-center">
-            <div className="mb-12">
-              <div className="w-20 rounded-2xl flex items-center justify-center mx-auto mb-8">
-                <img src={doctorAvatarUrl || '/placeholder.svg'} alt="Practice Logo" className="w-20 rounded-xl object-cover" />
+        <section className="w-full bg-white border-b border-slate-200 py-8 sm:py-12 md:py-16 lg:py-20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 text-center">
+            <div className="mb-8 sm:mb-10 md:mb-12">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 sm:mb-8">
+                <img src={doctorAvatarUrl || '/placeholder.svg'} alt="Practice Logo" className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover" />
               </div>
-            <h1 className="text-5xl font-bold text-slate-900 mb-8 leading-tight max-w-6xl mx-auto">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 mb-4 sm:mb-6 md:mb-8 leading-tight max-w-6xl mx-auto px-2">
               {safeText(aiContent.headline, "Struggling to Breathe Through Your Nose? You're Not Alone.")}
             </h1>
-            <p className="text-2xl text-slate-600 mb-12 max-w-4xl mx-auto leading-relaxed">
+            <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-slate-600 mb-8 sm:mb-10 md:mb-12 max-w-4xl mx-auto leading-relaxed px-2">
               {safeText(aiContent.intro, 'Take our quick NOSE assessment to discover if nasal airway obstruction is affecting your quality of life and learn about proven treatment options available right here in your area.')}
             </p>
             <button
               onClick={handleShowQuiz}
-              className="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-6 px-12 rounded-xl transition-all duration-300 hover:scale-105 shadow-xl text-xl group"
+              className="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 sm:py-4 sm:px-8 md:py-6 md:px-12 rounded-xl transition-all duration-300 hover:scale-105 shadow-xl text-base sm:text-lg md:text-xl group mx-2"
             >
               <span>Take the Nose Test Now</span>
-              <svg className="w-6 h-6 ml-3 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 ml-2 sm:ml-3 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
             </button>
@@ -654,20 +654,20 @@ const NOSELandingPage: React.FC = () => {
       {/* Content Sections */}
       <div className="w-full space-y-0">
         {/* What is NAO */}
-        <section className="w-full bg-slate-100 py-24">
-          <div className="max-w-7xl mx-auto px-8 text-center">
-              <h2 className="text-5xl font-bold text-slate-900 mb-8">What Is Nasal Airway Obstruction?</h2>
-              <p className="text-2xl text-slate-600 leading-relaxed max-w-5xl mx-auto">
+        <section className="w-full bg-slate-100 py-12 sm:py-16 md:py-20 lg:py-24">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 text-center">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 mb-4 sm:mb-6 md:mb-8 px-2">What Is Nasal Airway Obstruction?</h2>
+              <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-slate-600 leading-relaxed max-w-5xl mx-auto px-2">
                 {safeText(aiContent.whatIsNAO, 'Nasal Airway Obstruction (NAO) occurs when something blocks or limits airflow through your nasal passages. This chronic condition affects millions of people and can significantly impact sleep quality, exercise performance, and overall well-being.')}
               </p>
           </div>
         </section>
 
         {/* Symptoms & Impact */}
-        <section className="w-full bg-white py-24">
-          <div className="max-w-7xl mx-auto px-8 text-center">
-              <h2 className="text-5xl font-bold text-slate-900 mb-12">Symptoms & Impact</h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <section className="w-full bg-white py-12 sm:py-16 md:py-20 lg:py-24">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 text-center">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 mb-8 sm:mb-10 md:mb-12 px-2">Symptoms & Impact</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8 max-w-6xl mx-auto">
                 {safeArray(aiContent.symptoms, [
                   'Chronic nasal congestion that doesn\'t improve with decongestants',
                   'Difficulty breathing through your nose during exercise',
@@ -676,9 +676,9 @@ const NOSELandingPage: React.FC = () => {
                   'Reduced sense of smell or taste',
                   'Chronic fatigue from poor sleep quality'
                 ]).map((symptom: string, i: number) => (
-                  <div key={i} className="bg-slate-50 rounded-xl p-8 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
-                    <div className="w-4 h-4 bg-blue-600 rounded-full mb-4 mx-auto"></div>
-                    <span className="text-slate-700 text-lg leading-relaxed">{symptom}</span>
+                  <div key={i} className="bg-slate-50 rounded-xl p-4 sm:p-6 md:p-8 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+                    <div className="w-3 h-3 sm:w-4 sm:h-4 bg-blue-600 rounded-full mb-3 sm:mb-4 mx-auto"></div>
+                    <span className="text-slate-700 text-sm sm:text-base md:text-lg leading-relaxed">{symptom}</span>
                   </div>
                 ))}
               </div>
@@ -686,29 +686,29 @@ const NOSELandingPage: React.FC = () => {
         </section>
 
         {/* Treatment Options */}
-        <section className="w-full bg-slate-100 py-24">
-          <div className="max-w-7xl mx-auto px-8 text-center">
-              <h2 className="text-5xl font-bold text-slate-900 mb-8">
+        <section className="w-full bg-slate-100 py-12 sm:py-16 md:py-20 lg:py-24">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 text-center">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 mb-4 sm:mb-6 md:mb-8 px-2">
                 Comprehensive Treatment Options at {doctor?.name ? doctor.name.split(' ')[0] : 'Our'} Practice
               </h2>
-              <p className="text-2xl text-slate-600 mb-16 max-w-5xl mx-auto leading-relaxed">
+              <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-slate-600 mb-8 sm:mb-12 md:mb-16 max-w-5xl mx-auto leading-relaxed px-2">
                 {safeText(aiContent.treatments, 'At our practice, we offer a comprehensive range of treatment options tailored to your specific needs and severity of nasal obstruction. Our approach ranges from conservative medical management to advanced minimally invasive procedures.')}
               </p>
               
-              <div className="mb-16">
-                <h3 className="text-3xl font-semibold text-slate-800 mb-12">Treatment Options: From Gentle to Surgical</h3>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+              <div className="mb-8 sm:mb-12 md:mb-16">
+                <h3 className="text-xl sm:text-2xl md:text-3xl font-semibold text-slate-800 mb-6 sm:mb-8 md:mb-12 px-2">Treatment Options: From Gentle to Surgical</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8 max-w-6xl mx-auto">
                   {safeArray(aiContent.treatmentOptions, [
                     'Conservative Medical Management: Nasal sprays, antihistamines, and lifestyle modifications',
                     'VivAer Nasal Airway Remodeling: Revolutionary radiofrequency treatment in-office',
                     'Latera Nasal Implant: Bioabsorbable implant that supports weak nasal cartilage',
                     'Septoplasty: Surgical correction of deviated nasal septum'
                   ]).map((option: string, i: number) => (
-                    <div key={i} className="bg-white rounded-xl p-8 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
-                      <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mb-6 mx-auto">
-                        <span className="text-white font-bold text-lg">{i + 1}</span>
+                    <div key={i} className="bg-white rounded-xl p-4 sm:p-6 md:p-8 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-blue-600 rounded-full flex items-center justify-center mb-4 sm:mb-6 mx-auto">
+                        <span className="text-white font-bold text-sm sm:text-base md:text-lg">{i + 1}</span>
                       </div>
-                      <p className="text-slate-700 text-lg leading-relaxed">{option}</p>
+                      <p className="text-slate-700 text-sm sm:text-base md:text-lg leading-relaxed">{option}</p>
                     </div>
                   ))}
                 </div>
@@ -716,13 +716,13 @@ const NOSELandingPage: React.FC = () => {
 
               {/* Comparison Table */}
               <div className="overflow-x-auto bg-white rounded-xl shadow-sm border border-slate-200">
-                <table className="w-full">
+                <table className="w-full min-w-[600px]">
                   <thead>
                     <tr className="bg-slate-900 text-white">
-                      <th className="py-6 px-8 text-left font-semibold text-lg">Treatment</th>
-                      <th className="py-6 px-8 text-left font-semibold text-lg">Pros</th>
-                      <th className="py-6 px-8 text-left font-semibold text-lg">Cons</th>
-                      <th className="py-6 px-8 text-left font-semibold text-lg">Invasiveness</th>
+                      <th className="py-3 px-4 sm:py-4 sm:px-6 md:py-6 md:px-8 text-left font-semibold text-sm sm:text-base md:text-lg">Treatment</th>
+                      <th className="py-3 px-4 sm:py-4 sm:px-6 md:py-6 md:px-8 text-left font-semibold text-sm sm:text-base md:text-lg">Pros</th>
+                      <th className="py-3 px-4 sm:py-4 sm:px-6 md:py-6 md:px-8 text-left font-semibold text-sm sm:text-base md:text-lg">Cons</th>
+                      <th className="py-3 px-4 sm:py-4 sm:px-6 md:py-6 md:px-8 text-left font-semibold text-sm sm:text-base md:text-lg">Invasiveness</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -737,7 +737,7 @@ const NOSELandingPage: React.FC = () => {
                     ).map((row: any, i: number) => (
                       <tr key={i} className={i % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
                         {(Array.isArray(row) ? row : ['', '', '', '']).map((cell: string, j: number) => (
-                          <td key={`${i}-${j}`} className="py-6 px-8 text-slate-700 text-lg">{cell || ''}</td>
+                          <td key={`${i}-${j}`} className="py-3 px-4 sm:py-4 sm:px-6 md:py-6 md:px-8 text-slate-700 text-sm sm:text-base md:text-lg">{cell || ''}</td>
                         ))}
                       </tr>
                     ))}
@@ -748,18 +748,18 @@ const NOSELandingPage: React.FC = () => {
         </section>
 
         {/* VivAer & Latera */}
-        <section className="w-full bg-white py-24">
-          <div className="max-w-7xl mx-auto px-8">
-              <div className="grid md:grid-cols-2 gap-16">
-                <div className="text-center bg-slate-50 rounded-xl p-12 border border-slate-200">
-                  <h2 className="text-4xl font-bold text-slate-900 mb-8">VivAer Overview</h2>
-                  <p className="text-slate-600 text-lg leading-relaxed">
+        <section className="w-full bg-white py-12 sm:py-16 md:py-20 lg:py-24">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-12 md:gap-16">
+                <div className="text-center bg-slate-50 rounded-xl p-6 sm:p-8 md:p-12 border border-slate-200">
+                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-900 mb-4 sm:mb-6 md:mb-8 px-2">VivAer Overview</h2>
+                  <p className="text-slate-600 text-sm sm:text-base md:text-lg leading-relaxed px-2">
                     {safeText(aiContent.vivAerOverview, 'VivAer is a breakthrough treatment that uses low-temperature radiofrequency energy to gently remodel the tissues inside your nose that are causing obstruction. Performed right in our office under local anesthesia, this 15-minute procedure can provide lasting improvement in nasal breathing with minimal downtime.')}
                   </p>
                 </div>
-                <div className="text-center bg-slate-50 rounded-xl p-12 border border-slate-200">
-                  <h2 className="text-4xl font-bold text-slate-900 mb-8">Latera Overview</h2>
-                  <p className="text-slate-600 text-lg leading-relaxed">
+                <div className="text-center bg-slate-50 rounded-xl p-6 sm:p-8 md:p-12 border border-slate-200">
+                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-900 mb-4 sm:mb-6 md:mb-8 px-2">Latera Overview</h2>
+                  <p className="text-slate-600 text-sm sm:text-base md:text-lg leading-relaxed px-2">
                     {safeText(aiContent.lateraOverview, 'The Latera nasal implant is designed to support the upper and lower lateral cartilages responsible for nasal valve collapse. This small, bioabsorbable implant is placed during a simple in-office procedure and provides structural support to keep your nasal valve open for lasting improvement.')}
                   </p>
                 </div>
@@ -768,28 +768,28 @@ const NOSELandingPage: React.FC = () => {
         </section>
 
         {/* Surgical Procedures */}
-        <section className="w-full bg-slate-100 py-24">
-          <div className="max-w-7xl mx-auto px-8 text-center">
-              <h2 className="text-5xl font-bold text-slate-900 mb-12">Surgical Procedures</h2>
-              <p className="text-2xl text-slate-600 leading-relaxed max-w-5xl mx-auto">
+        <section className="w-full bg-slate-100 py-12 sm:py-16 md:py-20 lg:py-24">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 text-center">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 mb-6 sm:mb-8 md:mb-10 lg:mb-12 px-2">Surgical Procedures</h2>
+              <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-slate-600 leading-relaxed max-w-5xl mx-auto px-2">
                 {safeText(aiContent.surgicalProcedures, 'For more severe cases of nasal obstruction, traditional surgical procedures may be necessary. Septoplasty corrects a deviated nasal septum, while turbinate reduction addresses enlarged nasal turbinates. These outpatient procedures use the latest techniques to minimize discomfort and optimize results.')}
               </p>
           </div>
         </section>
 
         {/* Call to Action */}
-        <section className="w-full bg-blue-600 py-24">
-          <div className="max-w-7xl mx-auto px-8 text-center">
-              <h2 className="text-5xl font-bold text-white mb-12">Take the Next Step</h2>
-              <p className="text-2xl text-blue-100 mb-16 max-w-4xl mx-auto leading-relaxed">
+        <section className="w-full bg-blue-600 py-12 sm:py-16 md:py-20 lg:py-24">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 text-center">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6 sm:mb-8 md:mb-10 lg:mb-12 px-2">Take the Next Step</h2>
+              <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-blue-100 mb-8 sm:mb-12 md:mb-14 lg:mb-16 max-w-4xl mx-auto leading-relaxed px-2">
                 {safeText(aiContent.cta, 'Don\'t let nasal breathing problems affect your quality of life any longer. Take our quick NOSE assessment to see if you\'re a candidate for life-changing nasal airway treatment. The quiz takes just 2 minutes and could be the first step toward breathing freely again.')}
               </p>
               <button
                 onClick={handleShowQuiz}
-                className="inline-flex items-center bg-white text-blue-600 font-bold py-6 px-12 rounded-xl transition-all duration-300 hover:scale-105 shadow-xl text-xl group hover:shadow-2xl"
+                className="inline-flex items-center bg-white text-blue-600 font-bold py-3 px-6 sm:py-4 sm:px-8 md:py-6 md:px-12 rounded-xl transition-all duration-300 hover:scale-105 shadow-xl text-base sm:text-lg md:text-xl group hover:shadow-2xl mx-2"
               >
                 <span>Take the Nose Test</span>
-                <svg className="w-6 h-6 ml-3 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 ml-2 sm:ml-3 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
               </button>
@@ -797,10 +797,10 @@ const NOSELandingPage: React.FC = () => {
         </section>
 
         {/* Why Choose */}
-        <section className="w-full bg-white py-24">
-          <div className="max-w-7xl mx-auto px-8 text-center">
-              <h2 className="text-5xl font-bold text-slate-900 mb-16">Why Choose {doctor?.name ? doctor.name.split(' ')[0] : 'Our'} Practice</h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <section className="w-full bg-white py-12 sm:py-16 md:py-20 lg:py-24">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 text-center">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 mb-8 sm:mb-12 md:mb-14 lg:mb-16 px-2">Why Choose {doctor?.name ? doctor.name.split(' ')[0] : 'Our'} Practice</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8 max-w-6xl mx-auto">
                 {safeArray(aiContent.whyChoose, [
                   'Board-certified ENT specialists with extensive experience',
                   'Comprehensive diagnostic evaluation using advanced testing',
@@ -809,13 +809,13 @@ const NOSELandingPage: React.FC = () => {
                   'Personalized treatment plans tailored to your needs',
                   'Proven track record of successful outcomes'
                 ]).map((reason: string, i: number) => (
-                  <div key={i} className="bg-slate-50 rounded-xl p-8 text-left border border-slate-200 hover:shadow-md transition-shadow">
-                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center mb-6">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div key={i} className="bg-slate-50 rounded-xl p-4 sm:p-6 md:p-8 text-left border border-slate-200 hover:shadow-md transition-shadow">
+                    <div className="w-6 h-6 sm:w-8 sm:h-8 bg-blue-600 rounded-full flex items-center justify-center mb-4 sm:mb-6">
+                      <svg className="w-3 h-3 sm:w-4 sm:h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
-                    <span className="text-slate-700 text-lg leading-relaxed">{reason}</span>
+                    <span className="text-slate-700 text-sm sm:text-base md:text-lg leading-relaxed">{reason}</span>
                   </div>
                 ))}
               </div>
@@ -823,10 +823,10 @@ const NOSELandingPage: React.FC = () => {
         </section>
 
         {/* Testimonials */}
-        <section className="w-full bg-slate-100 py-24">
-          <div className="max-w-7xl mx-auto px-8 text-center">
-            <h2 className="text-5xl font-bold text-slate-900 mb-16">Patient Testimonials</h2>
-            <div className="grid md:grid-cols-2 gap-12 max-w-6xl mx-auto">
+        <section className="w-full bg-slate-100 py-12 sm:py-16 md:py-20 lg:py-24">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 text-center">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 mb-8 sm:mb-12 md:mb-14 lg:mb-16 px-2">Patient Testimonials</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 md:gap-12 max-w-6xl mx-auto">
               {(Array.isArray(aiContent.testimonials) && aiContent.testimonials.length > 0 
                 ? aiContent.testimonials 
                 : [
@@ -842,22 +842,22 @@ const NOSELandingPage: React.FC = () => {
                     }
                   ]
               ).map((testimonial: { text: string; author: string; location: string }, i: number) => (
-                <div key={i} className="bg-white rounded-xl p-12 border border-slate-200 relative shadow-sm hover:shadow-md transition-shadow">
-                  <div className="absolute top-8 left-8 text-8xl text-slate-300">"</div>
-                  <p className="text-slate-700 mb-8 pt-12 text-xl leading-relaxed italic">
+                <div key={i} className="bg-white rounded-xl p-6 sm:p-8 md:p-12 border border-slate-200 relative shadow-sm hover:shadow-md transition-shadow">
+                  <div className="absolute top-4 left-4 sm:top-6 sm:left-6 md:top-8 md:left-8 text-4xl sm:text-5xl md:text-6xl lg:text-8xl text-slate-300">"</div>
+                  <p className="text-slate-700 mb-6 sm:mb-8 pt-8 sm:pt-10 md:pt-12 text-sm sm:text-base md:text-lg lg:text-xl leading-relaxed italic px-2">
                     {safeText(testimonial.text, 'This treatment has significantly improved my quality of life.')}
                   </p>
                   <div className="flex items-center justify-center">
-                    <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mr-4">
-                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-blue-600 rounded-full flex items-center justify-center mr-3 sm:mr-4">
+                      <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
                     </div>
                     <div className="text-left">
-                      <div className="font-semibold text-slate-900 text-lg">
+                      <div className="font-semibold text-slate-900 text-sm sm:text-base md:text-lg">
                         {safeText(testimonial.author, 'Patient')}
                       </div>
-                      <div className="text-slate-500">
+                      <div className="text-slate-500 text-xs sm:text-sm">
                         {safeText(testimonial.location, doctor.locations[0]?.city || 'Local Patient')}
                       </div>
                     </div>
@@ -869,43 +869,43 @@ const NOSELandingPage: React.FC = () => {
         </section>
 
         {/* Contact Information */}
-        <section className="w-full bg-slate-900 py-24">
-          <div className="max-w-7xl mx-auto px-8 text-center">
-            <h2 className="text-5xl font-bold text-white mb-12">Contact Information</h2>
-            <div className="grid md:grid-cols-2 gap-12 max-w-4xl mx-auto">
+        <section className="w-full bg-slate-900 py-12 sm:py-16 md:py-20 lg:py-24">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 text-center">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-8 sm:mb-10 md:mb-12 px-2">Contact Information</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 md:gap-12 max-w-4xl mx-auto">
               {doctor.locations.map((location, i) => (
-                <div key={i} className="bg-slate-800 rounded-xl p-8 border border-slate-700">
-                  <h3 className="text-2xl font-bold text-white mb-4">{location.city} Office</h3>
-                  <div className="space-y-3 text-slate-300">
+                <div key={i} className="bg-slate-800 rounded-xl p-6 sm:p-8 border border-slate-700">
+                  <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-3 sm:mb-4 px-2">{location.city} Office</h3>
+                  <div className="space-y-2 sm:space-y-3 text-slate-300">
                     <div className="flex items-center justify-center">
-                      <svg className="w-5 h-5 mr-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
-                      <span>{location.address}</span>
+                      <span className="text-xs sm:text-sm text-center">{location.address}</span>
                     </div>
                     <div className="flex items-center justify-center">
-                      <svg className="w-5 h-5 mr-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                       </svg>
-                      <span>{location.phone}</span>
+                      <span className="text-xs sm:text-sm">{location.phone}</span>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-            <div className="mt-12">
-              <p className="text-xl text-slate-300 mb-6">
+            <div className="mt-8 sm:mt-10 md:mt-12">
+              <p className="text-sm sm:text-base md:text-lg lg:text-xl text-slate-300 mb-4 sm:mb-6 px-2">
                 {safeText(aiContent.contact, `Ready to breathe better? Contact ${doctor.name} at one of our convenient locations to schedule your consultation.`)}
               </p>
               <a 
                 href={doctor.website} 
                 target="_blank" 
                 rel="noopener noreferrer" 
-                className="inline-flex items-center text-blue-400 hover:text-blue-300 font-semibold text-lg transition-colors"
+                className="inline-flex items-center text-blue-400 hover:text-blue-300 font-semibold text-sm sm:text-base md:text-lg transition-colors"
               >
                 Visit Our Website
-                <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>
               </a>
