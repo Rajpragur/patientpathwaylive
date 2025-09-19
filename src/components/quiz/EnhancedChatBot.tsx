@@ -64,6 +64,7 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
   const [showTyping, setShowTyping] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
+  const [isAnswering, setIsAnswering] = useState(false);
   const [finalDoctorId, setFinalDoctorId] = useState<string | null>(null);
   const [doctorProfile, setDoctorProfile] = useState<any>(null);
   const [chatbotColors, setChatbotColors] = useState(defaultChatbotColors);
@@ -209,6 +210,11 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Reset answering state when question changes
+  useEffect(() => {
+    setIsAnswering(false);
+  }, [currentQuestionIndex]);
   
   const fetchDoctorProfile = async () => {
     if (finalDoctorId) {
@@ -345,7 +351,21 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
     // It's kept to avoid breaking other parts of the code that might reference it.
   };
 
-  const handleAnswer = (answerText: string, answerIndex: number) => {
+  const handleAnswer = (answerText: string, answerIndex: number, questionIndex?: number) => {
+    // Prevent rapid clicks and answering previous questions
+    if (isAnswering) {
+      console.log('Already answering - please wait');
+      return;
+    }
+    
+    if (questionIndex !== undefined && questionIndex !== currentQuestionIndex) {
+      console.log('Cannot answer previous questions - quiz progression locked');
+      return;
+    }
+
+    // Set answering state to prevent rapid clicks
+    setIsAnswering(true);
+
     const newAnswer: QuizAnswer = {
       questionIndex: currentQuestionIndex,
       answer: answerText,
@@ -366,12 +386,14 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
       setTimeout(() => {
         setShowTyping(false);
         askNextQuestion(nextQuestionIndex);
+        // isAnswering will be reset when currentQuestionIndex changes
       }, 700);
     } else {
       setShowTyping(true);
       setTimeout(() => {
         setShowTyping(false);
         completeQuiz(updatedAnswers);
+        setIsAnswering(false); // Reset answering state for quiz completion
       }, 700);
     }
   };
@@ -577,27 +599,41 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
     }
   };
 
-  const renderAnswerOption = (option: any, index: number) => (
-    <motion.button
-      key={`option-${index}`}
-      whileHover={{ scale: 1.01 }}
-      whileTap={{ scale: 0.99 }}
-      onClick={() => handleAnswer(option.text || option, index)}
-      className="w-full p-4 text-left rounded-xl border border-gray-200 
-        bg-white hover:border-primary/30 hover:bg-gray-50
-        transition-all duration-200 shadow-sm hover:shadow
-        flex items-center gap-3"
-      style={{ '--tw-border-opacity': 0.5, color: chatbotColors.primary } as React.CSSProperties}
-    >
-      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-100
-        flex items-center justify-center text-gray-600 text-sm font-medium">
-        {String.fromCharCode(65 + index)}
-      </span>
-      <span className="flex-1 text-gray-700 font-medium">
-        {option.text || option}
-      </span>
-    </motion.button>
-  );
+  const renderAnswerOption = (option: any, index: number, questionIndex?: number) => {
+    const isPreviousQuestion = questionIndex !== undefined && questionIndex < currentQuestionIndex;
+    const isDisabled = isPreviousQuestion || isAnswering;
+    
+    return (
+      <motion.button
+        key={`option-${index}`}
+        whileHover={!isDisabled ? { scale: 1.01 } : {}}
+        whileTap={!isDisabled ? { scale: 0.99 } : {}}
+        onClick={() => {
+          if (!isDisabled) {
+            handleAnswer(option.text || option, index, questionIndex);
+          }
+        }}
+        disabled={isDisabled}
+        className={`w-full p-4 text-left rounded-xl border transition-all duration-200 shadow-sm flex items-center gap-3 ${
+          isDisabled 
+            ? 'border-gray-200 bg-gray-100 cursor-not-allowed opacity-60' 
+            : 'border-gray-200 bg-white hover:border-primary/30 hover:bg-gray-50 hover:shadow'
+        }`}
+        style={!isDisabled ? { '--tw-border-opacity': 0.5, color: chatbotColors.primary } as React.CSSProperties : {}}
+      >
+        <span className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-medium ${
+          isDisabled ? 'bg-gray-200 text-gray-500' : 'bg-gray-100 text-gray-600'
+        }`}>
+          {String.fromCharCode(65 + index)}
+        </span>
+        <span className={`flex-1 font-medium ${
+          isDisabled ? 'text-gray-500' : 'text-gray-700'
+        }`}>
+          {option.text || option}
+        </span>
+      </motion.button>
+    );
+  };
 
   return (
     <div className="flex flex-col h-screen" style={{ background: chatbotColors.background, width: dimensions.width, height: dimensions.height }}>
@@ -639,7 +675,7 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
                     {message.isQuestion && message.options && !quizCompleted && (
                       <div className="mt-4 space-y-2 w-full">
                         {Array.isArray(message.options) && message.options.map((option: any, optionIndex: number) =>
-                          renderAnswerOption(option, optionIndex)
+                          renderAnswerOption(option, optionIndex, message.questionIndex)
                         )}
                       </div>
                     )}

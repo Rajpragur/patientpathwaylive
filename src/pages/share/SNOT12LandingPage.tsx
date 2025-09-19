@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { EmbeddedChatBot } from '@/components/quiz/EmbeddedChatBot';
 import { quizzes } from '@/data/quizzes';
@@ -44,9 +44,57 @@ const SNOT12LandingPage: React.FC = () => {
   const [contentError, setContentError] = useState<string | null>(null);
   const [retryAttempts, setRetryAttempts] = useState(0);
   const lastProcessedDoctorId = useRef<string | null>(null);
-  const isSettingFromDatabase = useRef(false);
+  const isInitialized = useRef(false);
+  const isProcessingContent = useRef(false);
 
+  // Memoized function to prevent unnecessary re-renders
+  const fetchDoctorData = useCallback(async (actualDoctorId: string) => {
+    try {
+      console.log('Fetching doctor profile for ID:', actualDoctorId);
+      const { data, error } = await supabase
+        .from('doctor_profiles')
+        .select('*')
+        .eq('id', actualDoctorId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching doctor profile:', error);
+        setDoctor(defaultDoctor);
+        return;
+      }
+
+      if (data && data.first_name && data.last_name) {
+        const doctorProfile = {
+          id: data.id,
+          name: `${data.first_name} ${data.last_name}`,
+          credentials: data.specialty || 'MD',
+          locations: [
+            {
+              city: data.location || 'Main Office',
+              address: data.clinic_name || 'Please contact for address',
+              phone: data.phone || 'Please contact for phone'
+            }
+          ],
+          testimonials: defaultDoctor.testimonials,
+          website: data.website || defaultDoctor.website,
+          avatar_url: data.avatar_url
+        };
+        console.log('Successfully fetched doctor profile:', doctorProfile);
+        setDoctor(doctorProfile);
+      } else {
+        console.warn('Doctor data incomplete, using default doctor');
+        setDoctor(defaultDoctor);
+      }
+    } catch (error) {
+      console.error('Error in fetchDoctorData:', error);
+      setDoctor(defaultDoctor);
+    }
+  }, []);
+
+  // Initialize doctor data - only run once
   useEffect(() => {
+    if (isInitialized.current) return;
+    
     const searchParams = new URLSearchParams(window.location.search);
     const source = searchParams.get('utm_source');
     if (source) {
@@ -56,62 +104,20 @@ const SNOT12LandingPage: React.FC = () => {
     console.log('SNOT12LandingPage - doctorId from URL:', doctorId);
     console.log('SNOT12LandingPage - URL search params:', Object.fromEntries(searchParams));
     
-    const fetchDoctorData = async () => {
-      // Check both route params and query parameters for doctor ID
-      const doctorIdFromRoute = doctorId;
-      const doctorIdFromQuery = searchParams.get('doctor');
-      const actualDoctorId = doctorIdFromQuery || doctorIdFromRoute;
-      
-      if (!actualDoctorId) {
-        console.error('No doctorId found in URL parameters or route');
-        setDoctor(defaultDoctor);
-        return;
-      }
+    const doctorIdFromRoute = doctorId;
+    const doctorIdFromQuery = searchParams.get('doctor');
+    const actualDoctorId = doctorIdFromQuery || doctorIdFromRoute;
+    
+    if (!actualDoctorId) {
+      console.error('No doctorId found in URL parameters or route');
+      setDoctor(defaultDoctor);
+      isInitialized.current = true;
+      return;
+    }
 
-      try {
-        console.log('Fetching doctor profile for ID:', actualDoctorId);
-        const { data, error } = await supabase
-          .from('doctor_profiles')
-          .select('*')
-          .eq('id', actualDoctorId)
-          .single();
-
-        if (error) {
-          console.error('Error fetching doctor profile:', error);
-          setDoctor(defaultDoctor);
-          return;
-        }
-
-        if (data && data.first_name && data.last_name) {
-          const doctorProfile = {
-            id: data.id,
-            name: `${data.first_name} ${data.last_name}`,
-            credentials: data.specialty || 'MD',
-            locations: [
-              {
-                city: data.location || 'Main Office',
-                address: data.clinic_name || 'Please contact for address',
-                phone: data.phone || 'Please contact for phone'
-              }
-            ],
-            testimonials: defaultDoctor.testimonials,
-            website: data.website || defaultDoctor.website,
-            avatar_url: data.avatar_url
-          };
-          console.log('Successfully fetched doctor profile:', doctorProfile);
-          setDoctor(doctorProfile);
-        } else {
-          console.warn('Doctor data incomplete, using default doctor');
-          setDoctor(defaultDoctor);
-        }
-      } catch (error) {
-        console.error('Error in fetchDoctorData:', error);
-        setDoctor(defaultDoctor);
-      }
-    };
-
-    fetchDoctorData();
-  }, [doctorId]);
+    fetchDoctorData(actualDoctorId);
+    isInitialized.current = true;
+  }, [doctorId, fetchDoctorData]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -120,70 +126,48 @@ const SNOT12LandingPage: React.FC = () => {
     return () => clearTimeout(timer);
   }, []);
 
+  // Fetch chatbot colors - only when doctor changes
   useEffect(() => {
+    if (!doctor?.id) return;
+    
     const fetchChatbotColors = async () => {
-      if (!doctor) return;
       try {
-        // Try to get chatbot colors from localStorage first
-        const cachedColors = localStorage.getItem(`chatbot_colors_${doctor.id}`);
-        if (cachedColors) {
-          try {
-            const parsed = JSON.parse(cachedColors);
-            if (parsed) {
-              setChatbotColors(parsed);
-              return;
-            }
-          } catch (e) {
-            console.warn('Failed to parse cached chatbot colors:', e);
-          }
-        }
-
-        // Try to fetch from database
-        try {
-          const { data, error } = await supabase
-            .from('ai_landing_pages')
-            .select('chatbot_colors')
-            .eq('doctor_id', doctor.id)
-            .eq('quiz_type', 'SNOT12')
-            .maybeSingle();
-          if (data && data.chatbot_colors) {
-            setChatbotColors(data.chatbot_colors);
-            // Cache the colors
-            localStorage.setItem(`chatbot_colors_${doctor.id}`, JSON.stringify(data.chatbot_colors));
-          } else {
-            setChatbotColors(defaultChatbotColors);
-          }
-        } catch (error) {
-          console.warn('Could not fetch chatbot colors from database, using defaults:', error);
+        const { data, error } = await supabase
+          .from('ai_landing_pages')
+          .select('chatbot_colors')
+          .eq('doctor_id', doctor.id)
+          .eq('quiz_type', 'SNOT12')
+          .maybeSingle();
+          
+        if (data && data.chatbot_colors) {
+          setChatbotColors(data.chatbot_colors);
+        } else {
           setChatbotColors(defaultChatbotColors);
         }
       } catch (error) {
-        console.error('Error fetching chatbot colors:', error);
+        console.warn('Could not fetch chatbot colors, using defaults:', error);
         setChatbotColors(defaultChatbotColors);
       }
     };
+    
     fetchChatbotColors();
-  }, [doctor]);
+  }, [doctor?.id]); // Only depend on doctor.id, not the entire doctor object
 
+  // Fetch AI content - prevent multiple calls and infinite loops
   useEffect(() => {
-    const fetchOrCreateAIContent = async () => {
-      if (!doctor || loadingAI) return; // Prevent multiple calls
-      
-      // Prevent multiple calls for the same doctor ID
-      if (doctor.id === lastProcessedDoctorId.current) {
-        console.log('Skipping content generation - already processed this doctor ID:', doctor.id);
-        return;
-      }
-      
-      // Prevent calls when we're setting doctor from database
-      if (isSettingFromDatabase.current) {
-        console.log('Skipping content generation - setting doctor from database');
-        return;
-      }
-      
-      console.log('Starting content generation for doctor ID:', doctor.id);
-      lastProcessedDoctorId.current = doctor.id;
+    if (!doctor?.id || isProcessingContent.current) return;
+    
+    // Prevent multiple calls for the same doctor ID
+    if (doctor.id === lastProcessedDoctorId.current) {
+      console.log('Skipping content generation - already processed this doctor ID:', doctor.id);
+      return;
+    }
+    
+    console.log('Starting content generation for doctor ID:', doctor.id);
+    lastProcessedDoctorId.current = doctor.id;
+    isProcessingContent.current = true;
 
+    const fetchOrCreateAIContent = async () => {
       setLoadingAI(true);
       setContentError(null);
 
@@ -415,11 +399,12 @@ const SNOT12LandingPage: React.FC = () => {
         setAIContent({ error: error.message });
       } finally {
         setLoadingAI(false);
+        isProcessingContent.current = false;
       }
     };
 
     fetchOrCreateAIContent();
-  }, [doctor?.id, retryAttempts]); // Only run when doctor ID changes, not when other doctor properties change
+  }, [doctor?.id, retryAttempts]); // Only depend on doctor.id and retryAttempts
 
   const handleShowQuiz = (e?: React.MouseEvent) => {
     e?.preventDefault();

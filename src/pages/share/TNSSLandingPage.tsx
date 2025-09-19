@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { EmbeddedChatBot } from '@/components/quiz/EmbeddedChatBot';
 import { quizzes } from '@/data/quizzes';
@@ -46,9 +46,57 @@ const TNSSLandingPage: React.FC = () => {
   
   // Refs to prevent infinite loops
   const lastProcessedDoctorId = useRef<string | null>(null);
-  const isSettingFromDatabase = useRef(false);
+  const isInitialized = useRef(false);
+  const isProcessingContent = useRef(false);
 
+  // Memoized function to prevent unnecessary re-renders
+  const fetchDoctorData = useCallback(async (actualDoctorId: string) => {
+    try {
+      console.log('Fetching doctor profile for ID:', actualDoctorId);
+      const { data, error } = await supabase
+        .from('doctor_profiles')
+        .select('*')
+        .eq('id', actualDoctorId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching doctor profile:', error);
+        setDoctor(defaultDoctor);
+        return;
+      }
+
+      if (data && data.first_name && data.last_name) {
+        const doctorProfile = {
+          id: data.id,
+          name: `${data.first_name} ${data.last_name}`,
+          credentials: data.specialty || 'MD',
+          locations: [
+            {
+              city: data.location || 'Main Office',
+              address: data.clinic_name || 'Please contact for address',
+              phone: data.phone || 'Please contact for phone'
+            }
+          ],
+          testimonials: defaultDoctor.testimonials,
+          website: data.website || defaultDoctor.website,
+          avatar_url: data.avatar_url
+        };
+        console.log('Successfully fetched doctor profile:', doctorProfile);
+        setDoctor(doctorProfile);
+      } else {
+        console.warn('Doctor data incomplete, using default doctor');
+        setDoctor(defaultDoctor);
+      }
+    } catch (error) {
+      console.error('Error in fetchDoctorData:', error);
+      setDoctor(defaultDoctor);
+    }
+  }, []);
+
+  // Initialize doctor data - only run once
   useEffect(() => {
+    if (isInitialized.current) return;
+    
     const searchParams = new URLSearchParams(window.location.search);
     const source = searchParams.get('utm_source');
     const shareKeyParam = searchParams.get('share_key') || searchParams.get('shareKey');
@@ -63,62 +111,20 @@ const TNSSLandingPage: React.FC = () => {
     console.log('TNSSLandingPage - URL search params:', Object.fromEntries(searchParams));
     console.log('TNSSLandingPage - shareKey:', shareKeyParam);
     
-    const fetchDoctorData = async () => {
-      // Check both route params and query parameters for doctor ID
-      const doctorIdFromRoute = doctorId;
-      const doctorIdFromQuery = searchParams.get('doctor');
-      const actualDoctorId = doctorIdFromQuery || doctorIdFromRoute;
-      
-      if (!actualDoctorId) {
-        console.error('No doctorId found in URL parameters or route');
-        setDoctor(defaultDoctor);
-        return;
-      }
+    const doctorIdFromRoute = doctorId;
+    const doctorIdFromQuery = searchParams.get('doctor');
+    const actualDoctorId = doctorIdFromQuery || doctorIdFromRoute;
+    
+    if (!actualDoctorId) {
+      console.error('No doctorId found in URL parameters or route');
+      setDoctor(defaultDoctor);
+      isInitialized.current = true;
+      return;
+    }
 
-      try {
-        console.log('Fetching doctor profile for ID:', actualDoctorId);
-        const { data, error } = await supabase
-          .from('doctor_profiles')
-          .select('*')
-          .eq('id', actualDoctorId)
-          .single();
-
-        if (error) {
-          console.error('Error fetching doctor profile:', error);
-          setDoctor(defaultDoctor);
-          return;
-        }
-
-        if (data && data.first_name && data.last_name) {
-          const doctorProfile = {
-            id: data.id,
-            name: `${data.first_name} ${data.last_name}`,
-            credentials: data.specialty || 'MD',
-            locations: [
-              {
-                city: data.location || 'Main Office',
-                address: data.clinic_name || 'Please contact for address',
-                phone: data.phone || 'Please contact for phone'
-              }
-            ],
-            testimonials: defaultDoctor.testimonials,
-            website: data.website || defaultDoctor.website,
-            avatar_url: data.avatar_url
-          };
-          console.log('Successfully fetched doctor profile:', doctorProfile);
-          setDoctor(doctorProfile);
-        } else {
-          console.warn('Doctor data incomplete, using default doctor');
-          setDoctor(defaultDoctor);
-        }
-      } catch (error) {
-        console.error('Error in fetchDoctorData:', error);
-        setDoctor(defaultDoctor);
-      }
-    };
-
-    fetchDoctorData();
-  }, [doctorId]);
+    fetchDoctorData(actualDoctorId);
+    isInitialized.current = true;
+  }, [doctorId, fetchDoctorData]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -127,9 +133,11 @@ const TNSSLandingPage: React.FC = () => {
     return () => clearTimeout(timer);
   }, []);
 
+  // Fetch chatbot colors - only when doctor changes
   useEffect(() => {
+    if (!doctor?.id) return;
+    
     const fetchChatbotColors = async () => {
-      if (!doctor) return;
       try {
         const { data, error } = await supabase
           .from('ai_landing_pages')
@@ -137,33 +145,36 @@ const TNSSLandingPage: React.FC = () => {
           .eq('doctor_id', doctor.id)
           .eq('quiz_type', 'TNSS')
           .maybeSingle();
-        if (data && data.chatbot_colors) setChatbotColors(data.chatbot_colors);
-        else setChatbotColors(defaultChatbotColors);
+          
+        if (data && data.chatbot_colors) {
+          setChatbotColors(data.chatbot_colors);
+        } else {
+          setChatbotColors(defaultChatbotColors);
+        }
       } catch (error) {
-        console.error('Error fetching chatbot colors:', error);
+        console.warn('Could not fetch chatbot colors, using defaults:', error);
         setChatbotColors(defaultChatbotColors);
       }
     };
+    
     fetchChatbotColors();
-  }, [doctor]);
+  }, [doctor?.id]); // Only depend on doctor.id, not the entire doctor object
 
+  // Fetch AI content - prevent multiple calls and infinite loops
   useEffect(() => {
-    const fetchOrCreateAIContent = async () => {
-      // Guard clause to prevent infinite loops
-      if (!doctor || loadingAI || isSettingFromDatabase.current) {
-        console.log('TNSS - useEffect guard: doctor:', !!doctor, 'loadingAI:', loadingAI, 'isSettingFromDatabase:', isSettingFromDatabase.current);
-        return;
-      }
-      
-      // Prevent re-processing the same doctor ID
-      if (lastProcessedDoctorId.current === doctor.id) {
-        console.log('TNSS - Already processed doctor ID:', doctor.id);
-        return;
-      }
-      
-      console.log('TNSS - Processing doctor ID:', doctor.id);
-      lastProcessedDoctorId.current = doctor.id;
+    if (!doctor?.id || isProcessingContent.current) return;
+    
+    // Prevent multiple calls for the same doctor ID
+    if (doctor.id === lastProcessedDoctorId.current) {
+      console.log('Skipping content generation - already processed this doctor ID:', doctor.id);
+      return;
+    }
+    
+    console.log('Starting content generation for doctor ID:', doctor.id);
+    lastProcessedDoctorId.current = doctor.id;
+    isProcessingContent.current = true;
 
+    const fetchOrCreateAIContent = async () => {
       setLoadingAI(true);
       setContentError(null);
 
@@ -358,11 +369,12 @@ const TNSSLandingPage: React.FC = () => {
         setAIContent({ error: error.message });
       } finally {
         setLoadingAI(false);
+        isProcessingContent.current = false;
       }
     };
 
     fetchOrCreateAIContent();
-      }, [doctor?.id, retryAttempts]);
+  }, [doctor?.id, retryAttempts]); // Only depend on doctor.id and retryAttempts
 
   const handleShowQuiz = (e?: React.MouseEvent) => {
     e?.preventDefault();
