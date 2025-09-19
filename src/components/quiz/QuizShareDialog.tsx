@@ -102,54 +102,23 @@ export function QuizShareDialog({ isOpen, onClose, quizType, customQuizId }: Qui
 
   const generateShortUrl = async (longUrl: string) => {
     try {
-      // Try multiple URL shortening services directly from client
-      let shortUrl = null;
-      
-      // Try TinyURL first (most reliable)
-      try {
-        const tinyUrlResponse = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`);
-        if (tinyUrlResponse.ok) {
-          const tinyUrl = await tinyUrlResponse.text();
-          if (tinyUrl && tinyUrl.startsWith('http')) {
-            shortUrl = tinyUrl.trim();
-          }
-        }
-      } catch (error) {
-        console.log('TinyURL failed, trying next service...');
+      // Use your own backend function which prioritizes direct redirect services
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-short-url`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ longUrl }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.shortUrl || longUrl;
+      } else {
+        console.error('Backend URL shortening failed, using original URL');
+        return longUrl;
       }
-      
-      // Try is.gd if TinyURL failed
-      if (!shortUrl) {
-        try {
-          const isGdResponse = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`);
-          if (isGdResponse.ok) {
-            const isGdData = await isGdResponse.json();
-            if (isGdData && isGdData.shorturl) {
-              shortUrl = isGdData.shorturl;
-            }
-          }
-        } catch (error) {
-          console.log('is.gd failed, trying next service...');
-        }
-      }
-      
-      // Try v.gd if previous services failed
-      if (!shortUrl) {
-        try {
-          const vGdResponse = await fetch(`https://v.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`);
-          if (vGdResponse.ok) {
-            const vGdData = await vGdResponse.json();
-            if (vGdData && vGdData.shorturl) {
-              shortUrl = vGdData.shorturl;
-            }
-          }
-        } catch (error) {
-          console.log('v.gd failed, using original URL...');
-        }
-      }
-      
-      // If all services fail, use original URL
-      return shortUrl || longUrl;
     } catch (error) {
       console.error('Error generating short URL:', error);
       return longUrl;

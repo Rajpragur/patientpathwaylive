@@ -27,35 +27,20 @@ serve(async (req) => {
     let shortUrl = null;
     let errorMessage = '';
 
-    // Try TinyURL first (most reliable)
+    // Try is.gd first (direct redirect, no preview page)
     try {
-      const tinyUrlResponse = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`);
-      if (tinyUrlResponse.ok) {
-        const tinyUrl = await tinyUrlResponse.text();
-        if (tinyUrl && tinyUrl.startsWith('http')) {
-          shortUrl = tinyUrl;
+      const isGdResponse = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`);
+      if (isGdResponse.ok) {
+        const isGdData = await isGdResponse.json();
+        if (isGdData && isGdData.shorturl) {
+          shortUrl = isGdData.shorturl;
         }
       }
     } catch (error) {
-      errorMessage += `TinyURL failed: ${error.message}; `;
+      errorMessage += `is.gd failed: ${error.message}; `;
     }
 
-    // Try is.gd if TinyURL failed
-    if (!shortUrl) {
-      try {
-        const isGdResponse = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`);
-        if (isGdResponse.ok) {
-          const isGdData = await isGdResponse.json();
-          if (isGdData && isGdData.shorturl) {
-            shortUrl = isGdData.shorturl;
-          }
-        }
-      } catch (error) {
-        errorMessage += `is.gd failed: ${error.message}; `;
-      }
-    }
-
-    // Try v.gd if previous services failed
+    // Try v.gd if is.gd failed (also direct redirect)
     if (!shortUrl) {
       try {
         const vGdResponse = await fetch(`https://v.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`);
@@ -67,6 +52,21 @@ serve(async (req) => {
         }
       } catch (error) {
         errorMessage += `v.gd failed: ${error.message}; `;
+      }
+    }
+
+    // Try TinyURL as last resort (has preview page with 5-second wait)
+    if (!shortUrl) {
+      try {
+        const tinyUrlResponse = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`);
+        if (tinyUrlResponse.ok) {
+          const tinyUrl = await tinyUrlResponse.text();
+          if (tinyUrl && tinyUrl.startsWith('http')) {
+            shortUrl = tinyUrl;
+          }
+        }
+      } catch (error) {
+        errorMessage += `TinyURL failed: ${error.message}; `;
       }
     }
 

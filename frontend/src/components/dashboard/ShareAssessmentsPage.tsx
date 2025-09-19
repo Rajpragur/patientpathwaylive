@@ -157,63 +157,35 @@ export function ShareAssessmentsPage() {
   const generateShortUrl = async (longUrl: string, key: string) => {
     setIsGeneratingShortUrl(prev => ({ ...prev, [key]: true }));
     try {
-      // Try multiple URL shortening services directly from client
-      let shortUrl = null;
+      // Use your own backend function which prioritizes direct redirect services
+      // Get URL and key from the supabase client configuration
+      const SUPABASE_URL = 'https://drvitjhhggcywuepyncx.supabase.co';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRydml0amhoZ2djeXd1ZXB5bmN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwOTc2NzMsImV4cCI6MjA2MzY3MzY3M30.R3g3sZc4O8w3ox22tQ31_RopbzAddU8o7j12BQEe35A';
       
-      // Try TinyURL first (most reliable)
-      try {
-        const tinyUrlResponse = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`);
-        if (tinyUrlResponse.ok) {
-          const tinyUrl = await tinyUrlResponse.text();
-          if (tinyUrl && tinyUrl.startsWith('http')) {
-            shortUrl = tinyUrl.trim();
-          }
-        }
-      } catch (error) {
-        console.log('TinyURL failed, trying next service...');
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-short-url`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ longUrl }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const shortUrl = data.shortUrl || longUrl;
+        setShortUrls(prev => ({ ...prev, [key]: shortUrl }));
+        toast.success(shortUrl === longUrl ? 'Using original URL (shortening services unavailable)' : 'Short URL generated successfully!');
+        return shortUrl;
+      } else {
+        console.error('Backend URL shortening failed, using original URL');
+        setShortUrls(prev => ({ ...prev, [key]: longUrl }));
+        toast.warning('Using original URL (shortening failed)');
+        return longUrl;
       }
-      
-      // Try is.gd if TinyURL failed
-      if (!shortUrl) {
-        try {
-          const isGdResponse = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`);
-          if (isGdResponse.ok) {
-            const isGdData = await isGdResponse.json();
-            if (isGdData && isGdData.shorturl) {
-              shortUrl = isGdData.shorturl;
-            }
-          }
-        } catch (error) {
-          console.log('is.gd failed, trying next service...');
-        }
-      }
-      
-      // Try v.gd if previous services failed
-      if (!shortUrl) {
-        try {
-          const vGdResponse = await fetch(`https://v.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`);
-          if (vGdResponse.ok) {
-            const vGdData = await vGdResponse.json();
-            if (vGdData && vGdData.shorturl) {
-              shortUrl = vGdData.shorturl;
-            }
-          }
-        } catch (error) {
-          console.log('v.gd failed, using original URL...');
-        }
-      }
-      
-      // If all services fail, use original URL
-      if (!shortUrl) {
-        shortUrl = longUrl;
-      }
-      
-      setShortUrls(prev => ({ ...prev, [key]: shortUrl }));
-      toast.success(shortUrl === longUrl ? 'Using original URL (shortening services unavailable)' : 'Short URL generated successfully!');
-      
-      return shortUrl;
     } catch (error) {
       console.error('Error generating short URL:', error);
+      setShortUrls(prev => ({ ...prev, [key]: longUrl }));
       toast.error('Failed to generate short URL');
       return longUrl;
     } finally {
