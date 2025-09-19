@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
+import { supabaseAdmin } from '@/integrations/supabase/admin';
 import { 
   Users, 
   BarChart3, 
@@ -165,6 +166,13 @@ export function EnhancedAdminDashboard() {
   const [leadStatus, setLeadStatus] = useState('');
   const [leadNotes, setLeadNotes] = useState('');
   const [showMaskedLeads, setShowMaskedLeads] = useState(false);
+  
+  // Doctor password change states
+  const [showDoctorPasswordChange, setShowDoctorPasswordChange] = useState(false);
+  const [doctorNewPassword, setDoctorNewPassword] = useState('');
+  const [doctorConfirmPassword, setDoctorConfirmPassword] = useState('');
+  const [selectedDoctorForPassword, setSelectedDoctorForPassword] = useState<DoctorProfile | null>(null);
+  const [passwordChangeLoading, setPasswordChangeLoading] = useState(false);
   const [maskedLeads, setMaskedLeads] = useState<QuizLead[]>([]);
   const [showDeleteLeadDialog, setShowDeleteLeadDialog] = useState(false);
   const [leadToDelete, setLeadToDelete] = useState<QuizLead | null>(null);
@@ -878,8 +886,64 @@ export function EnhancedAdminDashboard() {
     }
   };
 
+  // Function to open password change dialog for doctor
+  const openDoctorPasswordChange = (doctor: DoctorProfile) => {
+    setSelectedDoctorForPassword(doctor);
+    setDoctorNewPassword('');
+    setDoctorConfirmPassword('');
+    setShowDoctorPasswordChange(true);
+  };
 
+  // Function to change doctor password
+  const changeDoctorPassword = async () => {
+    if (!selectedDoctorForPassword) return;
 
+    // Validation
+    if (!doctorNewPassword || !doctorConfirmPassword) {
+      toast.error('Please fill in all password fields');
+      return;
+    }
+
+    if (doctorNewPassword !== doctorConfirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+
+    if (doctorNewPassword.length < 6) {
+      toast.error('Password must be at least 6 characters long');
+      return;
+    }
+
+    try {
+      setPasswordChangeLoading(true);
+      
+      const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
+        selectedDoctorForPassword.user_id,
+        { password: doctorNewPassword }
+      );
+
+      if (error) {
+        console.error('Error changing doctor password:', error);
+        toast.error(`Failed to change password: ${error.message}`);
+        return;
+      }
+
+      const doctorName = selectedDoctorForPassword.first_name && selectedDoctorForPassword.last_name 
+        ? `${selectedDoctorForPassword.first_name} ${selectedDoctorForPassword.last_name}`
+        : 'Unknown Doctor';
+        
+      toast.success(`Password changed successfully for ${doctorName}`);
+      setShowDoctorPasswordChange(false);
+      setSelectedDoctorForPassword(null);
+      setDoctorNewPassword('');
+      setDoctorConfirmPassword('');
+    } catch (error) {
+      console.error('Error in changeDoctorPassword:', error);
+      toast.error('Failed to change doctor password');
+    } finally {
+      setPasswordChangeLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -901,26 +965,6 @@ export function EnhancedAdminDashboard() {
             <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 border-green-200">
               Access Control Active
             </Badge>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={async () => {
-                const { data: { user }, error } = await supabase.auth.getUser();
-                console.log('Admin user check:', user?.email, error);
-                toast.info(`Logged in as: ${user?.email || 'Not authenticated'}`);
-              }}
-              className="ml-2"
-            >
-              Test Auth
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={testDeletePermission}
-              className="ml-2"
-            >
-              Test Delete
-            </Button>
             </h1>
             <p className="text-gray-500 mt-1">Platform management and analytics</p>
           </div>
@@ -1615,6 +1659,16 @@ export function EnhancedAdminDashboard() {
                                   Give Access
                                 </Button>
                               )}
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => openDoctorPasswordChange(doctor)}
+                                className="h-8 px-2 text-xs"
+                                title="Change Password"
+                              >
+                                <Key className="w-3 h-3 mr-1" />
+                                Password
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -2947,6 +3001,75 @@ export function EnhancedAdminDashboard() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Doctor Password Change Dialog */}
+      <Dialog open={showDoctorPasswordChange} onOpenChange={setShowDoctorPasswordChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="w-5 h-5" />
+              Change Doctor Password
+            </DialogTitle>
+            {selectedDoctorForPassword && (
+              <p className="text-sm text-gray-500">
+                Change password for {selectedDoctorForPassword.first_name} {selectedDoctorForPassword.last_name}
+              </p>
+            )}
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="newPassword">New Password</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={doctorNewPassword}
+                onChange={(e) => setDoctorNewPassword(e.target.value)}
+                placeholder="Enter new password"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={doctorConfirmPassword}
+                onChange={(e) => setDoctorConfirmPassword(e.target.value)}
+                placeholder="Confirm new password"
+                className="mt-1"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowDoctorPasswordChange(false);
+                  setSelectedDoctorForPassword(null);
+                  setDoctorNewPassword('');
+                  setDoctorConfirmPassword('');
+                }}
+                disabled={passwordChangeLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={changeDoctorPassword}
+                disabled={passwordChangeLoading || !doctorNewPassword || !doctorConfirmPassword}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {passwordChangeLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Changing...
+                  </>
+                ) : (
+                  'Change Password'
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

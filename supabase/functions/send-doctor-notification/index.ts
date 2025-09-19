@@ -117,317 +117,204 @@ async function sendDoctorNotificationEmail(lead: any, doctorProfile: any) {
   const answersSummary = generateAnswersSummary(lead.answers);
 
   const html = `
-      <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>New Quiz Submission - PatientPathway.ai</title>
-        <style>
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-            color: #1f2937;
-            background-color: #f9fafb;
-            margin: 0;
-            padding: 0;
-          }
+  <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>New Quiz Submission - PatientPathway.ai</title>
+    <style>
+      body {
+        background-color: #f4f6f8;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        color: #333;
+        margin: 0;
+        padding: 0;
+      }
+      .email-container {
+        max-width: 700px;
+        margin: 40px auto;
+        background: #ffffff;
+        padding: 40px 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+      }
+      .logo {
+        max-width: 100px;
+        margin: 0 auto 20px;
+        display: block;
+        border-radius: 8px;
+      }
+      .header {
+        font-size: 24px;
+        font-weight: 700;
+        color: #007ea7;
+        text-align: center;
+        margin-bottom: 6px;
+      }
+      .subheader {
+        font-size: 15px;
+        color: #555;
+        text-align: center;
+        margin-bottom: 30px;
+      }
+      .section-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #374151;
+        margin: 25px 0 10px;
+        border-bottom: 1px solid #e5e7eb;
+        padding-bottom: 6px;
+      }
+      .contact-list,
+      .info-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0;
+        padding: 0;
+      }
+      .contact-item {
+        padding: 6px 0;
+        font-size: 14px;
+      }
+      .contact-label {
+        font-weight: 600;
+        margin-right: 6px;
+        color: #374151;
+      }
+      .info-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #6b7280;
+        padding: 6px 0;
+        width: 140px;
+        text-transform: uppercase;
+      }
+      .info-value {
+        font-size: 15px;
+        color: #111827;
+        padding: 6px 0;
+      }
+      .score-badge {
+        display: inline-block;
+        background-color: #007ea7;
+        color: white;
+        padding: 5px 12px;
+        border-radius: 9999px;
+        font-weight: 600;
+        font-size: 14px;
+      }
+      .quiz-responses {
+        background-color: #f9fafb;
+        border-radius: 6px;
+        padding: 12px;
+        font-size: 14px;
+        margin-top: 10px;
+      }
+      .quiz-item {
+        padding: 6px 0;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      .quiz-item:last-child {
+        border-bottom: none;
+      }
+      .dashboard-section {
+        text-align: center;
+        margin-top: 30px;
+      }
+      .dashboard-link {
+        display: inline-block;
+        background-color: #007ea7;
+        color: #ffffff !important;
+        padding: 12px 24px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 15px;
+      }
+      .footer {
+        font-size: 12px;
+        color: #999;
+        margin-top: 40px;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="email-container">
+      <img
+        src="https://drvitjhhggcywuepyncx.supabase.co/storage/v1/object/public/logo/WhatsApp%20Image%202025-05-26%20at%2009.26.08.jpeg"
+        alt="Patient Pathway Logo"
+        class="logo"
+      />
+      <div class="header">PatientPathway.ai</div>
+      <div class="subheader">New Quiz Submission</div>
 
-          .info-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-          }
+      <div>
+        <h3 class="section-title">Patient Contact Information</h3>
+        <ul class="contact-list">
+          <li class="contact-item">
+            <span class="contact-label">Name:</span>${lead.name}
+          </li>
+          <li class="contact-item">
+            <span class="contact-label">Mobile:</span>${lead.phone}
+          </li>
+          <li class="contact-item">
+            <span class="contact-label">Email:</span>
+            <a href="mailto:${lead.email}" style="color:#007ea7; text-decoration:underline;">${lead.email || 'Not provided'}</a>
+          </li>
+        </ul>
+      </div>
 
-          .info-table td {
-            padding: 6px 0;
-            vertical-align: middle;
-          }
+      <div>
+        <h3 class="section-title">Assessment Details</h3>
+        <table class="info-table">
+          <tr>
+            <td class="info-label">Quiz Type</td>
+            <td class="info-value">${lead.quiz_type}</td>
+          </tr>
+          <tr>
+            <td class="info-label">Doctor</td>
+            <td class="info-value">${doctorName}</td>
+          </tr>
+          <tr>
+            <td class="info-label">Status</td>
+            <td class="info-value">Qualified Lead</td>
+          </tr>
+          <tr>
+            <td class="info-label">Score</td>
+            <td class="info-value"><span class="score-badge">${lead.score}</span></td>
+          </tr>
+          <tr>
+            <td class="info-label">Source</td>
+            <td class="info-value">${lead.lead_source}</td>
+          </tr>
+        </table>
+        <p style="font-size:13px; color:#6b7280; margin-top:8px;">
+          Submitted: ${new Date(lead.submitted_at).toLocaleString()}
+        </p>
+      </div>
 
-          .info-label {
-            font-weight: 600;
-            font-size: 13px;
-            color: #6b7280;
-            width: 120px;
-            /* fixed width so values line up */
-            text-transform: uppercase;
-          }
-
-          .info-value {
-            font-size: 15px;
-            color: #111827;
-          }
-
-          .score-badge {
-            display: inline-block;
-            background-color: #2563eb;
-            color: white;
-            padding: 4px 12px;
-            border-radius: 9999px;
-            font-weight: 600;
-            font-size: 14px;
-          }
-
-          .submitted-row {
-            margin-top: 12px;
-            font-size: 13px;
-            color: #6b7280;
-          }
-
-          .info-value a {
-            color: #2563eb !important;
-            /* ensures quiz/email links inside info-value stay blue */
-            text-decoration: underline !important;
-            font-weight: 600 !important;
-          }
-
-          .email-container {
-            max-width: 900px;
-            margin: 0 auto;
-            background-color: #ffffff;
-            border-radius: 10px;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
-            overflow: hidden;
-          }
-
-          .header {
-            padding: 24px 24px 0 24px;
-            text-align: center;
-          }
-
-          .logo {
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 12px;
-            display: block;
-            object-fit: contain;
-          }
-
-          .header-title {
-            font-size: 22px;
-            font-weight: 700;
-            margin: 0 0 6px 0;
-            color: #111827;
-          }
-
-          .header-subtitle {
-            font-size: 13px;
-            color: #6b7280;
-            margin: 0;
-          }
-
-          .content {
-            padding: 20px 20px 0 20px;
-          }
-
-          .main-title {
-            font-size: 24px;
-            font-weight: 700;
-            color: #111827;
-            margin: 0 0 12px;
-            text-align: center;
-          }
-
-          .section {
-            border-top: 1px solid #e5e7eb;
-            padding-top: 20px;
-            margin-top: 20px;
-          }
-
-          .section-title {
-            font-size: 16px;
-            font-weight: 600;
-            margin: 0 0 12px;
-            color: #374151;
-          }
-
-          .info-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-          }
-
-          .info-item {
-            display: flex;
-            flex-direction: column;
-          }
-
-          .info-label {
-            font-size: 11px;
-            font-weight: 600;
-            color: #6b7280;
-            text-transform: uppercase;
-            margin-bottom: 3px;
-          }
-
-          .info-value {
-            font-size: 15px;
-            font-weight: 500;
-            color: #111827;
-          }
-
-          .score-badge {
-            display: inline-block;
-            background-color: #2563eb;
-            color: white;
-            padding: 6px 14px;
-            border-radius: 9999px;
-            font-weight: 600;
-            font-size: 15px;
-          }
-
-          .contact-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-          }
-
-          .contact-item {
-            padding: 6px 0;
-            font-size: 14px;
-          }
-
-          .contact-label {
-            font-weight: 600;
-            margin-right: 4px;
-            color: #000000;
-          }
-
-          .quiz-responses {
-            background-color: #f9fafb;
-            border-radius: 6px;
-            padding: 12px;
-            font-size: 14px;
-          }
-
-          .quiz-item {
-            padding: 6px 0;
-            border-bottom: 1px solid #e5e7eb;
-          }
-
-          .quiz-item:last-child {
-            border-bottom: none;
-          }
-
-          .quiz-question {
-            font-weight: 500;
-          }
-
-          .quiz-answer {
-            font-weight: 600;
-            color: #111827;
-          }
-
-          .dashboard-section {
-            text-align: center;
-            padding: 24px;
-          }
-
-          .dashboard-link {
-            display: inline-block;
-            background-color: #0c97e8;
-            padding: 12px 22px;
-            border-radius: 6px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-          }
-
-          .dashboard-link:hover {
-            background-color: #1d4ed8;
-          }
-
-          .dashboard-link a {
-            color: white;
-            font-weight: bold;
-          }
-
-          .footer {
-            background-color: #f9fafb;
-            padding: 16px;
-            text-align: center;
-            font-size: 12px;
-            color: #6b7280;
-            border-top: 1px solid #e5e7eb;
-          }
-
-          @media (max-width: 600px) {
-            .info-grid {
-              grid-template-columns: 1fr;
-            }
-
-            .main-title {
-              font-size: 20px;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="email-container">
-          <div class="header">
-            <img src="https://drvitjhhggcywuepyncx.supabase.co/storage/v1/object/public/logo/WhatsApp%20Image%202025-05-26%20at%2009.26.08.jpeg" alt="PatientPathway.ai Logo" class="logo">
-            <h1 class="header-title">PatientPathway.ai</h1>
-            <p class="header-subtitle">New Quiz Submission</p>
-          </div>
-          <div class="content">
-            <h2 class="main-title">New Lead Submission</h2>
-            <div class="section">
-              <h3 class="section-title">Patient Contact Information</h3>
-              <ul class="contact-list">
-                <li class="contact-item">
-                  <span class="contact-label">Name:</span>${lead.name}
-                </li>
-                <li class="contact-item">
-                  <span class="contact-label">Mobile:</span>${lead.phone}
-                </li>
-                <li class="contact-item">
-                  <span class="contact-label">Email:</span>
-                  <a href="mailto:${lead.email}" style="color:#2563eb; text-decoration:underline;">${lead.email || 'Not provided'}</a>
-                </li>
-              </ul>
-            </div>
-            <div class="section">
-              <h3 class="section-title">Assessment Details</h3>
-              <table class="info-table">
-                <tr>
-                  <td class="info-label">Quiz Type</td>
-                  <td class="info-value">${lead.quiz_type}</td>
-                </tr>
-                <tr>
-                  <td class="info-label">Doctor</td>
-                  <td class="info-value">${doctorName}</td>
-                </tr>
-                <tr>
-                  <td class="info-label">Status</td>
-                  <td class="info-value">Qualified Lead</td>
-                </tr>
-                <tr>
-                  <td class="info-label">Score</td>
-                  <td class="info-value">
-                    <span class="score-badge">${lead.score}</span>
-                  </td>
-                </tr>
-                <tr>
-                  <td class="info-label">Source</td>
-                  <td class="info-value">${lead.lead_source}</td>
-                </tr>
-              </table>
-              <p class="submitted-row"> Submitted: ${new Date(lead.submitted_at).toLocaleString()} </p>
-            </div>
-          </div>
-          <div class="section">
-            <h3 class="section-title">Quiz Responses</h3>
-            <div class="quiz-responses"> ${generateMinimalAnswersSummary(lead.answers)} </div>
-          </div>
-          <div class="dashboard-section">
-            <h3 style="font-size:16px; margin:0 0 12px; color:#374151;">Access Your Clinician Dashboard</h3>
-            <a href="${dashboardUrl}" class="dashboard-link">Open Dashboard</a>
-          </div>
+      <div>
+        <h3 class="section-title">Quiz Responses</h3>
+        <div class="quiz-responses">
+          ${generateMinimalAnswersSummary(lead.answers)}
         </div>
-      </body>
-    </html>
-  `;
+      </div>
 
+      <div class="dashboard-section">
+        <h3 style="font-size:16px; margin-bottom:12px; color:#374151;">
+          Access Your Clinician Dashboard
+        </h3>
+        <a href="${dashboardUrl}" class="dashboard-link">Open Dashboard</a>
+      </div>
+
+      <div class="footer">
+        © 2025 Patient Pathway. All rights reserved.
+      </div>
+    </div>
+  </body>
+</html>
+`;
   const text = `
 New Quiz Submission
 
