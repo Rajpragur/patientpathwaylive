@@ -6,10 +6,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Megaphone, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MarketingTicker } from './MarketingTicker';
+import { getOrCreateDoctorProfile, DoctorProfile } from '@/lib/profileUtils';
 
 export function DashboardHeader() {
   const { user } = useAuth();
-  const [doctorProfile, setDoctorProfile] = useState<any>(null);
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showMarketingTicker, setShowMarketingTicker] = useState(true);
@@ -25,46 +26,14 @@ export function DashboardHeader() {
     
     try {
       setLoading(true);
-      // Get all doctor profiles for this user
-      const { data: profiles, error } = await supabase
-        .from('doctor_profiles')
-        .select('*')
-        .eq('user_id', user.id);
+      setError(null);
       
-      if (error) {
-        console.error('Error fetching doctor profiles:', error);
-        setError('Could not fetch doctor profile');
-        return;
-      }
+      const profile = await getOrCreateDoctorProfile(user.id, user.email || undefined);
       
-      // Use the first profile if multiple exist
-      if (profiles && profiles.length > 0) {
-        setDoctorProfile(profiles[0]);
+      if (profile) {
+        setDoctorProfile(profile);
       } else {
-        
-        // Create a doctor profile if none exists
-        const { data: newProfile, error: createError } = await supabase
-          .from('doctor_profiles')
-          .insert([{ 
-            user_id: user.id,
-            first_name: 'Doctor',
-            last_name: 'User',
-            email: user.email,
-            doctor_id: Math.floor(100000 + Math.random() * 900000).toString(),
-            access_control: true
-          }])
-          .select();
-
-        if (createError) {
-          console.error('Error creating doctor profile:', createError);
-          setError('Failed to create doctor profile');
-          return;
-        }
-
-        if (newProfile && newProfile.length > 0) {
-          console.log('Created new doctor profile:', newProfile[0].id);
-          setDoctorProfile(newProfile[0]);
-        }
+        setError('Failed to fetch or create doctor profile');
       }
     } catch (error) {
       console.error('Error in fetchDoctorProfile:', error);

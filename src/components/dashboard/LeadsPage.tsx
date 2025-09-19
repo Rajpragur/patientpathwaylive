@@ -12,6 +12,7 @@ import { EnhancedLeadsTable } from './EnhancedLeadsTable';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow, format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, parseISO, addWeeks, subWeeks } from 'date-fns';
+import { getOrCreateDoctorProfile } from '@/lib/profileUtils';
 
 
 interface MarketingEvent {
@@ -57,58 +58,22 @@ export function LeadsPage() {
     if (!user) return;
     
     try {
+      setLoading(true);
+      setError(null);
       
-      // First try to get all doctor profiles for this user
-      const { data: doctorProfiles, error: profileError } = await supabase
-        .from('doctor_profiles')
-        .select('id, first_name, last_name')
-        .eq('user_id', user.id);
-
-      if (profileError) {
-        console.error('Profile fetch error:', profileError);
-        setError('Could not fetch doctor profile');
-        toast.error('Could not fetch doctor profile');
-        setLoading(false);
-        return;
-      }
-
-      if (!doctorProfiles || doctorProfiles.length === 0) {
-        
-        // Create a doctor profile if none exists
-        const { data: newProfile, error: createError } = await supabase
-          .from('doctor_profiles')
-          .insert([{ 
-            user_id: user.id,
-            first_name: 'Doctor',
-            last_name: 'User',
-            email: user.email,
-            doctor_id: Math.floor(100000 + Math.random() * 900000).toString()
-          }])
-          .select();
-
-        if (createError) {
-          console.error('Error creating doctor profile:', createError);
-          setError('Failed to create doctor profile');
-          toast.error('Failed to create doctor profile');
-          setLoading(false);
-          return;
-        }
-
-        if (newProfile && newProfile.length > 0) {
-          console.log('Created new doctor profile:', newProfile[0].id);
-          setDoctorId(newProfile[0].id);
-        } else {
-          setError('Failed to create doctor profile');
-          toast.error('Failed to create doctor profile');
-          setLoading(false);
-        }
+      const profile = await getOrCreateDoctorProfile(user.id, user.email || undefined);
+      
+      if (profile) {
+        setDoctorId(profile.id);
       } else {
-        setDoctorId(doctorProfiles[0].id);
+        setError('Failed to fetch or create doctor profile');
+        toast.error('Failed to fetch or create doctor profile');
       }
     } catch (error) {
       console.error('Unexpected error fetching doctor profile:', error);
       setError('An unexpected error occurred');
       toast.error('An unexpected error occurred');
+    } finally {
       setLoading(false);
     }
   };

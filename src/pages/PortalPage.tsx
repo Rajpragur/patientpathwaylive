@@ -55,7 +55,6 @@ export default function PortalPage() {
         console.error('Error checking doctor access:', error);
         console.error('Error details:', error.message, error.code);
         
-        // If doctor profile doesn't exist or there's an error, deny access
         setHasAccess(false);
         setAccessRevoked(true);
         await signOut();

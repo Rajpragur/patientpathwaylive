@@ -21,13 +21,14 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getOrCreateDoctorProfile, DoctorProfile } from '@/lib/profileUtils';
 
 export function ProfilePage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [doctorProfile, setDoctorProfile] = useState<any>(null);
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -53,23 +54,11 @@ export function ProfilePage() {
     
     try {
       setLoading(true);
+      setError(null);
       
-      // Get all doctor profiles for this user
-      const { data: profiles, error } = await supabase
-        .from('doctor_profiles')
-        .select('*')
-        .eq('user_id', user.id);
+      const profile = await getOrCreateDoctorProfile(user.id, user.email || undefined);
       
-      if (error) {
-        console.error('Error fetching doctor profiles:', error);
-        setError('Could not fetch doctor profile');
-        setLoading(false);
-        return;
-      }
-      
-      // Use the first profile if multiple exist
-      if (profiles && profiles.length > 0) {
-        const profile = profiles[0];
+      if (profile) {
         setDoctorProfile(profile);
         setFormData({
           first_name: profile.first_name || '',
@@ -83,43 +72,7 @@ export function ProfilePage() {
           website: profile.website || ''
         });
       } else {
-        
-        // Create a doctor profile if none exists
-        const { data: newProfile, error: createError } = await supabase
-          .from('doctor_profiles')
-          .insert([{ 
-            user_id: user.id,
-            first_name: 'Doctor',
-            last_name: 'User',
-            email: user.email,
-            doctor_id: Math.floor(100000 + Math.random() * 900000).toString(),
-            access_control: true
-          }])
-          .select();
-
-        if (createError) {
-          console.error('Error creating doctor profile:', createError);
-          setError('Failed to create doctor profile');
-          setLoading(false);
-          return;
-        }
-
-        if (newProfile && newProfile.length > 0) {
-          setDoctorProfile(newProfile[0]);
-          setFormData({
-            first_name: newProfile[0].first_name || '',
-            last_name: newProfile[0].last_name || '',
-            email: newProfile[0].email || user.email || '',
-            phone: newProfile[0].phone || '',
-            specialty: newProfile[0].specialty || '',
-            clinic_name: newProfile[0].clinic_name || '',
-            avatar_url: newProfile[0].avatar_url || '',
-            doctor_id: newProfile[0].doctor_id || '',
-            website: newProfile[0].website || ''
-          });
-        } else {
-          setError('Failed to create doctor profile');
-        }
+        setError('Failed to fetch or create doctor profile');
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
