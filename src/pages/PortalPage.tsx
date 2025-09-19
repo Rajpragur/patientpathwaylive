@@ -102,12 +102,14 @@ export default function PortalPage() {
         console.log('Setting hasAccess to FALSE and accessRevoked to TRUE');
         setHasAccess(false);
         setAccessRevoked(true);
+        toast.error('You do not have access to the portal');
         await signOut();
       }
     } catch (error) {
       console.error('Error checking doctor access:', error);
       setHasAccess(false);
       setAccessRevoked(true);
+      toast.error('You do not have access to the portal');
       await signOut();
     } finally {
       setAccessLoading(false);
@@ -189,9 +191,9 @@ export default function PortalPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Revoked</h1>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
             <p className="text-gray-600 mb-6">
-              Sorry, unfortunately your access has been revoked. Please contact support for assistance.
+              You do not have access to the portal. Please contact your administrator to request access.
             </p>
           </div>
           <div className="space-y-3">

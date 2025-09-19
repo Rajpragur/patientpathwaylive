@@ -47,6 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             navigateRef.current('/verify-email');
           } else if (window.location.pathname === '/auth') {
             // Only redirect to portal if we're on the auth page
+            // The portal page will handle access control checks
             navigateRef.current('/portal');
           }
         } else if (event === 'USER_UPDATED') {

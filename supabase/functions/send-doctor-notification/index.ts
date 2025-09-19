@@ -490,7 +490,7 @@ function generateAnswersSummary(answers: any) {
     const answer = typeof value === 'object' ? JSON.stringify(value) : value;
     const score = typeof value === 'number' ? value : 'N/A';
     
-    summary += `<tr><td>${question}</td><td>${answer}</td><td>${score}</td></tr>`;
+    summary += `<tr><td>${question} : </td><td>${answer}</td><td>${score}</td></tr>`;
   });
   
   summary += '</table></div>';
