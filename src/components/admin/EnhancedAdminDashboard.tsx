@@ -36,6 +36,7 @@ import {
   Building,
   UserCheck,
   UserX,
+  EyeOff,
   Clock,
   Target,
   PieChart,
@@ -51,7 +52,9 @@ import {
   Settings2,
   ActivitySquare,
   Database as DatabaseIcon,
-  Shield as ShieldIcon
+  Shield as ShieldIcon,
+  ToggleRight,
+  ToggleLeft
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -144,6 +147,8 @@ export function EnhancedAdminDashboard() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [showLeadDetails, setShowLeadDetails] = useState(false);
+  const [showMaskedData, setShowMaskedData] = useState(true); // Default to masked data
+  const [showMaskedLeads, setShowMaskedLeads] = useState(false); // For masked leads dialog
   const [selectedLead, setSelectedLead] = useState<QuizLead | null>(null);
   // Doctor analytics & access control
   const [showDoctorLeads, setShowDoctorLeads] = useState(false);
@@ -165,7 +170,6 @@ export function EnhancedAdminDashboard() {
   const [editingLead, setEditingLead] = useState<QuizLead | null>(null);
   const [leadStatus, setLeadStatus] = useState('');
   const [leadNotes, setLeadNotes] = useState('');
-  const [showMaskedLeads, setShowMaskedLeads] = useState(false);
   
   // Doctor password change states
   const [showDoctorPasswordChange, setShowDoctorPasswordChange] = useState(false);
@@ -1365,13 +1369,41 @@ export function EnhancedAdminDashboard() {
                   </Select>
                 </div>
 
+                {/* Toggle Button for Masked/Unmasked Leads */}
+                <div className="flex justify-end mb-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowMaskedData(!showMaskedData)}
+                    className="flex items-center gap-2"
+                  >
+                    {showMaskedData ? (
+                      <>
+                        <EyeOff className="w-4 h-4" />
+                        Show Unmasked Data
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="w-4 h-4" />
+                        Show Masked Data
+                      </>
+                    )}
+                  </Button>
+                </div>
+
                 {/* Leads Table */}
                 <div className="border rounded-lg overflow-x-auto">
                   <Table className="min-w-full">
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[200px]">Name</TableHead>
-                        <TableHead className="w-[250px]">Contact</TableHead>
+                        <TableHead className="w-[200px]">
+                          Name
+                          {showMaskedData && <span className="text-xs text-gray-500 ml-2">(Masked)</span>}
+                        </TableHead>
+                        <TableHead className="w-[250px]">
+                          Contact
+                          {showMaskedData && <span className="text-xs text-gray-500 ml-2">(Masked)</span>}
+                        </TableHead>
                         <TableHead className="w-[150px]">Quiz Type</TableHead>
                         <TableHead className="w-[100px]">Score</TableHead>
                         <TableHead className="w-[120px]">Status</TableHead>
@@ -1381,23 +1413,25 @@ export function EnhancedAdminDashboard() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredLeads.map((lead) => {
+                      {(showMaskedData ? maskedLeads : filteredLeads).map((lead) => {
                         const doctor = doctors.find(d => d.id === lead.doctor_id);
                         return (
                           <TableRow key={lead.id}>
-                            <TableCell className="font-medium">{lead.name}</TableCell>
+                            <TableCell className="font-medium">
+                              {showMaskedData ? maskName(lead.name) : lead.name}
+                            </TableCell>
                             <TableCell>
                               <div className="space-y-1">
                                 {lead.email && (
                                   <div className="flex items-center gap-1 text-sm">
                                     <Mail className="w-3 h-3" />
-                                    {lead.email}
+                                    {showMaskedData ? maskEmail(lead.email) : lead.email}
                                   </div>
                                 )}
                                 {lead.phone && (
                                   <div className="flex items-center gap-1 text-sm">
                                     <Phone className="w-3 h-3" />
-                                    {lead.phone}
+                                    {showMaskedData ? maskPhone(lead.phone) : lead.phone}
                                   </div>
                                 )}
                               </div>
@@ -2659,7 +2693,27 @@ export function EnhancedAdminDashboard() {
               <TrendingUp className="w-5 h-5" />
               Leads for {selectedDoctor?.clinic_name || selectedDoctor?.first_name || 'Unknown Doctor'}
             </DialogTitle>
-            <p className="text-sm text-gray-500">Contact information is masked for privacy</p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500">Contact information is masked for privacy</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowMaskedData(!showMaskedData)}
+                className="flex items-center gap-2"
+              >
+                {showMaskedData ? (
+                  <>
+                    <ToggleRight className="w-4 h-4" />
+                    Show Unmasked Data
+                  </>
+                ) : (
+                  <>
+                    <ToggleLeft className="w-4 h-4" />
+                    Show Masked Data
+                  </>
+                )}
+              </Button>
+            </div>
           </DialogHeader>
           {selectedDoctor && (
             <div className="space-y-4">
@@ -2682,18 +2736,18 @@ export function EnhancedAdminDashboard() {
                       {maskedLeads.map((lead) => (
                         <TableRow key={lead.id}>
                           <TableCell className="font-medium">
-                            {maskName(lead.name)}
+                            {showMaskedData ? maskName(lead.name) : lead.name}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1 text-sm">
                               <Mail className="w-3 h-3 text-gray-400" />
-                              {maskEmail(lead.email)}
+                              {showMaskedData ? maskEmail(lead.email) : lead.email}
                             </div>
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1 text-sm">
                               <Phone className="w-3 h-3 text-gray-400" />
-                              {maskPhone(lead.phone)}
+                              {showMaskedData ? maskPhone(lead.phone) : lead.phone}
                             </div>
                           </TableCell>
                           <TableCell>
