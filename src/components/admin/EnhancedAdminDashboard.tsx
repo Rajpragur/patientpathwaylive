@@ -921,6 +921,11 @@ export function EnhancedAdminDashboard() {
     try {
       setPasswordChangeLoading(true);
       
+      if (!supabaseAdmin) {
+        toast.error('Admin functionality is not available. Service role key is missing.');
+        return;
+      }
+      
       const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
         selectedDoctorForPassword.user_id,
         { password: doctorNewPassword }

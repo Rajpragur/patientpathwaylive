@@ -6,9 +6,11 @@ const SUPABASE_SERVICE_ROLE_KEY = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error('Supabase admin environment variables are missing');
+  console.warn('Admin functionality will be limited without service role key');
 }
 
-export const supabaseAdmin = createClient(
+// Only create admin client if service role key is available
+export const supabaseAdmin = SUPABASE_SERVICE_ROLE_KEY ? createClient(
   SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY,
   {
@@ -17,4 +19,4 @@ export const supabaseAdmin = createClient(
       persistSession: false
     }
   }
-);
+) : null;
