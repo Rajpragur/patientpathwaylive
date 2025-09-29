@@ -233,15 +233,15 @@ export default function TeamSignupPage() {
         </div>
 
         {/* Invitation Info */}
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <h3 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+        <div className="mb-6 p-4 bg-white border border-blue-200 rounded-lg">
+          <h3 className="font-semibold text-green-900 mb-2 flex items-center gap-2">
             <Building className="w-4 h-4" />
             Team Invitation
           </h3>
-          <p className="text-sm text-blue-700">
+          <p className="text-sm text-green-700">
             You've been invited to join <strong>{invitationInfo.doctor_profiles.clinic_name || 'the clinic'}</strong> by Dr. {invitationInfo.doctor_profiles.first_name} {invitationInfo.doctor_profiles.last_name}.
           </p>
-          <p className="text-xs text-blue-600 mt-1">
+          <p className="text-xs text-green-600 mt-1">
             You'll have access to the same clinic data and patient information.
           </p>
         </div>
