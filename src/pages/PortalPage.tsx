@@ -140,18 +140,9 @@ export default function PortalPage() {
     return () => clearInterval(interval);
   }, [user, hasAccess, accessRevoked]);
 
-  // Check access when user focuses back on the tab
-  useEffect(() => {
-    if (!user || !hasAccess || accessRevoked) return;
-
-    const handleFocus = async () => {
-      console.log('Window focused, checking access...');
-      await checkDoctorAccess(user.id);
-    };
-
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [user, hasAccess, accessRevoked]);
+  // Note: Removed focus-based access checks to prevent unintended sign-outs
+  // when native dialogs (like file pickers) close and refocus the window,
+  // which could be perceived as a page reload by users.
 
   const handleSignOut = async () => {
     try {

@@ -12,6 +12,7 @@ export interface DoctorProfile {
   location?: string | null;
   specialty?: string | null;
   phone?: string | null;
+  clinic_name?: string | null;
   logo_url?: string | null;
   avatar_url?: string | null;
   website?: string | null;

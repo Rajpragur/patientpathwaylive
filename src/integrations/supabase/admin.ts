@@ -9,7 +9,6 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.warn('Admin functionality will be limited without service role key');
 }
 
-// Only create admin client if service role key is available
 export const supabaseAdmin = SUPABASE_SERVICE_ROLE_KEY ? createClient(
   SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY,

@@ -29,6 +29,7 @@ export function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -82,9 +83,13 @@ export function ProfilePage() {
     }
   };
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    // Prevent any default behavior that might cause page reload
+    event.preventDefault();
+    event.stopPropagation();
+    
     const file = event.target.files?.[0];
-    if (!file || !user || !doctorProfile) return;
+    if (!file) return;
 
     // Validate file type and size
     if (!file.type.startsWith('image/')) {
@@ -97,91 +102,17 @@ export function ProfilePage() {
       return;
     }
 
-    setUploading(true);
-    try {
-      
-      // Create a unique file name
-      const fileExt = file.name.split('.').pop();
-      const fileName = `avatar-${user.id}-${Date.now()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
-
-      // Delete old avatar if exists
-      if (formData.avatar_url) {
-        try {
-          const urlParts = formData.avatar_url.split('/');
-          const oldFileName = urlParts[urlParts.length - 1];
-          if (oldFileName && oldFileName.includes('avatar-')) {
-            await supabase.storage
-              .from('profiles')
-              .remove([`avatars/${oldFileName}`]);
-          }
-        } catch (error) {
-        }
-      }
-      // Upload to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('profiles')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: true
-        });
-
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
-        throw uploadError;
-      }
-
-
-      // Get the public URL
-      const { data: urlData } = supabase.storage
-        .from('profiles')
-        .getPublicUrl(filePath);
-
-
-      // Update the form data with the new URL
-      setFormData(prev => ({ ...prev, avatar_url: urlData.publicUrl }));
-      
-      // Update the doctor profile directly to ensure the avatar URL is saved
-      const { error: updateError } = await supabase
-        .from('doctor_profiles')
-        .update({ 
-          avatar_url: urlData.publicUrl,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', doctorProfile.id);
-        
-      if (updateError) {
-        console.error('Error updating avatar URL:', updateError);
-        throw updateError;
-      }
-      
-      // Update success message
-      setSuccessMessage('Profile picture updated successfully!');
-      
-      // Show toast
-      toast.success('Profile picture updated!', {
-        description: 'Your new profile picture has been successfully uploaded.',
-        duration: 3000,
-        action: {
-          label: 'View',
-          onClick: () => window.open(urlData.publicUrl, '_blank', '')
-        }
-      });
-
-      // Refresh doctor profile to ensure we have the latest data
-      fetchDoctorProfile();
-
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccessMessage(null), 3000);
-
-    } catch (error: any) {
-      console.error('Error uploading image:', error);
-      toast.error('Failed to upload profile picture', {
-        description: error.message || 'Please try again later'
-      });
-    } finally {
-      setUploading(false);
-    }
+    // Store the selected file for later upload
+    setSelectedFile(file);
+    
+    // Create a preview URL for immediate display
+    const previewUrl = URL.createObjectURL(file);
+    setFormData(prev => ({ ...prev, avatar_url: previewUrl }));
+    
+    toast.success('Image selected! Click "Save Profile" to upload and save your changes.');
+    
+    // Clear the input value to allow selecting the same file again
+    event.target.value = '';
   };
 
   // Update the handleSave function to validate and format the website URL
@@ -190,6 +121,70 @@ export function ProfilePage() {
     
     setSaving(true);
     try {
+      let finalAvatarUrl = formData.avatar_url;
+      
+      // If there's a selected file, upload it first
+      if (selectedFile) {
+        setUploading(true);
+        try {
+          // Create a unique file name
+          const fileExt = selectedFile.name.split('.').pop();
+          const fileName = `avatar-${user.id}-${Date.now()}.${fileExt}`;
+          const filePath = `avatars/${fileName}`;
+
+          // Delete old avatar if exists
+          if (doctorProfile?.avatar_url && !doctorProfile.avatar_url.startsWith('blob:')) {
+            try {
+              const urlParts = doctorProfile.avatar_url.split('/');
+              const oldFileName = urlParts[urlParts.length - 1];
+              if (oldFileName && oldFileName.includes('avatar-')) {
+                await supabase.storage
+                  .from('profiles')
+                  .remove([`avatars/${oldFileName}`]);
+              }
+            } catch (error) {
+              console.warn('Could not delete old avatar:', error);
+            }
+          }
+
+          // Upload to Supabase Storage
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('profiles')
+            .upload(filePath, selectedFile, {
+              cacheControl: '3600',
+              upsert: true
+            });
+
+          if (uploadError) {
+            console.error('Upload error details:', uploadError);
+            throw uploadError;
+          }
+
+          // Get the public URL
+          const { data: urlData } = supabase.storage
+            .from('profiles')
+            .getPublicUrl(filePath);
+
+          finalAvatarUrl = urlData.publicUrl;
+          
+          // Clean up the preview URL
+          if (formData.avatar_url.startsWith('blob:')) {
+            URL.revokeObjectURL(formData.avatar_url);
+          }
+          
+        } catch (error: any) {
+          console.error('Error uploading image:', error);
+          toast.error('Failed to upload profile picture', {
+            description: error.message || 'Please try again later'
+          });
+          setUploading(false);
+          setSaving(false);
+          return;
+        } finally {
+          setUploading(false);
+        }
+      }
+
       // Format website URL if provided
       let formattedWebsite = formData.website;
       if (formattedWebsite && !formattedWebsite.startsWith('http')) {
@@ -215,7 +210,7 @@ export function ProfilePage() {
         phone: formData.phone,
         specialty: formData.specialty,
         clinic_name: formData.clinic_name,
-        avatar_url: formData.avatar_url,
+        avatar_url: finalAvatarUrl,
         doctor_id: formData.doctor_id || generateDoctorId(),
         updated_at: new Date().toISOString(),
         website: formattedWebsite // Add formatted website
@@ -250,11 +245,27 @@ export function ProfilePage() {
         }
       }
 
-      // Update form data with formatted website
-      setFormData(prev => ({ ...prev, website: formattedWebsite }));
+      // Store whether we had a file to upload before clearing it
+      const hadFileToUpload = !!selectedFile;
+      
+      // Update form data with formatted website and clear selected file
+      setFormData(prev => ({ ...prev, website: formattedWebsite, avatar_url: finalAvatarUrl }));
+      setSelectedFile(null);
 
       setSuccessMessage('Profile updated successfully! All changes have been saved.');
-      toast.success('Profile updated successfully!');
+      
+      // Show different success messages based on what was updated
+      if (hadFileToUpload) {
+        toast.success('Profile updated successfully!', {
+          description: 'Your profile information and profile picture have been saved.',
+          duration: 3000
+        });
+      } else {
+        toast.success('Profile updated successfully!', {
+          description: 'Your profile information has been saved.',
+          duration: 3000
+        });
+      }
       
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(null), 3000);
@@ -361,18 +372,23 @@ export function ProfilePage() {
                   {getInitials()}
                 </AvatarFallback>
               </Avatar>
-              <label 
-                htmlFor="avatar-upload" 
-                className={`absolute bottom-2 right-2 bg-[#0E7C9D] text-white p-2 rounded-full cursor-pointer hover:bg-[#0E7C9D]/90 transition-colors shadow-lg ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              <button 
+                type="button"
+                onClick={() => {
+                  const input = document.getElementById('avatar-upload') as HTMLInputElement;
+                  input?.click();
+                }}
+                disabled={saving || uploading}
+                className={`absolute bottom-2 right-2 bg-[#0E7C9D] text-white p-2 rounded-full cursor-pointer hover:bg-[#0E7C9D]/90 transition-colors shadow-lg ${saving || uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 {uploading ? <Upload className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
-              </label>
+              </button>
               <input
                 id="avatar-upload"
                 type="file"
                 accept="image/*"
-                onChange={handleImageUpload}
-                disabled={uploading}
+                onChange={handleImageSelect}
+                disabled={saving || uploading}
                 className="hidden"
               />
             </div>

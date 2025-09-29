@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { calculateQuizScore } from '@/utils/quizScoring';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, ChevronRight, Loader2, Mail, Phone, User } from 'lucide-react';
-
+import Profileimage from '../../../public/doctor.png';
 interface QuizAnswer {
   questionIndex: number;
   answerIndex: number;
@@ -292,16 +292,14 @@ export function CardQuiz() {
                     transition={{ duration: 0.3, delay: 0.2 }}
                   />
                 ) : (
-                  <motion.div 
-                    className="h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24 mx-auto bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 rounded-full flex items-center justify-center border-4 border-white shadow-xl ring-4 ring-blue-100 dark:ring-blue-900/30"
+                  <motion.img 
+                    src={Profileimage} 
+                    alt={doctorProfile.doctor_name}
+                    className="h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24 mx-auto object-cover rounded-full border-4 border-white shadow-xl ring-4 ring-blue-100 dark:ring-blue-900/30"
                     initial={{ scale: 0.8 }}
                     animate={{ scale: 1 }}
                     transition={{ duration: 0.3, delay: 0.2 }}
-                  >
-                    <span className="text-white text-lg sm:text-xl md:text-2xl font-bold">
-                      {doctorProfile.doctor_name?.charAt(0) || 'Dr'}
-                    </span>
-                  </motion.div>
+                  />
                 )}
                 
                 {/* Doctor Name and Clinic */}

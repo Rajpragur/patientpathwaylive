@@ -13,7 +13,7 @@ import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { QuizType } from '@/types/quiz';
-
+import Profileimage from '../../../public/doctor.png';
 const defaultChatbotColors = {
   primary: '#2563eb',
   background: '#ffffff',
@@ -409,7 +409,7 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
       ...prev,
       {
         role: 'assistant',
-        content: `🎉 Congratulations! You've completed the ${quizData.title}. Thank you!\n\nYour Results:\n\nScore: ${quizResult.score}/${quizData.maxScore}\nSeverity: ${quizResult.severity.charAt(0).toUpperCase() + quizResult.severity.slice(1)}\n\nInterpretation: ${quizResult.interpretation}\n\nA healthcare provider will review your results and may contact you for follow-up care if needed.}`
+        content: `🎉 Congratulations! You've completed the ${quizData.title}. Thank you!\n\nYour Results:\n\nScore: ${quizResult.score}/${quizData.maxScore}\nSeverity: ${quizResult.severity.charAt(0).toUpperCase() + quizResult.severity.slice(1)}\n\nInterpretation: ${quizResult.interpretation}\n\nA healthcare provider will review your results and may contact you for follow-up care if needed.`
       }
     ]);
     
@@ -654,7 +654,7 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
                     <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="flex-shrink-0">
                       <Avatar className="h-8 w-8 border border-gray-200 shadow">
                         <AvatarImage 
-                          src={doctorProfile?.avatar_url || "/placeholder-doctor.jpg"}
+                          src={doctorProfile?.avatar_url || Profileimage}
                           alt={`Dr. ${doctorProfile?.first_name || ''} ${doctorProfile?.last_name || ''}`}
                         />
                         <AvatarFallback className="bg-white">
@@ -693,7 +693,7 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
               <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="flex-shrink-0">
                 <Avatar className="h-8 w-8 border border-gray-200 shadow">
                   <AvatarImage 
-                    src={doctorProfile?.avatar_url || "/placeholder-doctor.jpg"}
+                    src={doctorProfile?.avatar_url || Profileimage}
                     alt={`Dr. ${doctorProfile?.first_name || ''} ${doctorProfile?.last_name || ''}`}
                   />
                   <AvatarFallback className="bg-white">

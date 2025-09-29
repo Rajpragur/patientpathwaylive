@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-
+import Profileimage from '../../../public/doctor.png';
 const defaultChatbotColors = {
   primary: '#2563eb',
   background: '#ffffff',
@@ -764,7 +764,7 @@ const renderMessage = (message: Message, index: number) => (
     {message.role === 'assistant' && (
       <Avatar className="h-8 w-8 border border-gray-200 shadow-sm">
         <AvatarImage 
-          src={doctorProfile?.avatar_url || doctorAvatarUrl || "/placeholder-doctor.jpg"}
+          src={doctorProfile?.avatar_url || doctorAvatarUrl || Profileimage}
           alt={`Dr. ${doctorProfile?.first_name || ''} ${doctorProfile?.last_name || ''}`}
         />
         <AvatarFallback className="bg-white">
@@ -867,7 +867,7 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
                     <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="flex-shrink-0">
                       <Avatar className="h-8 w-8 border border-gray-200 shadow">
                         <AvatarImage 
-                          src={doctorProfile?.avatar_url || doctorAvatarUrl || "/placeholder-doctor.jpg"}
+                          src={doctorProfile?.avatar_url || doctorAvatarUrl || Profileimage}
                           alt={`Dr. ${doctorProfile?.first_name || ''} ${doctorProfile?.last_name || ''}`}
                         />
                         <AvatarFallback className="bg-white">
@@ -906,7 +906,7 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
               <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="flex-shrink-0">
                 <Avatar className="h-8 w-8 border border-gray-200 shadow">
                   <AvatarImage 
-                    src={doctorProfile?.avatar_url || doctorAvatarUrl || "/placeholder-doctor.jpg"}
+                    src={doctorProfile?.avatar_url || doctorAvatarUrl || Profileimage}
                     alt={`Dr. ${doctorProfile?.first_name || ''} ${doctorProfile?.last_name || ''}`}
                   />
                   <AvatarFallback className="bg-white">
