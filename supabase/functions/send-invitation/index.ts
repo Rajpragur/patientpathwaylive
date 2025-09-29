@@ -12,8 +12,7 @@ interface InvitationRequest {
   patientLastName?: string;
   message?: string;
   doctorId: string;
-  invitationLink?: string;
-  invitationToken?: string;
+  invitationToken: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -28,10 +27,23 @@ const handler = async (req: Request): Promise<Response> => {
       { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
     );
 
-    const { patientEmail, patientFirstName, patientLastName, message, doctorId, invitationLink, invitationToken }: InvitationRequest = await req.json();
+    const { patientEmail, patientFirstName, patientLastName, message, doctorId, invitationToken }: InvitationRequest = await req.json();
 
-    // Log the invitation link for debugging
-    console.log('Invitation link received:', invitationLink);
+    // Debug logging
+    console.log('Received request body:', { patientEmail, patientFirstName, patientLastName, message, doctorId, invitationToken });
+    console.log('Invitation token type:', typeof invitationToken);
+    console.log('Invitation token value:', invitationToken);
+
+    // Validate required fields
+    if (!invitationToken) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Invitation token is required'
+      }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
 
     // Get Resend API key
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
@@ -61,14 +73,10 @@ const handler = async (req: Request): Promise<Response> => {
       ? `${patientFirstName} ${patientLastName}` 
       : patientFirstName || 'Valued Team Member';
 
-    // Ensure we have a proper invitation link
-    let finalInvitationLink = invitationLink;
-    if (!finalInvitationLink) {
-      // Fallback: construct the link from the request origin
-      const origin = req.headers.get('origin') || 'https://patientpathway.ai';
-      finalInvitationLink = `${origin}/team-signup?invitation=${invitationToken || 'INVALID'}`;
-      console.log('Using fallback invitation link:', finalInvitationLink);
-    }
+    // Always construct the invitation link from the request origin
+    const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/') || 'https://patientpathway.ai';
+    const finalInvitationLink = `${origin}/team-signup?invitation=${invitationToken || 'INVALID'}`;
+    console.log('Constructed invitation link:', finalInvitationLink);
 
     // Create invitation email content
     const subject = `Team Member Invitation from Dr. ${doctorName} - ${clinicName}`;

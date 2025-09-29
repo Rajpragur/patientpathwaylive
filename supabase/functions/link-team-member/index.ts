@@ -17,13 +17,41 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-    );
+    // Use service role key for this function since it needs to work without user authentication
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    console.log('Supabase URL:', supabaseUrl);
+    console.log('Service role key available:', !!serviceRoleKey);
+    console.log('Request headers:', Object.fromEntries(req.headers.entries()));
+    
+    if (!supabaseUrl || !serviceRoleKey) {
+      console.error('Missing environment variables:', { supabaseUrl: !!supabaseUrl, serviceRoleKey: !!serviceRoleKey });
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Missing required environment variables'
+      }), {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    // Create client with service role key - this should bypass all RLS
+    const supabaseClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      },
+      global: {
+        headers: {
+          Authorization: `Bearer ${serviceRoleKey}`
+        }
+      }
+    });
 
     const { invitationToken, userId }: LinkTeamMemberRequest = await req.json();
+    
+    console.log('Received request:', { invitationToken, userId });
 
     if (!invitationToken || !userId) {
       return new Response(JSON.stringify({
@@ -36,10 +64,14 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Call the database function to link team member
+    console.log('Calling link_team_member_to_doctor with:', { p_invitation_token: invitationToken, p_user_id: userId });
+    
     const { data, error } = await supabaseClient.rpc('link_team_member_to_doctor', {
       p_invitation_token: invitationToken,
       p_user_id: userId
     });
+    
+    console.log('Database function result:', { data, error });
 
     if (error) {
       console.error('Error linking team member:', error);

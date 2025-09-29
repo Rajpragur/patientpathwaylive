@@ -152,6 +152,10 @@ export function ConfigurationPage() {
   };
 
   const handleInviteTeamMember = async () => {
+    console.log('handleInviteTeamMember called!');
+    console.log('inviteEmail:', inviteEmail);
+    console.log('doctorId:', doctorId);
+    
     if (!inviteEmail || !doctorId) {
       toast.error('Please enter an email address');
       return;
@@ -165,6 +169,9 @@ export function ConfigurationPage() {
     setInviting(true);
     try {
       // First, create the team member record with invitation token
+      const invitationToken = crypto.randomUUID();
+      console.log('Generated invitation token:', invitationToken);
+      
       const { data, error } = await supabase
         .from('team_members')
         .insert([{
@@ -174,12 +181,16 @@ export function ConfigurationPage() {
           last_name: inviteLastName.trim() || null,
           invited_by: user?.id,
           status: 'pending',
-          invitation_token: crypto.randomUUID(),
+          invitation_token: invitationToken,
           token_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days from now
         }])
         .select();
+        
+      console.log('Database insert result:', { data, error });
+      console.log('Inserted team member data:', data);
 
       if (error) {
+        console.error('Database insert error details:', error);
         if (error.code === '23505') { // Unique constraint violation
           toast.error('This email is already invited to a doctor office');
         } else {
@@ -190,20 +201,24 @@ export function ConfigurationPage() {
 
       // Send invitation email with the token
       if (data && data.length > 0) {
-        const invitationToken = data[0].invitation_token;
-        const invitationLink = `${window.location.origin}/team-signup?invitation=${invitationToken}`;
+        const dbInvitationToken = data[0].invitation_token;
+        console.log('Token from database:', dbInvitationToken);
         
         // Send email invitation
+        const requestBody = {
+          patientEmail: inviteEmail.toLowerCase().trim(),
+          patientFirstName: inviteFirstName.trim() || null,
+          patientLastName: inviteLastName.trim() || null,
+          message: patientInviteMessage.trim() || `You've been invited to join our team!`,
+          doctorId: doctorId,
+          invitationToken: dbInvitationToken
+        };
+        
+        console.log('Sending invitation request:', requestBody);
+        console.log('Invitation token being sent:', dbInvitationToken);
+        
         const { error: emailError } = await supabase.functions.invoke('send-invitation', {
-          body: {
-            patientEmail: inviteEmail.toLowerCase().trim(),
-            patientFirstName: inviteFirstName.trim() || null,
-            patientLastName: inviteLastName.trim() || null,
-            message: `You've been invited to join our team! Click the link below to accept: ${invitationLink}`,
-            doctorId: doctorId,
-            invitationLink: invitationLink,
-            invitationToken: invitationToken
-          }
+          body: requestBody
         });
 
         if (emailError) {
@@ -218,6 +233,7 @@ export function ConfigurationPage() {
       setInviteEmail('');
       setInviteFirstName('');
       setInviteLastName('');
+      setPatientInviteMessage('');
       
       // Refresh team members list
       await fetchTeamMembers(doctorId);
@@ -706,8 +722,8 @@ const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
                   <Input
                     id="patient_invite_email"
                     type="email"
-                    value={patientInviteEmail}
-                    onChange={(e) => setPatientInviteEmail(e.target.value)}
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
                     placeholder="member@example.com"
                     required
                   />
@@ -717,8 +733,8 @@ const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
                   <Input
                     id="patient_invite_first_name"
                     type="text"
-                    value={patientInviteFirstName}
-                    onChange={(e) => setPatientInviteFirstName(e.target.value)}
+                    value={inviteFirstName}
+                    onChange={(e) => setInviteFirstName(e.target.value)}
                     placeholder="Ryan"
                   />
                 </div>
@@ -727,8 +743,8 @@ const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
                   <Input
                     id="patient_invite_last_name"
                     type="text"
-                    value={patientInviteLastName}
-                    onChange={(e) => setPatientInviteLastName(e.target.value)}
+                    value={inviteLastName}
+                    onChange={(e) => setInviteLastName(e.target.value)}
                     placeholder="Vaugh"
                   />
                 </div>
@@ -745,11 +761,14 @@ const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
               </div>
               
               <Button 
-                onClick={handleSendPatientInvite} 
-                disabled={sendingInvite || !patientInviteEmail}
+                onClick={() => {
+                  console.log('Button clicked!');
+                  handleInviteTeamMember();
+                }} 
+                disabled={inviting || !inviteEmail}
                 className="w-full md:w-auto"
               >
-                {sendingInvite ? (
+                {inviting ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
                   <Mail className="w-4 h-4 mr-2" />

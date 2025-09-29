@@ -11,7 +11,6 @@ import { Loader2, User, Mail, Lock, Building } from 'lucide-react';
 export default function TeamSignupPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(true);
   const [invitationInfo, setInvitationInfo] = useState<any>(null);
   const [invitationToken, setInvitationToken] = useState<string | null>(null);
@@ -22,10 +21,18 @@ export default function TeamSignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [loadingSignup, setLoadingSignup] = useState(false);
 
   // Check invitation token on page load
   useEffect(() => {
     const token = searchParams.get('invitation');
+    console.log('Full URL:', window.location.href);
+    console.log('URL search params:', searchParams.toString());
+    console.log('All search params:', Object.fromEntries(searchParams.entries()));
+    console.log('Invitation token from URL:', token);
+    console.log('Token length:', token?.length);
+    console.log('Token type:', typeof token);
+    
     if (token) {
       setInvitationToken(token);
       verifyInvitationToken(token);
@@ -38,24 +45,38 @@ export default function TeamSignupPage() {
   const verifyInvitationToken = async (token: string) => {
     setVerifying(true);
     try {
+      // First, let's check if there are any team members at all
+      const { data: allTeamMembers, error: allError } = await supabase
+        .from('team_members')
+        .select('invitation_token, status, email')
+        .limit(5);
+      
+      console.log('All team members:', allTeamMembers);
+      console.log('All team members error:', allError);
+      
+      // First try a simple query without joins
+      console.log('Searching for team member with token:', token);
+      
+      // Test query to see if we can find any team members at all
+      const { data: testData, error: testError } = await supabase
+        .from('team_members')
+        .select('invitation_token, email, status')
+        .limit(10);
+      
+      console.log('Test query - all team members:', testData);
+      console.log('Test query error:', testError);
+      
       const { data, error } = await supabase
         .from('team_members')
-        .select(`
-          *,
-          doctor_profiles!inner(
-            first_name,
-            last_name,
-            clinic_name,
-            email,
-            doctor_id
-          )
-        `)
+        .select('*')
         .eq('invitation_token', token)
         .eq('status', 'pending')
         .single();
 
       if (error || !data) {
-        toast.error('Invalid or expired invitation link');
+        console.error('Error fetching invitation:', error);
+        console.log('Token being searched:', token);
+        toast.error(`Invalid or expired invitation link. Error: ${error?.message || 'No data found'}`);
         navigate('/auth');
         return;
       }
@@ -66,13 +87,33 @@ export default function TeamSignupPage() {
         return;
       }
 
-      setInvitationInfo(data);
+      // Fetch doctor profile separately
+      const { data: doctorProfile, error: doctorError } = await supabase
+        .from('doctor_profiles')
+        .select('first_name, last_name, clinic_name, email, doctor_id')
+        .eq('id', data.doctor_id)
+        .single();
+
+      if (doctorError) {
+        console.error('Error fetching doctor profile:', doctorError);
+        toast.error('Error loading invitation details');
+        navigate('/auth');
+        return;
+      }
+
+      // Combine team member and doctor data
+      const invitationData = {
+        ...data,
+        doctor_profiles: doctorProfile
+      };
+
+      setInvitationInfo(invitationData);
       // Pre-fill form with invitation data
       setFirstName(data.first_name || '');
       setLastName(data.last_name || '');
       setEmail(data.email || '');
       
-      toast.success(`Welcome! You've been invited to join ${data.doctor_profiles.clinic_name || 'the clinic'}`);
+      toast.success(`Welcome! You've been invited to join ${doctorProfile.clinic_name || 'the clinic'}`);
     } catch (error) {
       console.error('Error verifying invitation:', error);
       toast.error('Failed to verify invitation');
@@ -95,7 +136,7 @@ export default function TeamSignupPage() {
       return;
     }
 
-    setLoading(true);
+    setLoadingSignup(true);
     try {
       // Sign up the user
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -115,8 +156,8 @@ export default function TeamSignupPage() {
       }
 
       if (authData.user) {
-        // Immediately link the team member with the same doctor_id
-        const { error: linkError } = await supabase.functions.invoke('link-team-member', {
+        // Link the team member with the same doctor_id
+        const { data: linkData, error: linkError } = await supabase.functions.invoke('link-team-member', {
           body: {
             invitationToken: invitationToken,
             userId: authData.user.id
@@ -126,18 +167,31 @@ export default function TeamSignupPage() {
         if (linkError) {
           console.error('Error linking team member:', linkError);
           toast.error('Account created but failed to link to team. Please contact support.');
-        } else {
-          toast.success('Account created and linked to team successfully!');
-        }
+        } else if (linkData?.success) {
+          // Sign in the user so they can access the portal
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: email,
+            password: password
+          });
 
-        // Redirect to email verification page
-        navigate('/email-verification');
+          if (signInError) {
+            console.error('Error signing in:', signInError);
+            toast.error('Account created but failed to sign in. Please try logging in manually.');
+          } else {
+            toast.success('Account created and linked to team successfully!');
+          }
+
+          // Redirect to portal since they're now part of the team
+          navigate('/portal');
+        } else {
+          toast.error('Failed to link to team. Please contact support.');
+        }
       }
     } catch (error: any) {
       console.error('Signup error:', error);
       toast.error(error.message || 'Failed to create account');
     } finally {
-      setLoading(false);
+      setLoadingSignup(false);
     }
   };
 
@@ -289,9 +343,9 @@ export default function TeamSignupPage() {
               <Button 
                 type="submit" 
                 className="w-full" 
-                disabled={loading}
+                disabled={loadingSignup}
               >
-                {loading ? (
+                {loadingSignup ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : null}
                 Create Team Member Account
