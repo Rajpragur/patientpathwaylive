@@ -36,6 +36,13 @@ export function ConfigurationPage() {
   const [inviteLastName, setInviteLastName] = useState('');
   const [inviting, setInviting] = useState(false);
 
+  // Patient invitation states
+  const [patientInviteEmail, setPatientInviteEmail] = useState('');
+  const [patientInviteFirstName, setPatientInviteFirstName] = useState('');
+  const [patientInviteLastName, setPatientInviteLastName] = useState('');
+  const [patientInviteMessage, setPatientInviteMessage] = useState('');
+  const [sendingInvite, setSendingInvite] = useState(false);
+
   useEffect(() => {
     if (user) {
       fetchDoctorProfile();
@@ -157,6 +164,7 @@ export function ConfigurationPage() {
 
     setInviting(true);
     try {
+      // First, create the team member record with invitation token
       const { data, error } = await supabase
         .from('team_members')
         .insert([{
@@ -165,7 +173,9 @@ export function ConfigurationPage() {
           first_name: inviteFirstName.trim() || null,
           last_name: inviteLastName.trim() || null,
           invited_by: user?.id,
-          status: 'pending'
+          status: 'pending',
+          invitation_token: crypto.randomUUID(),
+          token_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days from now
         }])
         .select();
 
@@ -178,8 +188,32 @@ export function ConfigurationPage() {
         return;
       }
 
-      toast.success('Team member invitation sent successfully');
-      
+      // Send invitation email with the token
+      if (data && data.length > 0) {
+        const invitationToken = data[0].invitation_token;
+        const invitationLink = `${window.location.origin}/team-signup?invitation=${invitationToken}`;
+        
+        // Send email invitation
+        const { error: emailError } = await supabase.functions.invoke('send-invitation', {
+          body: {
+            patientEmail: inviteEmail.toLowerCase().trim(),
+            patientFirstName: inviteFirstName.trim() || null,
+            patientLastName: inviteLastName.trim() || null,
+            message: `You've been invited to join our team! Click the link below to accept: ${invitationLink}`,
+            doctorId: doctorId,
+            invitationLink: invitationLink,
+            invitationToken: invitationToken
+          }
+        });
+
+        if (emailError) {
+          console.error('Error sending invitation email:', emailError);
+          toast.error('Team member added but email failed to send');
+        } else {
+          toast.success('Team member invitation sent successfully');
+        }
+      }
+
       // Clear form
       setInviteEmail('');
       setInviteFirstName('');
@@ -209,6 +243,54 @@ export function ConfigurationPage() {
     } catch (error) {
       console.error('Error removing team member:', error);
       toast.error('Failed to remove team member');
+    }
+  };
+
+  const handleSendPatientInvite = async () => {
+    if (!patientInviteEmail || !doctorId) {
+      toast.error('Please enter a patient email address');
+      return;
+    }
+
+    if (!patientInviteEmail.includes('@')) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    setSendingInvite(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-invitation', {
+        body: {
+          patientEmail: patientInviteEmail.toLowerCase().trim(),
+          patientFirstName: patientInviteFirstName.trim() || null,
+          patientLastName: patientInviteLastName.trim() || null,
+          message: patientInviteMessage.trim() || null,
+          doctorId: doctorId
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.success) {
+        toast.success('Team Member invitation sent successfully!');
+        
+        // Clear form
+        setPatientInviteEmail('');
+        setPatientInviteFirstName('');
+        setPatientInviteLastName('');
+        setPatientInviteMessage('');
+      } else {
+        throw new Error(data?.error || 'Failed to send invitation');
+      }
+    } catch (error: any) {
+      console.error('Error sending team member invitation:', error);
+      toast.error('Failed to send invitation', {
+        description: error.message || 'Please try again later'
+      });
+    } finally {
+      setSendingInvite(false);
     }
   };
 
@@ -603,124 +685,82 @@ const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
           </CardContent>
         </Card>
 
-        {/* Team Member Management */}
+        {/* Team Member Invitation */}
         <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <UserPlus className="w-5 h-5 text-indigo-500" />
-              Team Member Management
+              <Mail className="w-5 h-5 text-blue-500" />
+              Team Member Invitation
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Invite New Team Member */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Invite Team Member</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <h3 className="text-lg font-semibold">Send Member Invitation</h3>
+              <p className="text-sm text-gray-600">
+                Invite members to your clinic portal to access the clinic portal.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="invite_email">Email Address *</Label>
+                  <Label htmlFor="patient_invite_email">Team Member's Email Address *</Label>
                   <Input
-                    id="invite_email"
+                    id="patient_invite_email"
                     type="email"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    placeholder="team.member@example.com"
+                    value={patientInviteEmail}
+                    onChange={(e) => setPatientInviteEmail(e.target.value)}
+                    placeholder="member@example.com"
                     required
                   />
                 </div>
                 <div>
-                  <Label htmlFor="invite_first_name">First Name</Label>
+                  <Label htmlFor="patient_invite_first_name">First Name</Label>
                   <Input
-                    id="invite_first_name"
+                    id="patient_invite_first_name"
                     type="text"
-                    value={inviteFirstName}
-                    onChange={(e) => setInviteFirstName(e.target.value)}
-                    placeholder="John"
+                    value={patientInviteFirstName}
+                    onChange={(e) => setPatientInviteFirstName(e.target.value)}
+                    placeholder="Ryan"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="invite_last_name">Last Name</Label>
+                  <Label htmlFor="patient_invite_last_name">Last Name</Label>
                   <Input
-                    id="invite_last_name"
+                    id="patient_invite_last_name"
                     type="text"
-                    value={inviteLastName}
-                    onChange={(e) => setInviteLastName(e.target.value)}
-                    placeholder="Doe"
+                    value={patientInviteLastName}
+                    onChange={(e) => setPatientInviteLastName(e.target.value)}
+                    placeholder="Vaugh"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label htmlFor="patient_invite_message">Personal Message (Optional)</Label>
+                  <Textarea
+                    id="patient_invite_message"
+                    value={patientInviteMessage}
+                    onChange={(e) => setPatientInviteMessage(e.target.value)}
+                    placeholder="Add a personal message here to include in the invitation..."
+                    rows={3}
                   />
                 </div>
               </div>
+              
               <Button 
-                onClick={handleInviteTeamMember} 
-                disabled={inviting || !inviteEmail}
+                onClick={handleSendPatientInvite} 
+                disabled={sendingInvite || !patientInviteEmail}
                 className="w-full md:w-auto"
               >
-                {inviting ? (
+                {sendingInvite ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
-                  <UserPlus className="w-4 h-4 mr-2" />
+                  <Mail className="w-4 h-4 mr-2" />
                 )}
-                Send Invitation
+                Send Team Member Invitation
               </Button>
-            </div>
-
-            {/* Current Team Members */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Current Team Members</h3>
-              {teamMembers.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <UserPlus className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                  <p>No team members yet. Invite someone to get started!</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {teamMembers.map((member) => (
-                    <div 
-                      key={member.id} 
-                      className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-gray-50"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
-                            <span className="text-sm font-medium text-indigo-600">
-                              {member.first_name ? member.first_name[0] : member.email[0].toUpperCase()}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-900">
-                              {member.first_name && member.last_name 
-                                ? `${member.first_name} ${member.last_name}` 
-                                : member.email
-                              }
-                            </p>
-                            <p className="text-sm text-gray-500">{member.email}</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          member.status === 'pending' 
-                            ? 'bg-yellow-100 text-yellow-800' 
-                            : member.status === 'accepted'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {member.status}
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveTeamMember(member.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
+
+        
       </div>
 
       {/* Save Button (Mobile) */}

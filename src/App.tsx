@@ -26,6 +26,7 @@ import Snot12LandingPage from './pages/SNOT12LandingPage';
 import Snot22LandingPage from './pages/share/SNOT22LandingPage';
 import TNSSLandingPage from './pages/share/TNSSLandingPage';
 import AdminPortal from './pages/AdminPortal';
+import TeamSignupPage from './pages/TeamSignupPage';
 const queryClient = new QueryClient();
 
 function App() {
@@ -39,6 +40,7 @@ function App() {
               <Route path="/" element={<Index />} />
               <Route path="/admin-portal" element={<AdminPortal />} />
               <Route path="/auth" element={<AuthPage />} />
+              <Route path="/team-signup" element={<TeamSignupPage />} />
               <Route path="/verify-email" element={<EmailVerificationPage />} />
               <Route path="/nose/:doctorId?" element={<NoseLandingPage />} />
               <Route path="/share/nose/:doctorId?" element={<NOSELandingPage />} />

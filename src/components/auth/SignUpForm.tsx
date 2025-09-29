@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,13 +11,16 @@ import { toast } from 'sonner';
 interface SignUpFormProps {
   onToggleMode: () => void;
   onSignUpSuccess?: (email: string) => void;
+  invitationToken?: string | null;
+  invitationInfo?: any;
 }
 
-export function SignUpForm({ onToggleMode, onSignUpSuccess }: SignUpFormProps) {
+export function SignUpForm(props: SignUpFormProps) {
+  const { onToggleMode, onSignUpSuccess, invitationToken, invitationInfo } = props;
   const { signUp } = useAuth();
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
+  const [firstName, setFirstName] = useState(invitationInfo?.first_name || '');
+  const [lastName, setLastName] = useState(invitationInfo?.last_name || '');
+  const [email, setEmail] = useState(invitationInfo?.email || '');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 

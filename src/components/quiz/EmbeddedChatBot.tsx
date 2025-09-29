@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import Profileimage from '../../../public/doctor.png';
+import Profileimage from '/src/assets/doctor.png';
 const defaultChatbotColors = {
   primary: '#2563eb',
   background: '#ffffff',

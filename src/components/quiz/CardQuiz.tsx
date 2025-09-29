@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { calculateQuizScore } from '@/utils/quizScoring';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, ChevronRight, Loader2, Mail, Phone, User } from 'lucide-react';
-import Profileimage from '../../../public/doctor.png';
+import Profileimage from '/src/assets/doctor.png';
 interface QuizAnswer {
   questionIndex: number;
   answerIndex: number;
@@ -262,6 +262,15 @@ export function CardQuiz() {
       return 'TNSS';
     }
   }
+  const giveMessage = (s: string) => {
+    if (s === 'NOSE') {
+      return 'Start your Nasal Obstruction Symptom Evaluation (NOSE) to get your 0–100 nasal obstruction score. ';
+    } else if (s === 'SNOT12') {
+      return 'Start your SNOT-12 assessment to get your 0–60 sinus severity score.';
+    } else if (s === 'TNSS') {
+      return 'Start your TNSS assessment to get your 0–12 rhinitis severity score.';
+    }
+  }
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-950 dark:via-indigo-950 dark:to-purple-950 flex flex-col items-center justify-center p-2 sm:p-4 overflow-hidden">
       <motion.div 
@@ -369,10 +378,10 @@ export function CardQuiz() {
                 >
                   <div className="space-y-3 sm:space-y-4 px-2">
                     <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white leading-tight">
-                      Start your {quizId.toUpperCase()} test here
+                      {giveMessage(quizId.toUpperCase())}
                     </h1>
                     <p className="text-sm sm:text-base md:text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-                      Answer a few questions to get your personalized assessment
+                      {getQuizDescription(quizId.toUpperCase())}
                     </p>
                   </div>
                   

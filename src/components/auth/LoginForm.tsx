@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +8,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { Mail, Lock, Chrome } from 'lucide-react';
 import { toast } from 'sonner';
 
-export function LoginForm() {
+interface LoginFormProps {
+  onToggleMode?: () => void;
+  invitationToken?: string | null;
+}
+
+export function LoginForm(props: LoginFormProps) {
+  const { onToggleMode, invitationToken } = props;
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,6 +31,30 @@ export function LoginForm() {
         toast.error(error.message || 'Login failed');
       } else {
         toast.success('Signed in successfully');
+        
+        // If there's an invitation token, link the team member after login
+        if (invitationToken) {
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              const { error: linkError } = await supabase.functions.invoke('link-team-member', {
+                body: {
+                  invitationToken: invitationToken,
+                  userId: user.id
+                }
+              });
+
+              if (linkError) {
+                console.error('Error linking team member:', linkError);
+                toast.error('Failed to link to team. Please contact support.');
+              } else {
+                toast.success('Successfully joined the team!');
+              }
+            }
+          } catch (error) {
+            console.error('Error in team linking:', error);
+          }
+        }
       }
     } catch (error: any) {
       toast.error('An unexpected error occurred');

@@ -63,7 +63,7 @@ const mainMenuItems = [
   },
   {
     id: 'email-config',
-    label: 'Email Setup',
+    label: 'Manage Emails',
     icon: <Mail size={22} />,
     description: 'Configure email settings'
   },
