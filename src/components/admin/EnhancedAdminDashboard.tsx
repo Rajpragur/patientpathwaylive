@@ -135,10 +135,21 @@ export function EnhancedAdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedTimeframe, setSelectedTimeframe] = useState('30');
   const [searchTerm, setSearchTerm] = useState('');
+  const [doctorSearchTerm, setDoctorSearchTerm] = useState('');
+  const [leadSearchTerm, setLeadSearchTerm] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedQuizType, setSelectedQuizType] = useState('all');
   const [currentTab, setCurrentTab] = useState('overview');
+  
+  // Function to handle tab change and reset search terms
+  const handleTabChange = (tab: string) => {
+    setCurrentTab(tab);
+    // Reset search terms when switching tabs to show all data
+    setSearchTerm('');
+    setDoctorSearchTerm('');
+    setLeadSearchTerm('');
+  };
   
   // Admin management states
   const [showUserManagement, setShowUserManagement] = useState(false);
@@ -193,6 +204,8 @@ export function EnhancedAdminDashboard() {
   });
   const [showAccessWarning, setShowAccessWarning] = useState(false);
   const [doctorToRevoke, setDoctorToRevoke] = useState<DoctorProfile | null>(null);
+  const [showDeleteWarning, setShowDeleteWarning] = useState(false);
+  const [doctorToDelete, setDoctorToDelete] = useState<DoctorProfile | null>(null);
 
   useEffect(() => {
     fetchAdminData();
@@ -292,9 +305,9 @@ export function EnhancedAdminDashboard() {
   const filteredLeads = useMemo(() => {
     return leads.filter(lead => {
       const matchesSearch = 
-        lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (lead.phone && lead.phone.includes(searchTerm));
+        lead.name.toLowerCase().includes(leadSearchTerm.toLowerCase()) ||
+        (lead.email && lead.email.toLowerCase().includes(leadSearchTerm.toLowerCase())) ||
+        (lead.phone && lead.phone.includes(leadSearchTerm));
       
       const matchesSpecialty = selectedSpecialty === 'all' || 
         doctors.find(d => d.id === lead.doctor_id)?.specialty === selectedSpecialty;
@@ -307,14 +320,14 @@ export function EnhancedAdminDashboard() {
       
       return matchesSearch && matchesSpecialty && matchesStatus && matchesQuizType && matchesTimeframe;
     });
-  }, [leads, searchTerm, selectedSpecialty, selectedStatus, selectedQuizType, doctors, timeframeStart]);
+  }, [leads, leadSearchTerm, selectedSpecialty, selectedStatus, selectedQuizType, doctors, timeframeStart]);
 
   const filteredDoctors = doctors.filter(doctor => {
     const matchesSearch = 
-      (doctor.clinic_name && doctor.clinic_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (doctor.first_name && doctor.first_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (doctor.last_name && doctor.last_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (doctor.email && doctor.email.toLowerCase().includes(searchTerm.toLowerCase()));
+      (doctor.clinic_name && doctor.clinic_name.toLowerCase().includes(doctorSearchTerm.toLowerCase())) ||
+      (doctor.first_name && doctor.first_name.toLowerCase().includes(doctorSearchTerm.toLowerCase())) ||
+      (doctor.last_name && doctor.last_name.toLowerCase().includes(doctorSearchTerm.toLowerCase())) ||
+      (doctor.email && doctor.email.toLowerCase().includes(doctorSearchTerm.toLowerCase()));
     
     const matchesSpecialty = selectedSpecialty === 'all' || doctor.specialty === selectedSpecialty;
     
@@ -719,7 +732,7 @@ export function EnhancedAdminDashboard() {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       console.log('Current user for doctor update:', user?.email, 'Auth error:', authError);
       
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('doctor_profiles')
         .update({
           first_name: doctorEditData.first_name,
@@ -818,7 +831,7 @@ export function EnhancedAdminDashboard() {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       console.log('Current user:', user?.email, 'Auth error:', authError);
       
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('doctor_profiles')
         .update({ access_control: true })
         .eq('id', doctorId);
@@ -856,7 +869,7 @@ export function EnhancedAdminDashboard() {
       console.log('Current user:', user?.email, 'Auth error:', authError);
       
       // Update access_control to false to revoke access
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('doctor_profiles')
         .update({ access_control: false })
         .eq('id', doctorToRevoke.id);
@@ -898,7 +911,74 @@ export function EnhancedAdminDashboard() {
     setShowDoctorPasswordChange(true);
   };
 
-  // Function to change doctor password
+  const deleteDoctor = (doctor: DoctorProfile) => {
+    console.log('Delete clicked for doctor:', doctor.id, doctor.first_name, doctor.last_name);
+    setDoctorToDelete(doctor);
+    setShowDeleteWarning(true);
+  };
+  const confirmDeleteDoctor = async () => {
+    if (!doctorToDelete) return;
+    try {
+      console.log('Deleting doctor:', doctorToDelete.id, doctorToDelete.first_name, doctorToDelete.last_name);
+      
+      // Check current user authentication
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        console.error('Authentication error:', authError);
+        toast.error('Authentication required to delete doctor');
+        return;
+      }
+
+      // Use admin client for elevated permissions
+      // First, try to delete any related data that might cause foreign key issues
+      // Delete leads associated with this doctor
+      const { error: leadsError } = await supabaseAdmin
+        .from('quiz_leads')
+        .delete()
+        .eq('doctor_id', doctorToDelete.id);
+
+      if (leadsError) {
+        console.warn('Warning: Could not delete associated leads:', leadsError);
+        // Continue with doctor deletion even if leads deletion fails
+      }
+
+      // Delete doctor profile using admin client
+      const { error } = await supabaseAdmin
+        .from('doctor_profiles')
+        .delete()
+        .eq('id', doctorToDelete.id);
+
+      if (error) {
+        console.error('Error deleting doctor:', error);
+        console.error('Error details:', error.message, error.code, error.details);
+        
+        // If it's a foreign key constraint error, try a different approach
+        if (error.message.includes('foreign key') || error.message.includes('constraint')) {
+          toast.error('Cannot delete doctor: There are related records that must be deleted first. Please contact support.');
+        } else {
+          toast.error(`Failed to delete doctor: ${error.message}`);
+        }
+        return;
+      }
+
+      console.log('Doctor deleted successfully from database');
+      
+      // Update local state to remove the doctor and associated leads
+      setDoctors(doctors.filter(doctor => doctor.id !== doctorToDelete.id));
+      setLeads(leads.filter(lead => lead.doctor_id !== doctorToDelete.id));
+      
+      const doctorName = doctorToDelete.first_name && doctorToDelete.last_name 
+        ? `${doctorToDelete.first_name} ${doctorToDelete.last_name}`
+        : 'Unknown Doctor';
+        
+      toast.success(`Doctor ${doctorName} and associated leads deleted successfully`);
+      setShowDeleteWarning(false);
+      setDoctorToDelete(null);
+    } catch (error) {
+      console.error('Error in confirmDeleteDoctor:', error);
+      toast.error('Failed to delete doctor');
+    }
+  };
   const changeDoctorPassword = async () => {
     if (!selectedDoctorForPassword) return;
 
@@ -1213,7 +1293,7 @@ export function EnhancedAdminDashboard() {
         </div>
 
         {/* Main Content Tabs */}
-        <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-6">
+        <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6">
           <TabsList className="grid w-full grid-cols-7 bg-white p-1 rounded-lg shadow-sm">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <Activity className="w-4 h-4" />
@@ -1331,8 +1411,8 @@ export function EnhancedAdminDashboard() {
                     <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                     <Input
                       placeholder="Search leads..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      value={leadSearchTerm}
+                      onChange={(e) => setLeadSearchTerm(e.target.value)}
                       className="pl-10"
                     />
                   </div>
@@ -1504,8 +1584,8 @@ export function EnhancedAdminDashboard() {
                     <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                     <Input
                       placeholder="Search doctors..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      value={doctorSearchTerm}
+                      onChange={(e) => setDoctorSearchTerm(e.target.value)}
                       className="pl-10"
                     />
                   </div>
@@ -1647,9 +1727,6 @@ export function EnhancedAdminDashboard() {
                               >
                                 {doctorAccess.hasAccess ? 'Has Access' : 'No Access'}
                               </Badge>
-                              <div className="text-xs text-gray-500" title={doctorAccess.reason}>
-                                {doctorAccess.reason}
-                              </div>
                             </div>
                           </TableCell>
                           <TableCell className="text-sm text-slate-500">
@@ -1707,6 +1784,16 @@ export function EnhancedAdminDashboard() {
                               >
                                 <Key className="w-3 h-3 mr-1" />
                                 Password
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => deleteDoctor(doctor)}
+                                className="h-8 px-2 text-xs text-red-600 hover:text-red-700"
+                                title="Delete Doctor"
+                              >
+                                <Trash2 className="w-3 h-3 mr-1" />
+                                Delete
                               </Button>
                             </div>
                           </TableCell>
@@ -1906,6 +1993,16 @@ export function EnhancedAdminDashboard() {
                                     Give Access
                                   </Button>
                                 )}
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => deleteDoctor(doctor)}
+                                  className="text-xs text-red-600 hover:text-red-700"
+                                  title="Delete Doctor"
+                                >
+                                  <Trash2 className="w-3 h-3 mr-1" />
+                                  Delete
+                                </Button>
                               </div>
                             </TableCell>
                           </TableRow>
@@ -3056,6 +3153,47 @@ export function EnhancedAdminDashboard() {
               className="bg-red-600 hover:bg-red-700"
             >
               Yes, Delete Lead
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Doctor Deletion Warning Dialog */}
+      <AlertDialog open={showDeleteWarning} onOpenChange={setShowDeleteWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-500" />
+              Delete Doctor Profile
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <p>
+                Are you sure you want to permanently delete{' '}
+                <span className="font-semibold">
+                  {doctorToDelete?.first_name && doctorToDelete?.last_name 
+                    ? `${doctorToDelete.first_name} ${doctorToDelete.last_name}`
+                    : 'Unknown Doctor'
+                  }
+                </span>
+                ?
+              </p>
+              <p className="mt-2 text-red-600 font-medium">
+                This action cannot be undone. All doctor profile data will be permanently removed from the system.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowDeleteWarning(false);
+              setDoctorToDelete(null);
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteDoctor}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete Doctor
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
