@@ -7,8 +7,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Building, MapPin, Mail, Phone, Users, Upload, UserPlus, X } from 'lucide-react';
+import { Loader2, Building, MapPin, Mail, Phone, Users, Upload, UserPlus, X, AlertTriangle } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 export function ConfigurationPage() {
   const { user } = useAuth();
@@ -271,15 +272,84 @@ export function ConfigurationPage() {
 
   const handleRemoveTeamMember = async (memberId: string) => {
     try {
-      // Remove from team_members table (current structure)
-      const result = await supabase
+      // First, get the team member record to find the linked user
+      const { data: teamMember, error: fetchError } = await supabase
+        .from('team_members')
+        .select('id, linked_user_id, email, first_name, last_name')
+        .eq('id', memberId)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching team member:', fetchError);
+        toast.error('Failed to find team member');
+        return;
+      }
+
+      if (!teamMember) {
+        toast.error('Team member not found');
+        return;
+      }
+
+      console.log('Removing team member:', {
+        id: teamMember.id,
+        linked_user_id: teamMember.linked_user_id,
+        email: teamMember.email
+      });
+
+      // Step 1: Remove from doctor_profiles table
+      if (teamMember.linked_user_id) {
+        const { error: profileError } = await supabase
+          .from('doctor_profiles')
+          .delete()
+          .eq('user_id', teamMember.linked_user_id);
+
+        if (profileError) {
+          console.error('Error removing doctor profile:', profileError);
+          // Continue with other removals even if this fails
+        } else {
+          console.log('Removed doctor profile for user:', teamMember.linked_user_id);
+        }
+      }
+
+      // Step 2: Remove from team_members table
+      const { error: teamError } = await supabase
         .from('team_members')
         .delete()
         .eq('id', memberId);
 
-      if (result.error) throw result.error;
+      if (teamError) {
+        console.error('Error removing team member:', teamError);
+        toast.error('Failed to remove team member from team list');
+        return;
+      }
 
-      toast.success('Team member removed successfully');
+      console.log('Removed team member record:', memberId);
+
+      // Step 3: Delete the authentication user (requires admin privileges)
+      if (teamMember.linked_user_id) {
+        try {
+          // Use the edge function to delete the user with admin privileges
+          const { data, error: deleteUserError } = await supabase.functions.invoke('delete-user', {
+            body: {
+              userId: teamMember.linked_user_id
+            }
+          });
+
+          if (deleteUserError) {
+            console.error('Error deleting auth user:', deleteUserError);
+            // Don't fail the entire operation if user deletion fails
+            toast.warning('Team member removed but auth account deletion failed. Contact support.');
+          } else if (data?.success) {
+            console.log('Deleted authentication user:', teamMember.linked_user_id);
+          }
+        } catch (error) {
+          console.error('Error calling delete-user function:', error);
+          // Don't fail the entire operation if user deletion fails
+          toast.warning('Team member removed but auth account deletion failed. Contact support.');
+        }
+      }
+
+      toast.success(`Team member ${teamMember.first_name} ${teamMember.last_name} removed successfully`);
       await fetchTeamMembers(doctorId!);
     } catch (error) {
       console.error('Error removing team member:', error);
@@ -951,14 +1021,47 @@ const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
                       </div>
                     )}
                     {member.status === 'accepted' && member.role !== 'owner' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleRemoveTeamMember(member.id)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        Remove
-                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            Remove
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle className="flex items-center gap-2">
+                              <AlertTriangle className="w-5 h-5 text-red-500" />
+                              Remove Team Member
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to remove <strong>{member.first_name} {member.last_name}</strong> from your team?
+                              <br /><br />
+                              <span className="text-red-600 font-medium">This action will:</span>
+                              <ul className="list-disc list-inside mt-2 text-sm">
+                                <li>Remove them from the team</li>
+                                <li>Delete their doctor profile</li>
+                                <li>Delete their authentication account</li>
+                                <li>Revoke all access to the portal</li>
+                              </ul>
+                              <br />
+                              <span className="font-medium">This action cannot be undone.</span>
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleRemoveTeamMember(member.id)}
+                              className="bg-red-600 hover:bg-red-700"
+                            >
+                              Yes, Remove Team Member
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     )}
                   </div>
                 ))}

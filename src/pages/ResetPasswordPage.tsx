@@ -302,10 +302,6 @@ export default function ResetPasswordPage() {
             Password must be at least 6 characters long
           </p>
         </div>
-
-        <div className="mt-8">
-          <PasswordResetDiagnostic />
-        </div>
       </div>
     </div>
   );

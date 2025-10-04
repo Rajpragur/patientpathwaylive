@@ -246,17 +246,6 @@ export function EmailVerificationPage() {
                           Resend Email
                         </Button>
                       </div>
-                      <Button
-                        onClick={() => {
-                          console.log('User chose to skip email verification');
-                          toast.success('Skipping email verification and proceeding to portal...');
-                          navigate('/portal');
-                        }}
-                        variant="ghost"
-                        className="w-full text-sm text-gray-500 hover:text-gray-700"
-                      >
-                        Skip Email Verification & Continue
-                      </Button>
                     </div>
                   </div>
                 )}

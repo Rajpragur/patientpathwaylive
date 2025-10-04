@@ -179,15 +179,7 @@ export function LoginForm(props: LoginFormProps) {
               Enter your email address and we'll send you a link to reset your password.
             </p>
             <p className="text-xs text-gray-500 mt-2">
-              Having trouble? Check your spam folder or{' '}
-              <a 
-                href="/reset-password" 
-                className="text-blue-600 hover:text-blue-800 underline"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                run diagnostics
-              </a>
+              Having trouble? Check your spam folder
             </p>
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <div className="relative">
