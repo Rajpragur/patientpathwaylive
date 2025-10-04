@@ -67,10 +67,41 @@ export function NotificationDropdown() {
     try {
       setLoading(true);
       
-      const profile = await getOrCreateDoctorProfile(user.id, user.email || undefined);
+      // First, get the current user's profile to check if they're staff/manager
+      const { data: userProfiles, error: fetchError } = await supabase
+        .from('doctor_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+
+      if (fetchError) {
+        console.error('Error fetching doctor profiles:', fetchError);
+        return;
+      }
+
+      if (!userProfiles || userProfiles.length === 0) {
+        // No profile exists, create one (regular doctor)
+        const profile = await getOrCreateDoctorProfile(user.id, user.email || undefined);
+        if (profile) {
+          setDoctorId(profile.id);
+        }
+        return;
+      }
+
+      const userProfile = userProfiles[0];
       
-      if (profile) {
-        setDoctorId(profile.id);
+      // Check if user is staff or manager
+      if (userProfile.is_staff || userProfile.is_manager) {
+        // If team member, use the main doctor's ID from doctor_id_clinic
+        if (userProfile.doctor_id_clinic) {
+          setDoctorId(userProfile.doctor_id_clinic);
+        } else {
+          // No clinic link, use user's own profile
+          setDoctorId(userProfile.id);
+        }
+      } else {
+        // Regular doctor, use their own profile
+        setDoctorId(userProfile.id);
       }
     } catch (error) {
       console.error('Error in fetchDoctorProfile:', error);

@@ -15,7 +15,8 @@ export const supabaseAdmin = SUPABASE_SERVICE_ROLE_KEY ? createClient(
   {
     auth: {
       autoRefreshToken: false,
-      persistSession: false
+      persistSession: false,
+      storageKey: 'pp-admin'
     }
   }
 ) : null;

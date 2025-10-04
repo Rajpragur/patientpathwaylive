@@ -140,7 +140,14 @@ export function AdminDashboardWithFeatures() {
       
       const { data: doctorData } = await supabase
         .from('doctor_profiles')
-        .select('*')
+        .select(`
+          *,
+          clinic_profiles(
+            id,
+            clinic_name,
+            clinic_slug
+          )
+        `)
         .order('created_at', { ascending: false });
 
       const { data: leadData } = await supabase

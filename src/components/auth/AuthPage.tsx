@@ -2,16 +2,11 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { LoginForm } from './LoginForm';
-import { SignUpForm } from './SignUpForm';
-import { EmailVerificationNotice } from './EmailVerificationNotice';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export function AuthPage() {
   const [searchParams] = useSearchParams();
-  const [isLogin, setIsLogin] = useState(true);
-  const [showVerificationNotice, setShowVerificationNotice] = useState(false);
-  const [userEmail, setUserEmail] = useState('');
   const [invitationToken, setInvitationToken] = useState<string | null>(null);
   const [invitationInfo, setInvitationInfo] = useState<any>(null);
   const [loadingInvitation, setLoadingInvitation] = useState(false);
@@ -66,39 +61,6 @@ export function AuthPage() {
     }
   };
 
-  const handleSignUpSuccess = async (email: string) => {
-    setUserEmail(email);
-    
-    // If there's an invitation token, link the team member after signup
-    if (invitationToken && invitationInfo) {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { error } = await supabase.functions.invoke('link-team-member', {
-            body: {
-              invitationToken: invitationToken,
-              userId: user.id
-            }
-          });
-
-          if (error) {
-            console.error('Error linking team member:', error);
-            toast.error('Failed to link to team. Please contact support.');
-          } else {
-            toast.success('Successfully joined the team!');
-          }
-        }
-      } catch (error) {
-        console.error('Error in team linking:', error);
-      }
-    }
-    
-    setShowVerificationNotice(true);
-  };
-
-  if (showVerificationNotice) {
-    return <EmailVerificationNotice email={userEmail} onBack={() => setShowVerificationNotice(false)} />;
-  }
 
   if (loadingInvitation) {
     return (
@@ -131,24 +93,14 @@ export function AuthPage() {
               You've been invited to join <strong>{invitationInfo.doctor_profiles.clinic_name || 'the clinic'}</strong> by Dr. {invitationInfo.doctor_profiles.first_name} {invitationInfo.doctor_profiles.last_name}.
             </p>
             <p className="text-xs text-blue-600 mt-1">
-              Sign up or log in to accept this invitation.
+              Log in to accept this invitation. If you don't have an account, please contact your administrator.
             </p>
           </div>
         )}
 
-        {isLogin ? (
-          <LoginForm 
-            onToggleMode={() => setIsLogin(false)} 
-            invitationToken={invitationToken} 
-          />
-        ) : (
-          <SignUpForm 
-            onToggleMode={() => setIsLogin(true)} 
-            onSignUpSuccess={handleSignUpSuccess}
-            invitationToken={invitationToken}
-            invitationInfo={invitationInfo}
-          />
-        )}
+        <LoginForm 
+          invitationToken={invitationToken} 
+        />
       </div>
     </div>
   );

@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Users, TrendingUp, Clock, Filter, Search, ArrowUpDown, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Lead } from '@/types/quiz';
+// Lead type will be inferred from quiz_leads table structure
 import { EnhancedLeadsTable } from './EnhancedLeadsTable';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -28,7 +28,7 @@ interface MarketingEvent {
 export function LeadsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [leads, setLeads] = useState<Lead[]>([]);
+  const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -61,13 +61,46 @@ export function LeadsPage() {
       setLoading(true);
       setError(null);
       
-      const profile = await getOrCreateDoctorProfile(user.id, user.email || undefined);
+      // First, get the current user's profile to check if they're staff/manager
+      const { data: userProfiles, error: fetchError } = await supabase
+        .from('doctor_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+
+      if (fetchError) {
+        console.error('Error fetching doctor profiles:', fetchError);
+        setError('Failed to fetch doctor profile');
+        toast.error('Failed to fetch doctor profile');
+        return;
+      }
+
+      if (!userProfiles || userProfiles.length === 0) {
+        // No profile exists, create one (regular doctor)
+        const profile = await getOrCreateDoctorProfile(user.id, user.email || undefined);
+        if (profile) {
+          setDoctorId(profile.id);
+        } else {
+          setError('Failed to create doctor profile');
+          toast.error('Failed to create doctor profile');
+        }
+        return;
+      }
+
+      const userProfile = userProfiles[0];
       
-      if (profile) {
-        setDoctorId(profile.id);
+      // Check if user is staff or manager
+      if (userProfile.is_staff || userProfile.is_manager) {
+        // If team member, use the main doctor's ID from doctor_id_clinic
+        if (userProfile.doctor_id_clinic) {
+          setDoctorId(userProfile.doctor_id_clinic);
+        } else {
+          // No clinic link, use user's own profile
+          setDoctorId(userProfile.id);
+        }
       } else {
-        setError('Failed to fetch or create doctor profile');
-        toast.error('Failed to fetch or create doctor profile');
+        // Regular doctor, use their own profile
+        setDoctorId(userProfile.id);
       }
     } catch (error) {
       console.error('Unexpected error fetching doctor profile:', error);

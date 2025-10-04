@@ -68,14 +68,51 @@ export function EditableNOSELandingPage() {
     if (!user) return;
     
     try {
-      const { data, error } = await supabase
+      // First, get the current user's profile to check if they're staff/manager
+      const { data: userProfiles, error: fetchError } = await supabase
         .from('doctor_profiles')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .order('created_at', { ascending: true });
+
+      if (fetchError) {
+        console.error('Error fetching doctor profiles:', fetchError);
+        throw fetchError;
+      }
+
+      if (!userProfiles || userProfiles.length === 0) {
+        console.log('No doctor profile found');
+        return;
+      }
+
+      const userProfile = userProfiles[0];
       
-      if (error) throw error;
-      setDoctorProfile(data);
+      // Check if user is staff or manager
+      if (userProfile.is_staff || userProfile.is_manager) {
+        // If team member, fetch the main doctor's profile using doctor_id_clinic
+        if (userProfile.doctor_id_clinic) {
+          const { data: mainDoctorProfile, error: mainDoctorError } = await supabase
+            .from('doctor_profiles')
+            .select('*')
+            .eq('id', userProfile.doctor_id_clinic)
+            .single();
+
+          if (mainDoctorError) {
+            console.error('Error fetching main doctor profile:', mainDoctorError);
+            // Fallback to user's own profile
+            setDoctorProfile(userProfile);
+          } else {
+            // Use main doctor's profile for landing page
+            setDoctorProfile(mainDoctorProfile);
+          }
+        } else {
+          // No clinic link, use user's own profile
+          setDoctorProfile(userProfile);
+        }
+      } else {
+        // Regular doctor, use their own profile
+        setDoctorProfile(userProfile);
+      }
     } catch (error) {
       console.error('Error fetching doctor profile:', error);
     }

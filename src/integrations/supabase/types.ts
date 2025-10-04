@@ -9,6 +9,230 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      clinic_profiles: {
+        Row: {
+          id: string
+          clinic_name: string
+          clinic_slug: string
+          description: string | null
+          phone: string | null
+          email: string | null
+          website: string | null
+          address: string | null
+          city: string | null
+          state: string | null
+          zip_code: string | null
+          country: string | null
+          logo_url: string | null
+          primary_color: string | null
+          secondary_color: string | null
+          created_at: string
+          updated_at: string
+          created_by: string
+        }
+        Insert: {
+          id?: string
+          clinic_name: string
+          clinic_slug?: string
+          description?: string | null
+          phone?: string | null
+          email?: string | null
+          website?: string | null
+          address?: string | null
+          city?: string | null
+          state?: string | null
+          zip_code?: string | null
+          country?: string | null
+          logo_url?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          created_at?: string
+          updated_at?: string
+          created_by: string
+        }
+        Update: {
+          id?: string
+          clinic_name?: string
+          clinic_slug?: string
+          description?: string | null
+          phone?: string | null
+          email?: string | null
+          website?: string | null
+          address?: string | null
+          city?: string | null
+          state?: string | null
+          zip_code?: string | null
+          country?: string | null
+          logo_url?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          created_at?: string
+          updated_at?: string
+          created_by?: string
+        }
+        Relationships: []
+      }
+      clinic_locations: {
+        Row: {
+          id: string
+          clinic_id: string
+          name: string
+          address: string | null
+          city: string | null
+          state: string | null
+          zip_code: string | null
+          phone: string | null
+          email: string | null
+          is_primary: boolean | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          name: string
+          address?: string | null
+          city?: string | null
+          state?: string | null
+          zip_code?: string | null
+          phone?: string | null
+          email?: string | null
+          is_primary?: boolean | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          name?: string
+          address?: string | null
+          city?: string | null
+          state?: string | null
+          zip_code?: string | null
+          phone?: string | null
+          email?: string | null
+          is_primary?: boolean | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_locations_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinic_members: {
+        Row: {
+          id: string
+          clinic_id: string
+          user_id: string | null
+          email: string
+          first_name: string | null
+          last_name: string | null
+          role: string
+          permissions: Json | null
+          status: string
+          invited_by: string | null
+          invitation_token: string | null
+          token_expires_at: string | null
+          accepted_at: string | null
+          last_active_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          user_id?: string | null
+          email: string
+          first_name?: string | null
+          last_name?: string | null
+          role?: string
+          permissions?: Json | null
+          status?: string
+          invited_by?: string | null
+          invitation_token?: string | null
+          token_expires_at?: string | null
+          accepted_at?: string | null
+          last_active_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          user_id?: string | null
+          email?: string
+          first_name?: string | null
+          last_name?: string | null
+          role?: string
+          permissions?: Json | null
+          status?: string
+          invited_by?: string | null
+          invitation_token?: string | null
+          token_expires_at?: string | null
+          accepted_at?: string | null
+          last_active_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_members_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinic_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinic_member_locations: {
+        Row: {
+          id: string
+          clinic_member_id: string
+          location_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_member_id: string
+          location_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_member_id?: string
+          location_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_member_locations_clinic_member_id_fkey"
+            columns: ["clinic_member_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinic_member_locations_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       automation_webhooks: {
         Row: {
           active: boolean | null

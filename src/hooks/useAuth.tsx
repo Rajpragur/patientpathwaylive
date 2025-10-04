@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useRef } from 'r
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface AuthContextType {
   user: User | null;
@@ -46,9 +47,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (session?.user && !session.user.email_confirmed_at) {
             navigateRef.current('/verify-email');
           } else if (window.location.pathname === '/auth') {
-            // Only redirect to portal if we're on the auth page
-            // The portal page will handle access control checks
-            navigateRef.current('/portal');
+            // Check if there's an invitation token in the URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const invitationToken = urlParams.get('invitation');
+            
+            if (invitationToken) {
+              // Handle team member invitation
+              handleTeamInvitation(invitationToken, session.user.id);
+            } else {
+              // Using simplified approach - redirect to portal
+              navigateRef.current('/portal');
+            }
           }
         } else if (event === 'USER_UPDATED') {
           // Handle email verification
@@ -89,6 +98,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const handleTeamInvitation = async (invitationToken: string, userId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('link-clinic-member', {
+        body: {
+          invitationToken,
+          userId
+        }
+      });
+
+      if (error) {
+        console.error('Error linking team member:', error);
+        toast.error('Failed to join team. Please contact support.');
+        navigateRef.current('/auth');
+      } else {
+        toast.success('Successfully joined the team!');
+        navigateRef.current('/portal');
+      }
+    } catch (error) {
+      console.error('Error in team invitation handling:', error);
+      toast.error('Failed to process invitation');
+      navigateRef.current('/auth');
+    }
+  };
+
+  // Removed clinic membership check - using simplified approach
 
   const signIn = async (email: string, password: string) => {
     try {

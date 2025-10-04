@@ -37,18 +37,48 @@ export function TrendsPage() {
   }, [user, timeRange]);
 
   const fetchData = async () => {
+    if (!user) return;
+    
     try {
-      const { data: doctorProfile } = await supabase
+      // First, get the current user's profile to check if they're staff/manager
+      const { data: userProfiles, error: fetchError } = await supabase
         .from('doctor_profiles')
-        .select('id')
-        .eq('user_id', user?.id)
-        .limit(1)
-        .maybeSingle();
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
 
-      if (doctorProfile) {
+      if (fetchError) {
+        console.error('Error fetching doctor profiles:', fetchError);
+        return;
+      }
+
+      let doctorId = null;
+
+      if (!userProfiles || userProfiles.length === 0) {
+        console.log('No doctor profile found');
+        return;
+      } else {
+        const userProfile = userProfiles[0];
+        
+        // Check if user is staff or manager
+        if (userProfile.is_staff || userProfile.is_manager) {
+          // If team member, use the main doctor's ID from doctor_id_clinic
+          if (userProfile.doctor_id_clinic) {
+            doctorId = userProfile.doctor_id_clinic;
+          } else {
+            // No clinic link, use user's own profile
+            doctorId = userProfile.id;
+          }
+        } else {
+          // Regular doctor, use their own profile
+          doctorId = userProfile.id;
+        }
+      }
+
+      if (doctorId) {
         await Promise.all([
-          fetchTrendsData(doctorProfile.id),
-          fetchAnalyticsData(doctorProfile.id)
+          fetchTrendsData(doctorId),
+          fetchAnalyticsData(doctorId)
         ]);
       }
     } catch (error) {

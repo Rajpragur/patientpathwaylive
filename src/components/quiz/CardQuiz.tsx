@@ -173,7 +173,10 @@ export function CardQuiz() {
 
       // Use the Supabase edge function to submit the lead
       const { data, error } = await supabase.functions.invoke('submit-lead', {
-        body: leadDataToSubmit
+        body: leadDataToSubmit,
+        headers: {
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        }
       });
 
       if (error) {

@@ -89,17 +89,21 @@ export function ShareQuizPage() {
             setDoctorProfile(profile);
           }
         } else if (user) {
-          const { data: profiles, error: profileError } = await supabase
+          // First, get the current user's profile to check if they're staff/manager
+          const { data: userProfiles, error: fetchError } = await supabase
             .from('doctor_profiles')
             .select('*')
-            .eq('user_id', user.id);
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: true });
 
-          if (profileError) {
-            console.error('Error fetching doctor profile:', profileError);
+          if (fetchError) {
+            console.error('Error fetching doctor profiles:', fetchError);
             setError('Could not fetch doctor profile');
-          } else if (profiles && profiles.length > 0) {
-            setDoctorProfile(profiles[0]);
-          } else {
+            return;
+          }
+
+          if (!userProfiles || userProfiles.length === 0) {
+            // No profile exists, create one (regular doctor)
             const { data: newProfile, error: createError } = await supabase
               .from('doctor_profiles')
               .insert([{
@@ -117,6 +121,36 @@ export function ShareQuizPage() {
             } else if (newProfile && newProfile.length > 0) {
               setDoctorProfile(newProfile[0]);
             }
+            return;
+          }
+
+          const userProfile = userProfiles[0];
+          
+          // Check if user is staff or manager
+          if (userProfile.is_staff || userProfile.is_manager) {
+            // If team member, fetch the main doctor's profile using doctor_id_clinic
+            if (userProfile.doctor_id_clinic) {
+              const { data: mainDoctorProfile, error: mainDoctorError } = await supabase
+                .from('doctor_profiles')
+                .select('*')
+                .eq('id', userProfile.doctor_id_clinic)
+                .single();
+
+              if (mainDoctorError) {
+                console.error('Error fetching main doctor profile:', mainDoctorError);
+                // Fallback to user's own profile
+                setDoctorProfile(userProfile);
+              } else {
+                // Use main doctor's profile for quiz sharing
+                setDoctorProfile(mainDoctorProfile);
+              }
+            } else {
+              // No clinic link, use user's own profile
+              setDoctorProfile(userProfile);
+            }
+          } else {
+            // Regular doctor, use their own profile
+            setDoctorProfile(userProfile);
           }
         }
 

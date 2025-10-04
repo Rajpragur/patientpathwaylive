@@ -3,60 +3,77 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Mail, Lock, Chrome } from 'lucide-react';
+import { Mail, Lock, Chrome, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface LoginFormProps {
-  onToggleMode?: () => void;
   invitationToken?: string | null;
 }
 
 export function LoginForm(props: LoginFormProps) {
-  const { onToggleMode, invitationToken } = props;
-  const { signIn } = useAuth();
+  const { invitationToken } = props;
+  // Login form for existing users only
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const { error } = await signIn(email, password);
+      console.log('Attempting to sign in with email:', email);
+      
+      // Use direct Supabase auth sign in
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password
+      });
+
       if (error) {
+        console.error('Login error:', error);
         toast.error(error.message || 'Login failed');
       } else {
+        console.log('Login successful:', data);
         toast.success('Signed in successfully');
         
-        // If there's an invitation token, link the team member after login
-        if (invitationToken) {
-          try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-              const { error: linkError } = await supabase.functions.invoke('link-team-member', {
-                body: {
-                  invitationToken: invitationToken,
-                  userId: user.id
-                }
-              });
+             // If there's an invitation token, link the team member after login
+             if (invitationToken) {
+               try {
+                 console.log('Linking team member with invitation token:', invitationToken);
+                 
+                 // Use the edge function to handle team member linking
+                 const { data: linkData, error: linkError } = await supabase.functions.invoke('link-team-member', {
+                   body: {
+                     invitationToken: invitationToken,
+                     userId: data.user.id,
+                     firstName: null, // Will be fetched from team_members table
+                     lastName: null,
+                     email: data.user.email
+                   }
+                 });
 
-              if (linkError) {
-                console.error('Error linking team member:', linkError);
-                toast.error('Failed to link to team. Please contact support.');
-              } else {
-                toast.success('Successfully joined the team!');
-              }
-            }
-          } catch (error) {
-            console.error('Error in team linking:', error);
-          }
-        }
+                 if (linkError) {
+                   console.error('Error linking team member:', linkError);
+                   toast.error('Failed to link to team. Please contact support.');
+                 } else if (linkData?.success) {
+                   toast.success('Successfully joined the team!');
+                 } else {
+                   console.error('Edge function returned error:', linkData?.error);
+                   toast.error(linkData?.error || 'Failed to link to team');
+                 }
+               } catch (error) {
+                 console.error('Error in team linking:', error);
+               }
+             }
       }
     } catch (error: any) {
+      console.error('Login error:', error);
       toast.error('An unexpected error occurred');
     } finally {
       setLoading(false);
@@ -70,10 +87,15 @@ export function LoginForm(props: LoginFormProps) {
       
       const currentOrigin = window.location.origin;
       
+      // Check if user has a pending invitation first
+      const redirectUrl = invitationToken 
+        ? `${currentOrigin}/team-signup?invitation=${invitationToken}`
+        : `${currentOrigin}/portal`;
+      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${currentOrigin}/portal`,
+          redirectTo: redirectUrl,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -96,6 +118,41 @@ export function LoginForm(props: LoginFormProps) {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!forgotPasswordEmail) {
+      toast.error('Please enter your email address');
+      return;
+    }
+
+    setForgotPasswordLoading(true);
+    try {
+      const redirectUrl = `${window.location.origin}/reset-password`;
+      console.log('Sending password reset email to:', forgotPasswordEmail);
+      console.log('Redirect URL:', redirectUrl);
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotPasswordEmail, {
+        redirectTo: redirectUrl,
+      });
+
+      if (error) {
+        console.error('Password reset error:', error);
+        toast.error(error.message || 'Failed to send reset email');
+      } else {
+        console.log('Password reset email sent successfully');
+        toast.success('Password reset email sent! Check your inbox and spam folder.');
+        setForgotPasswordMode(false);
+        setForgotPasswordEmail('');
+      }
+    } catch (error: any) {
+      console.error('Password reset exception:', error);
+      toast.error('Failed to send reset email');
+    } finally {
+      setForgotPasswordLoading(false);
+    }
+  };
+
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader className="space-y-1">
@@ -105,28 +162,80 @@ export function LoginForm(props: LoginFormProps) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Button 
-          variant="outline" 
-          className="w-full" 
-          onClick={handleGoogleSignIn}
-          disabled={loading || googleLoading}
-        >
-          <Chrome className="w-4 h-4 mr-2" />
-          {googleLoading ? 'Connecting...' : 'Continue with Google'}
-        </Button>
-        
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
+        {forgotPasswordMode ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setForgotPasswordMode(false)}
+                className="p-1"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+              <h3 className="text-lg font-semibold">Reset Password</h3>
+            </div>
+            <p className="text-sm text-gray-600">
+              Enter your email address and we'll send you a link to reset your password.
+            </p>
+            <p className="text-xs text-gray-500 mt-2">
+              Having trouble? Check your spam folder or{' '}
+              <a 
+                href="/reset-password" 
+                className="text-blue-600 hover:text-blue-800 underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                run diagnostics
+              </a>
+            </p>
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  type="email"
+                  placeholder="Email address"
+                  value={forgotPasswordEmail}
+                  onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                  className="pl-10"
+                  required
+                  autoComplete="email"
+                  disabled={forgotPasswordLoading}
+                />
+              </div>
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={forgotPasswordLoading}
+              >
+                {forgotPasswordLoading ? 'Sending...' : 'Send Reset Link'}
+              </Button>
+            </form>
           </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">
-              Or continue with email
-            </span>
-          </div>
-        </div>
+        ) : (
+          <>
+            <Button 
+              variant="outline" 
+              className="w-full" 
+              onClick={handleGoogleSignIn}
+              disabled={loading || googleLoading}
+            >
+              <Chrome className="w-4 h-4 mr-2" />
+              {googleLoading ? 'Connecting...' : 'Continue with Google'}
+            </Button>
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or continue with email
+                </span>
+              </div>
+            </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <div className="relative">
               <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -166,7 +275,19 @@ export function LoginForm(props: LoginFormProps) {
           >
             {loading ? 'Signing in...' : 'Sign in'}
           </Button>
+          
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={() => setForgotPasswordMode(true)}
+              className="text-sm text-[#FF6B35] hover:underline"
+            >
+              Forgot your password?
+            </button>
+          </div>
         </form>
+        </>
+        )}
       </CardContent>
     </Card>
   );

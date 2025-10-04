@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Home,
   BarChart,
@@ -97,9 +99,35 @@ const bottomMenuItems = [
 ];
 
 export const AnimatedSidebar: React.FC<AnimatedSidebarProps> = ({ currentPage, onPageChange, onSignOut }) => {
+  const { user } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isFullyExpanded, setIsFullyExpanded] = useState(true);
+  const [isTeamMember, setIsTeamMember] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      checkTeamMemberStatus();
+    }
+  }, [user]);
+
+  const checkTeamMemberStatus = async () => {
+    if (!user) return;
+    
+    try {
+      const { data: userProfiles, error } = await supabase
+        .from('doctor_profiles')
+        .select('is_staff, is_manager')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!error && userProfiles) {
+        setIsTeamMember(userProfiles.is_staff || userProfiles.is_manager);
+      }
+    } catch (error) {
+      console.error('Error checking team member status:', error);
+    }
+  };
 
   const handleAnimationComplete = (definition: any) => {
     if (definition.width === 256) {
@@ -107,6 +135,23 @@ export const AnimatedSidebar: React.FC<AnimatedSidebarProps> = ({ currentPage, o
     } else {
       setIsFullyExpanded(false);
     }
+  };
+  const getFilteredMainMenuItems = () => {
+    if (isTeamMember) {
+      // Remove integrations for team members
+      return mainMenuItems.filter(item => 
+        item.id !== 'integrations' && item.id !== 'automation'
+      );
+    }
+    return mainMenuItems;
+  };
+  const getFilteredBottomMenuItems = () => {
+    if (isTeamMember) {
+      return bottomMenuItems.filter(item => 
+        item.id !== 'configuration'
+      );
+    }
+    return bottomMenuItems;
   };
 
   const renderMenuItem = (item: any) => (
@@ -167,9 +212,9 @@ export const AnimatedSidebar: React.FC<AnimatedSidebarProps> = ({ currentPage, o
           )}
         </div>
         {/* Main Navigation */}
-        <div className={cn('flex-1 overflow-y-auto py-4', isCollapsed ? 'px-1' : 'px-3')}>{mainMenuItems.map(renderMenuItem)}</div>
+        <div className={cn('flex-1 overflow-y-auto py-4', isCollapsed ? 'px-1' : 'px-3')}>{getFilteredMainMenuItems().map(renderMenuItem)}</div>
         {/* Bottom Navigation */}
-        <div className={cn('border-t border-gray-100 dark:border-neutral-800 py-2', isCollapsed ? 'px-1' : 'px-3')}>{bottomMenuItems.map(renderMenuItem)}</div>
+        <div className={cn('border-t border-gray-100 dark:border-neutral-800 py-2', isCollapsed ? 'px-1' : 'px-3')}>{getFilteredBottomMenuItems().map(renderMenuItem)}</div>
         {/* Sign Out */}
         <div className={cn('p-4 border-t border-gray-100 dark:border-neutral-800', isCollapsed ? 'px-1' : 'px-4')}>
           <button
@@ -211,8 +256,8 @@ export const AnimatedSidebar: React.FC<AnimatedSidebarProps> = ({ currentPage, o
               <span className="font-bold text-lg bg-gradient-to-r from-[#FF6B35] to-[#0E7C9D] bg-clip-text text-transparent">Patient Pathway</span>
 
             </div>
-            <div className="flex-1 overflow-y-auto py-4 px-3">{mainMenuItems.map(renderMenuItem)}</div>
-            <div className="border-t border-gray-200 dark:border-neutral-800 py-2 px-3">{bottomMenuItems.map(renderMenuItem)}</div>
+            <div className="flex-1 overflow-y-auto py-4 px-3">{getFilteredMainMenuItems().map(renderMenuItem)}</div>
+            <div className="border-t border-gray-200 dark:border-neutral-800 py-2 px-3">{getFilteredBottomMenuItems().map(renderMenuItem)}</div>
             <div className="p-4 border-t border-gray-200 dark:border-neutral-800">
               <button
                 className="flex items-center w-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900 transition-all duration-200 rounded p-2.5"

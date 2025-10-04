@@ -41,16 +41,59 @@ export function EmailConfigurationPage() {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
+      // First, get the current user's profile to check if they're staff/manager
+      const { data: userProfiles, error: fetchError } = await supabase
         .from('doctor_profiles')
-        .select('id, first_name, last_name, email, email_prefix, clinic_name')
+        .select('*')
         .eq('user_id', user.id)
-        .single();
+        .order('created_at', { ascending: true });
 
-      if (error) throw error;
+      if (fetchError) {
+        console.error('Error fetching doctor profiles:', fetchError);
+        throw fetchError;
+      }
 
-      setDoctorProfile(data);
-      setEmailPrefix(data?.email_prefix || '');
+      let profile = null;
+
+      if (!userProfiles || userProfiles.length === 0) {
+        throw new Error('No doctor profile found');
+      } else {
+        const userProfile = userProfiles[0];
+        
+        // Check if user is staff or manager
+        if (userProfile.is_staff || userProfile.is_manager) {
+          // If team member, fetch the main doctor's profile using doctor_id_clinic
+          if (userProfile.doctor_id_clinic) {
+            const { data: mainDoctorProfile, error: mainDoctorError } = await supabase
+              .from('doctor_profiles')
+              .select('*')
+              .eq('id', userProfile.doctor_id_clinic)
+              .single();
+
+            if (mainDoctorError) {
+              console.error('Error fetching main doctor profile:', mainDoctorError);
+              // Fallback to user's own profile
+              profile = userProfile;
+            } else {
+              // Use main doctor's profile for display
+              profile = mainDoctorProfile;
+            }
+          } else {
+            // No clinic link, use user's own profile
+            profile = userProfile;
+          }
+        } else {
+          // Regular doctor, use their own profile
+          profile = userProfile;
+        }
+      }
+
+      if (!profile) {
+        throw new Error('No doctor profile found');
+      }
+
+      setDoctorProfile(profile);
+      setEmailPrefix(profile?.email_prefix || '');
     } catch (error) {
       console.error('Error loading doctor profile:', error);
       toast({
@@ -159,6 +202,9 @@ export function EmailConfigurationPage() {
           `,
           text: `Test Email from PatientPathway AI\n\nHello!\n\nThis is a test email from Dr. ${doctorProfile?.first_name} ${doctorProfile?.last_name} via PatientPathway AI.\n\nYour email configuration is working correctly!\n\nYour Email Address: dr.${emailPrefix}@patientpathway.ai\nClinic: ${doctorProfile?.clinic_name || 'Not specified'}\n\nBest regards,\nPatientPathway AI Team`,
           doctorId: doctorProfile?.id
+        },
+        headers: {
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
         }
       });
 

@@ -585,7 +585,10 @@ export function EmbeddedChatBot({ quizType, doctorId, customQuiz, quizData, doct
       // Use the Supabase edge function to submit the lead
       console.log('🚀 Calling supabase.functions.invoke("submit-lead")...');
       const { data, error } = await supabase.functions.invoke('submit-lead', {
-        body: leadData
+        body: leadData,
+        headers: {
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        }
       });
 
       if (error) {

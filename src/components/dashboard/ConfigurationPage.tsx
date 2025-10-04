@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,6 +34,13 @@ export function ConfigurationPage() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteFirstName, setInviteFirstName] = useState('');
   const [inviteLastName, setInviteLastName] = useState('');
+  const [inviteRole, setInviteRole] = useState<'staff' | 'manager'>('staff');
+  const [invitePermissions, setInvitePermissions] = useState({
+    leads: false,
+    content: false,
+    payments: false,
+    team: false
+  });
   const [inviting, setInviting] = useState(false);
 
   // Patient invitation states
@@ -54,11 +61,17 @@ export function ConfigurationPage() {
     
     setLoading(true);
     try {
-      // Get all doctor profiles for this user
-      const { data: profiles, error } = await supabase
+      // First, try to get doctor profiles with clinic information (if migration is applied)
+      let profiles, error;
+      
+      // Start with basic query to avoid relationship issues
+      const result = await supabase
         .from('doctor_profiles')
         .select('*')
         .eq('user_id', user.id);
+      
+      profiles = result.data;
+      error = result.error;
       
       if (error) {
         console.error('Error fetching doctor profiles:', error);
@@ -71,7 +84,10 @@ export function ConfigurationPage() {
       if (profiles && profiles.length > 0) {
         const profile = profiles[0];
         console.log('Found doctor profile:', profile.id);
-        setDoctorId(profile.id);
+        console.log('Clinic ID:', profile.clinic_id);
+        setDoctorId(profile.id); // Always use the actual doctor profile ID for team_members table
+        
+        // Use profile data (clinic_profiles relationship not available yet)
         setProfile({
           clinic_name: profile.clinic_name || '',
           location: profile.location || '',
@@ -81,7 +97,7 @@ export function ConfigurationPage() {
           logo_url: profile.logo_url || '',
           providers: profile.providers || ''
         });
-        // Fetch team members for existing profile
+        // Fetch team members using doctor profile ID
         await fetchTeamMembers(profile.id);
       } else {
         console.log('No doctor profile found, creating one...');
@@ -134,20 +150,29 @@ export function ConfigurationPage() {
 
   const fetchTeamMembers = async (doctorId: string) => {
     try {
+      // Start with team_members table (current structure)
       const { data, error } = await supabase
         .from('team_members')
         .select('*')
-        .eq('doctor_id', doctorId)
+        .eq('doctor_id', doctorId) // Use doctor_id for team_members table
         .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching team members:', error);
+        setTeamMembers([]);
         return;
       }
 
-      setTeamMembers(data || []);
+      // Transform team_members data to match expected structure
+      const transformedMembers = (data || []).map(member => ({
+        ...member,
+        clinic_profiles: { clinic_name: 'Clinic' } // Default clinic name
+      }));
+
+      setTeamMembers(transformedMembers);
     } catch (error) {
       console.error('Error fetching team members:', error);
+      setTeamMembers([]);
     }
   };
 
@@ -168,75 +193,74 @@ export function ConfigurationPage() {
 
     setInviting(true);
     try {
-      // First, create the team member record with invitation token
+      // Generate a unique invitation token
       const invitationToken = crypto.randomUUID();
-      console.log('Generated invitation token:', invitationToken);
       
-      const { data, error } = await supabase
+      // Create a team member record in the database with the invitation token
+      const { data: teamMemberData, error: teamMemberError } = await supabase
         .from('team_members')
-        .insert([{
+        .insert({
           doctor_id: doctorId,
           email: inviteEmail.toLowerCase().trim(),
           first_name: inviteFirstName.trim() || null,
           last_name: inviteLastName.trim() || null,
-          invited_by: user?.id,
+          role: inviteRole,
+          permissions: invitePermissions,
           status: 'pending',
+          invited_by: user?.id,
           invitation_token: invitationToken,
           token_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days from now
-        }])
-        .select();
-        
-      console.log('Database insert result:', { data, error });
-      console.log('Inserted team member data:', data);
+        })
+        .select()
+        .single();
 
-      if (error) {
-        console.error('Database insert error details:', error);
-        if (error.code === '23505') { // Unique constraint violation
-          toast.error('This email is already invited to a doctor office');
-        } else {
-          throw error;
-        }
+      if (teamMemberError) {
+        console.error('Error creating team member record:', teamMemberError);
+        toast.error('Failed to create team member invitation');
         return;
       }
 
-      // Send invitation email with the token
-      if (data && data.length > 0) {
-        const dbInvitationToken = data[0].invitation_token;
-        console.log('Token from database:', dbInvitationToken);
-        
-        // Send email invitation
-        const requestBody = {
+      // Use the send-invitation function with the proper invitation token
+      const { data, error } = await supabase.functions.invoke('send-invitation', {
+        body: {
           patientEmail: inviteEmail.toLowerCase().trim(),
           patientFirstName: inviteFirstName.trim() || null,
           patientLastName: inviteLastName.trim() || null,
-          message: patientInviteMessage.trim() || `You've been invited to join our team!`,
+          message: `You've been invited to join our clinic team. Please sign up to get started.`,
           doctorId: doctorId,
-          invitationToken: dbInvitationToken
-        };
-        
-        console.log('Sending invitation request:', requestBody);
-        console.log('Invitation token being sent:', dbInvitationToken);
-        
-        const { error: emailError } = await supabase.functions.invoke('send-invitation', {
-          body: requestBody
-        });
-
-        if (emailError) {
-          console.error('Error sending invitation email:', emailError);
-          toast.error('Team member added but email failed to send');
-        } else {
-          toast.success('Team member invitation sent successfully');
+          invitationToken: invitationToken // Use the generated invitation token
+        },
+        headers: {
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
         }
+      });
+
+      if (error) {
+        console.error('Invitation error:', error);
+        toast.error(error.message || 'Failed to send invitation');
+        return;
       }
 
-      // Clear form
-      setInviteEmail('');
-      setInviteFirstName('');
-      setInviteLastName('');
-      setPatientInviteMessage('');
-      
-      // Refresh team members list
-      await fetchTeamMembers(doctorId);
+      if (data?.success) {
+        toast.success('Team member invitation sent successfully!');
+        
+            // Clear form
+            setInviteEmail('');
+            setInviteFirstName('');
+            setInviteLastName('');
+            setInviteRole('staff');
+            setInvitePermissions({
+              leads: false,
+              content: false,
+              payments: false,
+              team: false
+            });
+        
+        // Refresh team members list
+        await fetchTeamMembers(doctorId);
+      } else {
+        toast.error('Failed to send invitation');
+      }
     } catch (error) {
       console.error('Error inviting team member:', error);
       toast.error('Failed to send invitation');
@@ -247,12 +271,13 @@ export function ConfigurationPage() {
 
   const handleRemoveTeamMember = async (memberId: string) => {
     try {
-      const { error } = await supabase
+      // Remove from team_members table (current structure)
+      const result = await supabase
         .from('team_members')
         .delete()
         .eq('id', memberId);
 
-      if (error) throw error;
+      if (result.error) throw result.error;
 
       toast.success('Team member removed successfully');
       await fetchTeamMembers(doctorId!);
@@ -748,6 +773,78 @@ const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
                     placeholder="Vaugh"
                   />
                 </div>
+                <div>
+                  <Label htmlFor="invite_role">Role</Label>
+                  <select
+                    id="invite_role"
+                    value={inviteRole}
+                    onChange={(e) => {
+                      const role = e.target.value as 'staff' | 'manager';
+                      setInviteRole(role);
+                      // Set default permissions based on role
+                      if (role === 'manager') {
+                        setInvitePermissions({
+                          leads: true,
+                          content: true,
+                          payments: false,
+                          team: false
+                        });
+                      } else {
+                        setInvitePermissions({
+                          leads: false,
+                          content: false,
+                          payments: false,
+                          team: false
+                        });
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="staff">Staff</option>
+                    <option value="manager">Manager</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>Permissions</Label>
+                  <div className="space-y-2 mt-2">
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={invitePermissions.leads}
+                        onChange={(e) => setInvitePermissions(prev => ({ ...prev, leads: e.target.checked }))}
+                        className="rounded border-gray-300"
+                      />
+                      <span className="text-sm">View Leads</span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={invitePermissions.content}
+                        onChange={(e) => setInvitePermissions(prev => ({ ...prev, content: e.target.checked }))}
+                        className="rounded border-gray-300"
+                      />
+                      <span className="text-sm">View Content</span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={invitePermissions.payments}
+                        onChange={(e) => setInvitePermissions(prev => ({ ...prev, payments: e.target.checked }))}
+                        className="rounded border-gray-300"
+                      />
+                      <span className="text-sm">View Payments</span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={invitePermissions.team}
+                        onChange={(e) => setInvitePermissions(prev => ({ ...prev, team: e.target.checked }))}
+                        className="rounded border-gray-300"
+                      />
+                      <span className="text-sm">Manage Team</span>
+                    </label>
+                  </div>
+                </div>
                 <div className="md:col-span-2">
                   <Label htmlFor="patient_invite_message">Personal Message (Optional)</Label>
                   <Textarea
@@ -779,6 +876,96 @@ const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
           </CardContent>
         </Card>
 
+        {/* Current Team Members */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Current Team Members
+            </CardTitle>
+            <CardDescription>
+              Manage your team members and their permissions
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {teamMembers.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <p>No team members yet</p>
+                <p className="text-sm">Invite team members using the form above</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {teamMembers.map((member) => (
+                  <div key={member.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                          <span className="text-blue-600 font-medium">
+                            {(member.first_name?.[0] || '') + (member.last_name?.[0] || '')}
+                          </span>
+                        </div>
+                        <div>
+                          <h4 className="font-medium">
+                            {member.first_name} {member.last_name}
+                          </h4>
+                          <p className="text-sm text-gray-500">{member.email}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              member.role === 'owner' ? 'bg-purple-100 text-purple-700' :
+                              member.role === 'manager' ? 'bg-blue-100 text-blue-700' :
+                              'bg-gray-100 text-gray-700'
+                            }`}>
+                              {member.role?.charAt(0).toUpperCase() + member.role?.slice(1) || 'Staff'}
+                            </span>
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              member.status === 'accepted' ? 'bg-green-100 text-green-700' :
+                              member.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-gray-100 text-gray-700'
+                            }`}>
+                              {member.status?.charAt(0).toUpperCase() + member.status?.slice(1) || 'Unknown'}
+                            </span>
+                          </div>
+                          {member.permissions && (
+                            <div className="flex gap-1 mt-2">
+                              {member.permissions.leads && (
+                                <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded">Leads</span>
+                              )}
+                              {member.permissions.content && (
+                                <span className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded">Content</span>
+                              )}
+                              {member.permissions.payments && (
+                                <span className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded">Payments</span>
+                              )}
+                              {member.permissions.team && (
+                                <span className="px-2 py-1 text-xs bg-orange-100 text-orange-700 rounded">Team</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    {member.status === 'pending' && (
+                      <div className="text-sm text-gray-500">
+                        Pending
+                      </div>
+                    )}
+                    {member.status === 'accepted' && member.role !== 'owner' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRemoveTeamMember(member.id)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
         
       </div>
 

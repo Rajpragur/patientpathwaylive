@@ -215,10 +215,17 @@ export function EnhancedAdminDashboard() {
     try {
       setLoading(true);
       
-      // Fetch doctors
+      // Fetch doctors with clinic information
       const { data: doctorData, error: doctorError } = await supabase
         .from('doctor_profiles')
-        .select('*')
+        .select(`
+          *,
+          clinic_profiles(
+            id,
+            clinic_name,
+            clinic_slug
+          )
+        `)
         .order('created_at', { ascending: false });
 
       if (doctorError) {

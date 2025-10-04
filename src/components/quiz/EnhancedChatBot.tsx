@@ -509,7 +509,10 @@ export function EnhancedChatBot({ quizType, shareKey, customQuiz, doctorId }: En
 
       // Use the Supabase edge function to submit the lead
       const { data, error } = await supabase.functions.invoke('submit-lead', {
-        body: leadData
+        body: leadData,
+        headers: {
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        }
       });
 
       if (error) {

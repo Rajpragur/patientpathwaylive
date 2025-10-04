@@ -40,76 +40,47 @@ export default function PortalPage() {
     }
   }, [searchParams]);
 
-  // Check doctor access control
+  // Check doctor access control - simplified approach
   const checkDoctorAccess = async (userId: string) => {
     try {
       setAccessLoading(true);
       console.log('Checking access for user:', userId);
       
-      const { data, error } = await supabase
+      // Check for doctor profiles (includes both doctors and team members)
+      const { data: doctorProfiles, error: doctorError } = await supabase
         .from('doctor_profiles')
-        .select('id, access_control, first_name, last_name, email')
+        .select('id, access_control, first_name, last_name, email, is_staff, is_manager, doctor_id_clinic')
         .eq('user_id', userId);
 
-      if (error) {
-        console.error('Error checking doctor access:', error);
-        console.error('Error details:', error.message, error.code);
+      if (doctorError) {
+        console.error('Error checking doctor profiles:', doctorError);
+      }
+
+      console.log('Doctor profiles found:', doctorProfiles);
+
+      // Check if user has doctor profile with access
+      if (doctorProfiles && doctorProfiles.length > 0) {
+        const profilesWithAccess = doctorProfiles.filter(profile => profile.access_control === true);
         
-        setHasAccess(false);
-        setAccessRevoked(true);
-        await signOut();
-        return;
+        if (profilesWithAccess.length > 0) {
+          console.log('✅ Access granted via doctor profile!');
+          console.log('User type:', profilesWithAccess[0].is_staff ? 'Staff' : profilesWithAccess[0].is_manager ? 'Manager' : 'Doctor');
+          setHasAccess(true);
+          return;
+        }
       }
 
-      console.log('Doctor profiles found:', data);
-
-      // Check if any doctor profile has access_control = true
-      if (!data || data.length === 0) {
-        console.log('No doctor profiles found for user');
-        setHasAccess(false);
-        setAccessRevoked(true);
-        await signOut();
-        return;
-      }
-
-      // Check if ANY profile has access_control = true (user should have access)
-      // OR if ALL profiles have access_control = false (user should be denied)
-      const profilesWithAccess = data.filter(profile => profile.access_control === true);
-      const profilesWithoutAccess = data.filter(profile => profile.access_control === false);
-      
-      console.log('🔍 Access check results:');
-      console.log('- Total profiles found:', data.length);
-      console.log('- Profiles with access (true):', profilesWithAccess.length);
-      console.log('- Profiles without access (false):', profilesWithoutAccess.length);
-      console.log('- All profiles access_control values:', data.map(p => ({ 
-        id: p.id, 
-        access_control: p.access_control, 
-        name: `${p.first_name} ${p.last_name}` 
-      })));
-      
-      // Grant access if ANY profile has access_control = true
-      if (profilesWithAccess.length > 0) {
-        const profileWithAccess = profilesWithAccess[0];
-        console.log('✅ Access granted successfully!');
-        console.log('Doctor:', profileWithAccess.first_name, profileWithAccess.last_name);
-        console.log('Access control value:', profileWithAccess.access_control);
-        console.log('Setting hasAccess to TRUE');
-        setHasAccess(true);
-      } else {
-        console.log('❌ Access denied. No profile with access_control = true found');
-        console.log('All profiles have access_control = false or null');
-        console.log('Setting hasAccess to FALSE and accessRevoked to TRUE');
-        setHasAccess(false);
-        setAccessRevoked(true);
-        toast.error('You do not have access to the portal');
-        await signOut();
-      }
-    } catch (error) {
-      console.error('Error checking doctor access:', error);
+      // No access found - but don't sign out immediately, let user see the message
+      console.log('❌ No access found via doctor profiles');
       setHasAccess(false);
       setAccessRevoked(true);
-      toast.error('You do not have access to the portal');
-      await signOut();
+      toast.error('You do not have access to the portal. Please contact your administrator.');
+
+    } catch (error) {
+      console.error('Error checking access:', error);
+      setHasAccess(false);
+      setAccessRevoked(true);
+      toast.error('Error checking access. Please try again.');
     } finally {
       setAccessLoading(false);
     }

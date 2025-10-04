@@ -3,9 +3,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { NotificationDropdown } from './NotificationDropdown';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Megaphone, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { MarketingTicker } from './MarketingTicker';
+import { Loader2 } from 'lucide-react';
 import { getOrCreateDoctorProfile, DoctorProfile } from '@/lib/profileUtils';
 
 export function DashboardHeader() {
@@ -13,7 +11,7 @@ export function DashboardHeader() {
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showMarketingTicker, setShowMarketingTicker] = useState(true);
+  const [isTeamMember, setIsTeamMember] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -28,12 +26,57 @@ export function DashboardHeader() {
       setLoading(true);
       setError(null);
       
-      const profile = await getOrCreateDoctorProfile(user.id, user.email || undefined);
-      
-      if (profile) {
+      // First, get the current user's profile to check if they're staff/manager
+      const { data: userProfiles, error: fetchError } = await supabase
+        .from('doctor_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+
+      if (fetchError) {
+        console.error('Error fetching doctor profiles:', fetchError);
+        setError('Failed to fetch doctor profile');
+        return;
+      }
+
+      if (!userProfiles || userProfiles.length === 0) {
+        // No profile exists, create one (regular doctor)
+        const profile = await getOrCreateDoctorProfile(user.id, user.email || undefined);
         setDoctorProfile(profile);
+        setIsTeamMember(false);
+        return;
+      }
+
+      const userProfile = userProfiles[0];
+      
+      // Check if user is staff or manager
+      if (userProfile.is_staff || userProfile.is_manager) {
+        setIsTeamMember(true);
+        
+        // If team member, fetch the main doctor's profile using doctor_id_clinic
+        if (userProfile.doctor_id_clinic) {
+          const { data: mainDoctorProfile, error: mainDoctorError } = await supabase
+            .from('doctor_profiles')
+            .select('*')
+            .eq('id', userProfile.doctor_id_clinic)
+            .single();
+
+          if (mainDoctorError) {
+            console.error('Error fetching main doctor profile:', mainDoctorError);
+            // Fallback to user's own profile
+            setDoctorProfile(userProfile);
+          } else {
+            // Display main doctor's profile info
+            setDoctorProfile(mainDoctorProfile);
+          }
+        } else {
+          // No clinic link, use user's own profile
+          setDoctorProfile(userProfile);
+        }
       } else {
-        setError('Failed to fetch or create doctor profile');
+        // Regular doctor, use their own profile
+        setIsTeamMember(false);
+        setDoctorProfile(userProfile);
       }
     } catch (error) {
       console.error('Error in fetchDoctorProfile:', error);
@@ -64,6 +107,24 @@ export function DashboardHeader() {
     return 'Doctor';
   };
 
+  const getDisplayName = () => {
+    if (isTeamMember) {
+      // For team members, show "Dr. [Main Doctor Name]" with team member indicator
+      return `Dr. ${getDoctorName()}`;
+    } else {
+      // For regular doctors, show "Dr. [Doctor Name]"
+      return `Dr. ${getDoctorName()}`;
+    }
+  };
+
+  const getDisplayTitle = () => {
+    if (isTeamMember) {
+      return 'Team Member'; // Could be enhanced to show "Staff" or "Manager" based on role
+    } else {
+      return doctorProfile?.specialty || 'Medical Professional';
+    }
+  };
+
   return (
     <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 shadow-sm">
       <div className="flex flex-col space-y-4">
@@ -76,7 +137,7 @@ export function DashboardHeader() {
                 {doctorProfile?.avatar_url ? (
                   <AvatarImage 
                     src={doctorProfile.avatar_url} 
-                    alt={`Dr. ${getDoctorName()}`}
+                    alt={getDisplayName()}
                     onError={(e) => {
                       console.error('Avatar image failed to load:', e);
                       const target = e.target as HTMLImageElement;
@@ -90,10 +151,10 @@ export function DashboardHeader() {
               </Avatar>
               <div>
                 <h2 className="text-base font-semibold text-gray-900">
-                  Dr. {getDoctorName()}
+                  {getDisplayName()}
                 </h2>
                 <p className="text-xs text-gray-500">
-                  {doctorProfile?.specialty || 'Medical Professional'}
+                  {getDisplayTitle()}
                 </p>
               </div>
             </div>
@@ -135,12 +196,12 @@ export function DashboardHeader() {
               </AvatarFallback>
             </Avatar>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">
-                Dr. {getDoctorName()}
-              </h2>
-              <p className="text-sm text-gray-500">
-                {doctorProfile?.specialty || 'Medical Professional'}
-              </p>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {getDisplayName()}
+                </h2>
+                <p className="text-sm text-gray-500">
+                  {getDisplayTitle()}
+                </p>
             </div>
           </div>
           
@@ -184,12 +245,12 @@ export function DashboardHeader() {
               </AvatarFallback>
             </Avatar>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">
-                Dr. {getDoctorName()}
-              </h2>
-              <p className="text-sm text-gray-500">
-                {doctorProfile?.specialty || 'Medical Professional'}
-              </p>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {getDisplayName()}
+                </h2>
+                <p className="text-sm text-gray-500">
+                  {getDisplayTitle()}
+                </p>
             </div>
           </div>
           

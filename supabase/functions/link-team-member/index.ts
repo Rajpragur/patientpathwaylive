@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -6,114 +6,124 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface LinkTeamMemberRequest {
-  invitationToken: string;
-  userId: string;
-}
-
-const handler = async (req: Request): Promise<Response> => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    // Use service role key for this function since it needs to work without user authentication
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    
-    console.log('Supabase URL:', supabaseUrl);
-    console.log('Service role key available:', !!serviceRoleKey);
-    console.log('Request headers:', Object.fromEntries(req.headers.entries()));
-    
-    if (!supabaseUrl || !serviceRoleKey) {
-      console.error('Missing environment variables:', { supabaseUrl: !!supabaseUrl, serviceRoleKey: !!serviceRoleKey });
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Missing required environment variables'
-      }), {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
-
-    // Create client with service role key - this should bypass all RLS
-    const supabaseClient = createClient(supabaseUrl, serviceRoleKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      },
-      global: {
-        headers: {
-          Authorization: `Bearer ${serviceRoleKey}`
+    // Create a Supabase client with the service role key
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
         }
       }
-    });
+    )
 
-    const { invitationToken, userId }: LinkTeamMemberRequest = await req.json();
-    
-    console.log('Received request:', { invitationToken, userId });
+    const { invitationToken, userId, firstName, lastName, email } = await req.json()
 
     if (!invitationToken || !userId) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Invitation token and user ID are required'
-      }), {
-        status: 400,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    // Call the database function to link team member
-    console.log('Calling link_team_member_to_doctor with:', { p_invitation_token: invitationToken, p_user_id: userId });
-    
-    const { data, error } = await supabaseClient.rpc('link_team_member_to_doctor', {
-      p_invitation_token: invitationToken,
-      p_user_id: userId
-    });
-    
-    console.log('Database function result:', { data, error });
+    // Get the team member record
+    const { data: teamMemberRecord, error: fetchError } = await supabaseClient
+      .from('team_members')
+      .select(`
+        *,
+        doctor_profiles!inner(
+          id,
+          doctor_id,
+          clinic_name,
+          location,
+          phone,
+          mobile,
+          logo_url,
+          providers
+        )
+      `)
+      .eq('invitation_token', invitationToken)
+      .single()
 
-    if (error) {
-      console.error('Error linking team member:', error);
-      return new Response(JSON.stringify({
-        success: false,
-        error: error.message || 'Failed to link team member'
-      }), {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+    if (fetchError || !teamMemberRecord) {
+      console.error('Error fetching team member record:', fetchError)
+      return new Response(
+        JSON.stringify({ error: 'Invalid invitation token' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    if (!data.success) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: data.error || 'Failed to link team member'
-      }), {
-        status: 400,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+    const doctorProfile = teamMemberRecord.doctor_profiles
+
+    // Update the team member record
+    const { error: linkError } = await supabaseClient
+      .from('team_members')
+      .update({
+        linked_user_id: userId,
+        status: 'accepted',
+        accepted_at: new Date().toISOString()
+      })
+      .eq('invitation_token', invitationToken)
+
+    if (linkError) {
+      console.error('Error linking team member:', linkError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to link team member' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    return new Response(JSON.stringify({
-      success: true,
-      message: data.message,
-      doctor_profile_id: data.doctor_profile_id,
-      team_member_id: data.team_member_id
-    }), {
-      status: 200,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+      // Create a doctor profile for the team member (with conflict handling)
+      const { error: profileError } = await supabaseClient
+        .from('doctor_profiles')
+        .upsert([{
+          user_id: userId,
+          first_name: firstName || 'Team',
+          last_name: lastName || 'Member',
+          email: email,
+          doctor_id: doctorProfile.doctor_id,
+          clinic_name: doctorProfile.clinic_name,
+          location: doctorProfile.location,
+          phone: doctorProfile.phone,
+          mobile: doctorProfile.mobile,
+          logo_url: doctorProfile.logo_url,
+          providers: doctorProfile.providers,
+          access_control: true,
+          // Set team flags based on role
+          is_staff: teamMemberRecord.role === 'staff',
+          is_manager: teamMemberRecord.role === 'manager',
+          doctor_id_clinic: doctorProfile.id.toString() // Ensure it's TEXT
+        }], {
+          onConflict: 'email', // Use email as the conflict resolution key
+          ignoreDuplicates: false // Update if exists
+        })
 
-  } catch (error: any) {
-    console.error("Error in link-team-member function:", error);
-    return new Response(JSON.stringify({ 
-      success: false,
-      error: error.message 
-    }), {
-      status: 500,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    if (profileError) {
+      console.error('Error creating doctor profile for team member:', profileError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to create team member profile' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    return new Response(
+      JSON.stringify({ success: true, message: 'Team member linked successfully' }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+
+  } catch (error) {
+    console.error('Error in link-team-member function:', error)
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   }
-};
-
-serve(handler);
+})

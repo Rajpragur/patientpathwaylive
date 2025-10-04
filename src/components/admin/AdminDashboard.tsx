@@ -45,10 +45,17 @@ export function AdminDashboard() {
     try {
       setLoading(true);
       
-      // Fetch doctors
+      // Fetch doctors with clinic information
       const { data: doctorData } = await supabase
         .from('doctor_profiles')
-        .select('*')
+        .select(`
+          *,
+          clinic_profiles(
+            id,
+            clinic_name,
+            clinic_slug
+          )
+        `)
         .order('created_at', { ascending: false });
 
       // Fetch leads

@@ -30,6 +30,7 @@ export function ProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isTeamMember, setIsTeamMember] = useState(false);
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -57,7 +58,56 @@ export function ProfilePage() {
       setLoading(true);
       setError(null);
       
-      const profile = await getOrCreateDoctorProfile(user.id, user.email || undefined);
+      // First, get the current user's profile to check if they're staff/manager
+      const { data: userProfiles, error: fetchError } = await supabase
+        .from('doctor_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+
+      if (fetchError) {
+        console.error('Error fetching doctor profiles:', fetchError);
+        setError('Failed to fetch doctor profile');
+        return;
+      }
+
+      let profile = null;
+
+      if (!userProfiles || userProfiles.length === 0) {
+        // No profile exists, create one (regular doctor)
+        profile = await getOrCreateDoctorProfile(user.id, user.email || undefined);
+      } else {
+        const userProfile = userProfiles[0];
+        
+        // Check if user is staff or manager
+        if (userProfile.is_staff || userProfile.is_manager) {
+          setIsTeamMember(true);
+          // If team member, fetch the main doctor's profile using doctor_id_clinic
+          if (userProfile.doctor_id_clinic) {
+            const { data: mainDoctorProfile, error: mainDoctorError } = await supabase
+              .from('doctor_profiles')
+              .select('*')
+              .eq('id', userProfile.doctor_id_clinic)
+              .single();
+
+            if (mainDoctorError) {
+              console.error('Error fetching main doctor profile:', mainDoctorError);
+              // Fallback to user's own profile
+              profile = userProfile;
+            } else {
+              // Use main doctor's profile for display
+              profile = mainDoctorProfile;
+            }
+          } else {
+            // No clinic link, use user's own profile
+            profile = userProfile;
+          }
+        } else {
+          setIsTeamMember(false);
+          // Regular doctor, use their own profile
+          profile = userProfile;
+        }
+      }
       
       if (profile) {
         setDoctorProfile(profile);
@@ -459,6 +509,7 @@ export function ProfilePage() {
                     value={formData.first_name}
                     onChange={(e) => setFormData(prev => ({ ...prev, first_name: e.target.value }))}
                     className="rounded-2xl"
+                    disabled={isTeamMember}
                   />
                 </div>
                 <div>
@@ -468,6 +519,7 @@ export function ProfilePage() {
                     value={formData.last_name}
                     onChange={(e) => setFormData(prev => ({ ...prev, last_name: e.target.value }))}
                     className="rounded-2xl"
+                    disabled={isTeamMember}
                   />
                 </div>
               </div>
@@ -480,6 +532,7 @@ export function ProfilePage() {
                   value={formData.email}
                   onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                   className="rounded-2xl"
+                  disabled={isTeamMember}
                 />
               </div>
               
@@ -491,6 +544,7 @@ export function ProfilePage() {
                   value={formData.phone}
                   onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                   className="rounded-2xl"
+                  disabled={isTeamMember}
                 />
               </div>
               
@@ -516,6 +570,7 @@ export function ProfilePage() {
                     value={formData.clinic_name}
                     onChange={(e) => setFormData(prev => ({ ...prev, clinic_name: e.target.value }))}
                     className="rounded-2xl"
+                    disabled={isTeamMember}
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -527,29 +582,39 @@ export function ProfilePage() {
                     value={formData.website}
                     onChange={(e) => setFormData(prev => ({ ...prev, website: e.target.value }))}
                     className="rounded-2xl"
+                    disabled={isTeamMember}
                   />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Button 
-            onClick={handleSave}
-            disabled={saving || uploading}
-            className="w-full py-4 bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] hover:from-[#0E7C9D]/90 hover:to-[#FD904B]/90 rounded-2xl text-lg font-semibold shadow-lg"
-          >
-            {saving ? (
-              <div className="flex items-center gap-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                Saving...
-              </div>
-            ) : (
-              <>
-                <Save className="w-5 h-5 mr-2" />
-                Save Profile
-              </>
-            )}
-          </Button>
+          {!isTeamMember && (
+            <Button 
+              onClick={handleSave}
+              disabled={saving || uploading}
+              className="w-full py-4 bg-gradient-to-r from-[#0E7C9D] to-[#FD904B] hover:from-[#0E7C9D]/90 hover:to-[#FD904B]/90 rounded-2xl text-lg font-semibold shadow-lg"
+            >
+              {saving ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Saving...
+                </div>
+              ) : (
+                <>
+                  <Save className="w-5 h-5 mr-2" />
+                  Save Profile
+                </>
+              )}
+            </Button>
+          )}
+          
+          {isTeamMember && (
+            <div className="w-full py-4 bg-gray-100 rounded-2xl text-center text-gray-600 text-lg font-semibold">
+              <User className="w-5 h-5 mr-2 inline" />
+              Viewing Clinic Profile
+            </div>
+          )}
         </div>
       </div>
     </div>

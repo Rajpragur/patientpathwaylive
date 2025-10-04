@@ -45,35 +45,15 @@ export default function TeamSignupPage() {
   const verifyInvitationToken = async (token: string) => {
     setVerifying(true);
     try {
-      // First, let's check if there are any team members at all
-      const { data: allTeamMembers, error: allError } = await supabase
-        .from('team_members')
-        .select('invitation_token, status, email')
-        .limit(5);
+      console.log('Verifying invitation token:', token);
       
-      console.log('All team members:', allTeamMembers);
-      console.log('All team members error:', allError);
-      
-      // First try a simple query without joins
-      console.log('Searching for team member with token:', token);
-      
-      // Test query to see if we can find any team members at all
-      const { data: testData, error: testError } = await supabase
-        .from('team_members')
-        .select('invitation_token, email, status')
-        .limit(10);
-      
-      console.log('Test query - all team members:', testData);
-      console.log('Test query error:', testError);
-      
+      // Try the team_members table (current working system)
       const { data, error } = await supabase
         .from('team_members')
         .select('*')
-        .eq('invitation_token', token)
-        .eq('status', 'pending')
-        .single();
+        .eq('invitation_token', token); // Token is the invitation token
 
-      if (error || !data) {
+      if (error) {
         console.error('Error fetching invitation:', error);
         console.log('Token being searched:', token);
         toast.error(`Invalid or expired invitation link. Error: ${error?.message || 'No data found'}`);
@@ -81,45 +61,70 @@ export default function TeamSignupPage() {
         return;
       }
 
-      if (new Date(data.token_expires_at) < new Date()) {
-        toast.error('Invitation link has expired');
+      if (!data || data.length === 0) {
+        console.error('No team member found with ID:', token);
+        toast.error('Invalid or expired invitation link. No invitation found.');
         navigate('/auth');
         return;
       }
 
-      // Fetch doctor profile separately
-      const { data: doctorProfile, error: doctorError } = await supabase
-        .from('doctor_profiles')
-        .select('first_name, last_name, clinic_name, email, doctor_id')
-        .eq('id', data.doctor_id)
-        .single();
+      const invitationRecord = data[0]; // Get the first (and should be only) record
 
-      if (doctorError) {
-        console.error('Error fetching doctor profile:', doctorError);
-        toast.error('Error loading invitation details');
-        navigate('/auth');
-        return;
-      }
-
-      // Combine team member and doctor data
+      // Set invitation info with legacy data
       const invitationData = {
-        ...data,
-        doctor_profiles: doctorProfile
+        ...invitationRecord,
+        clinic: { clinic_name: 'Clinic' } // Default clinic name for legacy
       };
 
       setInvitationInfo(invitationData);
       // Pre-fill form with invitation data
-      setFirstName(data.first_name || '');
-      setLastName(data.last_name || '');
-      setEmail(data.email || '');
+      setFirstName(invitationRecord.first_name || '');
+      setLastName(invitationRecord.last_name || '');
+      setEmail(invitationRecord.email || '');
       
-      toast.success(`Welcome! You've been invited to join ${doctorProfile.clinic_name || 'the clinic'}`);
+      toast.success(`Welcome! You've been invited to join the clinic`);
     } catch (error) {
       console.error('Error verifying invitation:', error);
       toast.error('Failed to verify invitation');
       navigate('/auth');
     } finally {
       setVerifying(false);
+    }
+  };
+
+  const linkTeamMember = async (userId: string) => {
+    try {
+      console.log('Linking team member:', userId);
+      
+      // Use the edge function to handle team member linking with elevated permissions
+      const { data, error } = await supabase.functions.invoke('link-team-member', {
+        body: {
+          invitationToken: invitationToken,
+          userId: userId,
+          firstName: firstName,
+          lastName: lastName,
+          email: email
+        }
+      });
+
+      if (error) {
+        console.error('Error linking team member via edge function:', error);
+        toast.error('Failed to link to team. Please contact support.');
+        return false;
+      }
+
+      if (data?.success) {
+        console.log('Team member linked successfully via edge function');
+        return true;
+      } else {
+        console.error('Edge function returned error:', data?.error);
+        toast.error(data?.error || 'Failed to link to team');
+        return false;
+      }
+    } catch (error) {
+      console.error('Error in team linking:', error);
+      toast.error('Account created but failed to link to team. Please contact support.');
+      return false;
     }
   };
 
@@ -138,54 +143,75 @@ export default function TeamSignupPage() {
 
     setLoadingSignup(true);
     try {
-      // Sign up the user
+      // Sign up the user (team member - disable email confirmation)
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
+          emailRedirectTo: `${window.location.origin}/portal`, // Redirect directly to portal
           data: {
             first_name: firstName,
             last_name: lastName,
-            full_name: `${firstName} ${lastName}`
+            full_name: `${firstName} ${lastName}`,
+            is_team_member: true // Mark as team member
           }
         }
       });
 
       if (authError) {
+        // Handle email confirmation errors gracefully
+        if (authError.message.includes('confirmation email') || authError.message.includes('Error sending')) {
+          console.log('Email confirmation error, but user might still be created:', authError);
+          
+          // Check if user was created despite email error
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            console.log('User created successfully despite email error');
+            // Continue with team linking
+            const linked = await linkTeamMember(user.id);
+            if (linked) {
+              // Sign in the user immediately after linking
+              console.log('Signing in user after email error recovery...');
+              try {
+                const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+                  email: email,
+                  password: password
+                });
+                
+                if (signInError) {
+                  console.error('Error signing in after email error recovery:', signInError);
+                  toast.error('Account created but failed to sign in. Please try logging in manually.');
+                } else {
+                  console.log('User signed in successfully after email error recovery');
+                  toast.success('Account created and signed in successfully!');
+                }
+              } catch (error) {
+                console.error('Error in email error recovery sign in:', error);
+              }
+              return;
+            }
+          }
+        }
         throw authError;
       }
 
       if (authData.user) {
-        // Link the team member with the same doctor_id
-        const { data: linkData, error: linkError } = await supabase.functions.invoke('link-team-member', {
-          body: {
-            invitationToken: invitationToken,
-            userId: authData.user.id
-          }
+        console.log('Using legacy team linking system');
+        console.log('Auth data:', { 
+          user: authData.user?.id, 
+          session: !!authData.session, 
+          emailConfirmed: authData.user?.email_confirmed_at 
         });
 
-        if (linkError) {
-          console.error('Error linking team member:', linkError);
-          toast.error('Account created but failed to link to team. Please contact support.');
-        } else if (linkData?.success) {
-          // Sign in the user so they can access the portal
-          const { error: signInError } = await supabase.auth.signInWithPassword({
-            email: email,
-            password: password
-          });
-
-          if (signInError) {
-            console.error('Error signing in:', signInError);
-            toast.error('Account created but failed to sign in. Please try logging in manually.');
-          } else {
-            toast.success('Account created and linked to team successfully!');
-          }
-
-          // Redirect to portal since they're now part of the team
-          navigate('/portal');
-        } else {
-          toast.error('Failed to link to team. Please contact support.');
-        }
+        // Link the team member
+        const linked = await linkTeamMember(authData.user.id);
+        
+         // If account was created successfully, redirect to login
+         if (linked) {
+           console.log('Account created successfully, redirecting to login...');
+           toast.success('Account created successfully! Please sign in to continue.');
+           navigate('/auth?message=account-created');
+         }
       }
     } catch (error: any) {
       console.error('Signup error:', error);
@@ -239,7 +265,7 @@ export default function TeamSignupPage() {
             Team Invitation
           </h3>
           <p className="text-sm text-green-700">
-            You've been invited to join <strong>{invitationInfo.doctor_profiles.clinic_name || 'the clinic'}</strong> by Dr. {invitationInfo.doctor_profiles.first_name} {invitationInfo.doctor_profiles.last_name}.
+            You've been invited to join <strong>{invitationInfo.clinic?.clinic_name || 'the clinic'}</strong> as a <strong>{invitationInfo.role?.charAt(0).toUpperCase() + invitationInfo.role?.slice(1) || 'Team Member'}</strong>.
           </p>
           <p className="text-xs text-green-600 mt-1">
             You'll have access to the same clinic data and patient information.

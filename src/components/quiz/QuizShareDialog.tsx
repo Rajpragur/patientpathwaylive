@@ -48,21 +48,64 @@ export function QuizShareDialog({ isOpen, onClose, quizType, customQuizId }: Qui
   }, [user]);
 
   const loadProfile = async () => {
+    if (!user) return;
+    
     try {
-      const { data, error } = await supabase
+      // First, get the current user's profile to check if they're staff/manager
+      const { data: userProfiles, error: fetchError } = await supabase
         .from('doctor_profiles')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .order('created_at', { ascending: true });
 
-      if (error) {
-        console.error('Error loading profile:', error);
+      if (fetchError) {
+        console.error('Error fetching doctor profiles:', fetchError);
         toast.error('Failed to load profile');
         return;
       }
 
-      setProfile(data);
-      generateShareUrl(data);
+      if (!userProfiles || userProfiles.length === 0) {
+        console.log('No doctor profile found');
+        toast.error('No doctor profile found');
+        return;
+      }
+
+      const userProfile = userProfiles[0];
+      let profile = null;
+      
+      // Check if user is staff or manager
+      if (userProfile.is_staff || userProfile.is_manager) {
+        // If team member, fetch the main doctor's profile using doctor_id_clinic
+        if (userProfile.doctor_id_clinic) {
+          const { data: mainDoctorProfile, error: mainDoctorError } = await supabase
+            .from('doctor_profiles')
+            .select('*')
+            .eq('id', userProfile.doctor_id_clinic)
+            .single();
+
+          if (mainDoctorError) {
+            console.error('Error fetching main doctor profile:', mainDoctorError);
+            // Fallback to user's own profile
+            profile = userProfile;
+          } else {
+            // Use main doctor's profile for quiz sharing
+            profile = mainDoctorProfile;
+          }
+        } else {
+          // No clinic link, use user's own profile
+          profile = userProfile;
+        }
+      } else {
+        // Regular doctor, use their own profile
+        profile = userProfile;
+      }
+
+      if (profile) {
+        setProfile(profile);
+        generateShareUrl(profile);
+      } else {
+        toast.error('Failed to load profile');
+      }
     } catch (error) {
       console.error('Unexpected error loading profile:', error);
       toast.error('Unexpected error loading profile');
