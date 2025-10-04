@@ -80,6 +80,35 @@ export function LoginForm(props: LoginFormProps) {
     }
   };
 
+  const checkForExistingInvitation = async (email: string) => {
+    try {
+      console.log('Checking for existing invitation for email:', email);
+      
+      // Check if there's a pending invitation for this email
+      const { data: teamMember, error } = await supabase
+        .from('team_members')
+        .select('*')
+        .eq('email', email)
+        .eq('status', 'pending')
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error checking for invitation:', error);
+        return null;
+      }
+
+      if (teamMember) {
+        console.log('Found existing invitation:', teamMember);
+        return teamMember;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error in checkForExistingInvitation:', error);
+      return null;
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
@@ -87,10 +116,16 @@ export function LoginForm(props: LoginFormProps) {
       
       const currentOrigin = window.location.origin;
       
-      // Check if user has a pending invitation first
-      const redirectUrl = invitationToken 
-        ? `${currentOrigin}/team-signup?invitation=${invitationToken}`
-        : `${currentOrigin}/portal`;
+      // Store invitation token in sessionStorage for later retrieval
+      if (invitationToken) {
+        sessionStorage.setItem('pending_invitation_token', invitationToken);
+        console.log('Stored invitation token for Google OAuth:', invitationToken);
+      }
+      
+      // Set redirect URL - we'll handle the invitation linking after OAuth completes
+      const redirectUrl = `${currentOrigin}/auth?google_oauth=true`;
+      
+      console.log('Redirecting to:', redirectUrl);
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',

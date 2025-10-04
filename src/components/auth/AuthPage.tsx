@@ -95,6 +95,9 @@ export function AuthPage() {
             <p className="text-xs text-blue-600 mt-1">
               Log in to accept this invitation. If you don't have an account, please contact your administrator.
             </p>
+            <p className="text-xs text-orange-600 mt-2 font-medium">
+              💡 Tip: Use email/password login for team invitations to ensure proper linking with Google accounts.
+            </p>
           </div>
         )}
 
