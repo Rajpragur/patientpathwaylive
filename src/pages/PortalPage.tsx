@@ -20,6 +20,7 @@ import { PageLoader } from '@/components/ui/PageLoader';
 import { AnimatePresence, motion } from 'framer-motion';
 import SocialMediaCreator from '@/components/dashboard/SocialMediaCreator';
 import { supabase } from '@/integrations/supabase/client';
+import { getOrCreateDoctorProfile } from '@/lib/profileUtils';
 
 export default function PortalPage() {
   const { user, loading, signOut } = useAuth();
@@ -67,10 +68,35 @@ export default function PortalPage() {
           return;
         }
       }
-      console.log('❌ No access found via doctor profiles');
-      setHasAccess(false);
-      setAccessRevoked(true);
-      toast.error('You do not have access to the portal. Please contact your administrator.');
+
+      // If no doctor profile found, create one for regular users
+      console.log('No doctor profile found, creating one for regular user...');
+      
+      // Get user info from auth
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      if (authError || !authUser) {
+        console.error('Error getting auth user:', authError);
+        setHasAccess(false);
+        setAccessRevoked(true);
+        toast.error('Error getting user information. Please try again.');
+        return;
+      }
+
+      // Use the existing getOrCreateDoctorProfile function to avoid conflicts
+      const profile = await getOrCreateDoctorProfile(userId, authUser.email);
+      
+      if (!profile) {
+        console.error('Failed to create doctor profile');
+        setHasAccess(false);
+        setAccessRevoked(true);
+        toast.error('Failed to set up your account. Please contact support.');
+        return;
+      }
+
+      console.log('Doctor profile created for regular user');
+      setHasAccess(true);
+      toast.success('Welcome! Your account has been set up.');
+      
     } catch (error) {
       console.error('Error checking access:', error);
       setHasAccess(false);

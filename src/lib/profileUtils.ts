@@ -84,6 +84,26 @@ export async function getOrCreateDoctorProfile(userId: string, userEmail?: strin
       .single();
 
     if (createError) {
+      // If it's a unique constraint violation, try to fetch the existing profile
+      if (createError.code === '23505' && createError.message.includes('unique_doctor_profile_per_user')) {
+        console.log('Profile already exists due to race condition, fetching existing profile...');
+        
+        // Try to fetch the existing profile
+        const { data: existingProfile, error: fetchError } = await supabase
+          .from('doctor_profiles')
+          .select('*')
+          .eq('user_id', userId)
+          .single();
+          
+        if (fetchError) {
+          console.error('Error fetching existing profile after constraint violation:', fetchError);
+          return null;
+        }
+        
+        console.log('Found existing profile after constraint violation:', existingProfile.id);
+        return existingProfile;
+      }
+      
       console.error('Error creating doctor profile:', createError);
       return null;
     }

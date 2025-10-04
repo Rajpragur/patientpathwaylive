@@ -2994,9 +2994,14 @@ export function EnhancedAdminDashboard() {
                 <Download className="w-4 h-4 mr-2" />
                 Export Selected
               </Button>
-              <Button variant="outline" className="w-full justify-start text-red-600">
+              <Button 
+                variant="outline" 
+                className="w-full justify-start text-red-600"
+                onClick={() => deleteSelectedDoctors()}
+                disabled={selectedDoctors.size === 0}
+              >
                 <Trash2 className="w-4 h-4 mr-2" />
-                Delete Selected
+                Delete Selected ({selectedDoctors.size})
               </Button>
             </div>
             
