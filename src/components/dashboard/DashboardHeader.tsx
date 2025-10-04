@@ -12,7 +12,7 @@ export function DashboardHeader() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isTeamMember, setIsTeamMember] = useState(false);
-
+  const [maindoctorname, setMaindoctorname] = useState<string | null>(null);
   useEffect(() => {
     if (user) {
       fetchDoctorProfile();
@@ -25,8 +25,6 @@ export function DashboardHeader() {
     try {
       setLoading(true);
       setError(null);
-      
-      // First, get the current user's profile to check if they're staff/manager
       const { data: userProfiles, error: fetchError } = await supabase
         .from('doctor_profiles')
         .select('*')
@@ -52,7 +50,7 @@ export function DashboardHeader() {
       // Check if user is staff or manager
       if (userProfile.is_staff || userProfile.is_manager) {
         setIsTeamMember(true);
-        
+        setMaindoctorname(userProfile.first_name);
         // If team member, fetch the main doctor's profile using doctor_id_clinic
         if (userProfile.doctor_id_clinic) {
           const { data: mainDoctorProfile, error: mainDoctorError } = await supabase
@@ -70,7 +68,6 @@ export function DashboardHeader() {
             setDoctorProfile(mainDoctorProfile);
           }
         } else {
-          // No clinic link, use user's own profile
           setDoctorProfile(userProfile);
         }
       } else {
@@ -119,7 +116,7 @@ export function DashboardHeader() {
 
   const getDisplayTitle = () => {
     if (isTeamMember) {
-      return 'Team Member'; // Could be enhanced to show "Staff" or "Manager" based on role
+      return `Team Member - ${maindoctorname}`;
     } else {
       return doctorProfile?.specialty || 'Medical Professional';
     }
