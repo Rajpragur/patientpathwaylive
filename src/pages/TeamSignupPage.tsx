@@ -148,13 +148,13 @@ export default function TeamSignupPage() {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/verify-email?invitation=${invitationToken}`, // Redirect to verification page with token
+          emailRedirectTo: `${window.location.origin}/team-member-landing?invitation=${invitationToken}`, // Redirect to team member landing page
           data: {
             first_name: firstName,
             last_name: lastName,
             full_name: `${firstName} ${lastName}`,
-            is_team_member: true, // Mark as team member
-            invitation_token: invitationToken // Store invitation token for later linking
+            is_team_member: true,
+            invitation_token: invitationToken
           }
         }
       });
@@ -174,7 +174,7 @@ export default function TeamSignupPage() {
         });
 
         // Show success message and redirect to email verification
-        toast.success('Account created successfully! Please check your email to verify your account.');
+        toast.success('Account created successfully! Please check your email to verify your account and join the team.');
         navigate('/verify-email?message=team-member-created');
       }
     } catch (error: any) {

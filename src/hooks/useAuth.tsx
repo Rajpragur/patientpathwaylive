@@ -104,6 +104,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  const checkAndHandleTeamMemberLinking = async (user: any) => {
+    try {
+      // Check if user is a team member that needs linking
+      if (user.user_metadata?.is_team_member && user.user_metadata?.invitation_token) {
+        console.log('Found team member that needs linking:', user.id);
+        
+        // Check if they already have a doctor profile
+        const { data: existingProfile, error: profileError } = await supabase
+          .from('doctor_profiles')
+          .select('id, doctor_id_clinic, is_staff, is_manager')
+          .eq('user_id', user.id)
+          .single();
+
+        if (profileError && profileError.code !== 'PGRST116') {
+          console.error('Error checking existing profile:', profileError);
+          return;
+        }
+
+        // If no profile or missing clinic data, link them
+        if (!existingProfile || !existingProfile.doctor_id_clinic) {
+          console.log('Team member needs linking, calling handleTeamInvitation');
+          await handleTeamInvitation(user.user_metadata.invitation_token, user.id);
+        } else {
+          console.log('Team member already linked:', existingProfile);
+        }
+      }
+    } catch (error) {
+      console.error('Error in checkAndHandleTeamMemberLinking:', error);
+    }
+  };
+
   const handleTeamInvitation = async (invitationToken: string, userId: string) => {
     try {
       // Get user metadata for team member linking

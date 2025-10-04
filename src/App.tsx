@@ -28,6 +28,7 @@ import TNSSLandingPage from './pages/share/TNSSLandingPage';
 import AdminPortal from './pages/AdminPortal';
 import TeamSignupPage from './pages/TeamSignupPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import TeamMemberLandingPage from './pages/TeamMemberLandingPage';
 const queryClient = new QueryClient();
 
 function App() {
@@ -43,6 +44,7 @@ function App() {
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/team-signup" element={<TeamSignupPage />} />
+              <Route path="/team-member-landing" element={<TeamMemberLandingPage />} />
               <Route path="/verify-email" element={<EmailVerificationPage />} />
               <Route path="/nose/:doctorId?" element={<NoseLandingPage />} />
               <Route path="/share/nose/:doctorId?" element={<NOSELandingPage />} />
