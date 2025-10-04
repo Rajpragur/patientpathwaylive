@@ -271,12 +271,64 @@ export function ConfigurationPage() {
     }
   };
 
+  // Diagnostic function to check team member status
+  const checkTeamMemberStatus = async (memberId: string) => {
+    try {
+      console.log('=== DIAGNOSTIC: Checking team member status ===');
+      
+      // Check team_members table
+      const { data: teamMember, error: teamError } = await supabase
+        .from('team_members')
+        .select('*')
+        .eq('id', memberId)
+        .single();
+      
+      console.log('Team member record:', teamMember);
+      if (teamError) console.error('Team member error:', teamError);
+      
+      if (teamMember?.linked_user_id) {
+        // Check doctor_profiles table
+        const { data: profile, error: profileError } = await supabase
+          .from('doctor_profiles')
+          .select('*')
+          .eq('user_id', teamMember.linked_user_id)
+          .single();
+        
+        console.log('Doctor profile record:', profile);
+        if (profileError) console.error('Doctor profile error:', profileError);
+        
+        // Check auth.users table (this might fail due to RLS)
+        try {
+          const { data: authUser, error: authError } = await supabase
+            .from('auth.users')
+            .select('id, email, created_at')
+            .eq('id', teamMember.linked_user_id)
+            .single();
+          
+          console.log('Auth user record:', authUser);
+          if (authError) console.error('Auth user error:', authError);
+        } catch (authError) {
+          console.log('Cannot access auth.users table (expected due to RLS):', authError);
+        }
+      }
+      
+      console.log('=== END DIAGNOSTIC ===');
+    } catch (error) {
+      console.error('Diagnostic error:', error);
+    }
+  };
+
   const handleRemoveTeamMember = async (memberId: string) => {
     try {
+      console.log('Starting team member removal for ID:', memberId);
+      
+      // Run diagnostic first
+      await checkTeamMemberStatus(memberId);
+      
       // First, get the team member record to find the linked user
       const { data: teamMember, error: fetchError } = await supabase
         .from('team_members')
-        .select('id, linked_user_id, email, first_name, last_name')
+        .select('id, linked_user_id, email, first_name, last_name, doctor_id')
         .eq('id', memberId)
         .single();
 
@@ -291,75 +343,147 @@ export function ConfigurationPage() {
         return;
       }
 
-      console.log('Removing team member:', {
+      console.log('Found team member to remove:', {
         id: teamMember.id,
         linked_user_id: teamMember.linked_user_id,
-        email: teamMember.email
+        email: teamMember.email,
+        doctor_id: teamMember.doctor_id
       });
 
       // Step 1: Remove from doctor_profiles table
       if (teamMember.linked_user_id) {
-        const { error: profileError } = await supabase
+        console.log('Attempting to remove doctor profile for user:', teamMember.linked_user_id);
+        
+        const { data: profileData, error: profileError } = await supabase
           .from('doctor_profiles')
           .delete()
-          .eq('user_id', teamMember.linked_user_id);
+          .eq('user_id', teamMember.linked_user_id)
+          .select();
 
         if (profileError) {
           console.error('Error removing doctor profile:', profileError);
-          toast.warning('Failed to remove doctor profile');
+          toast.warning(`Failed to remove doctor profile: ${profileError.message}`);
         } else {
-          console.log('Removed doctor profile for user:', teamMember.linked_user_id);
+          console.log('Successfully removed doctor profile:', profileData);
+          toast.success('Removed doctor profile');
         }
+      } else {
+        console.log('No linked_user_id found, skipping doctor profile removal');
       }
 
-      // Step 2: Remove from team_members table
-      const { error: teamError } = await supabase
-        .from('team_members')
-        .delete()
-        .eq('id', memberId);
-
-      if (teamError) {
-        console.error('Error removing team member:', teamError);
-        toast.error('Failed to remove team member from team list');
-        return;
-      }
-
-      console.log('Removed team member record:', memberId);
-
-      // Step 3: Delete the authentication user using admin client
+      // Step 2: Delete the authentication user using admin client
       if (teamMember.linked_user_id) {
         try {
-          // Create admin client with service role key for user deletion
-          const adminClient = createClient(
-            import.meta.env.VITE_SUPABASE_URL,
-            import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
-            {
-              auth: {
-                autoRefreshToken: false,
-                persistSession: false
-              }
-            }
-          );
-
-          const { error: deleteUserError } = await adminClient.auth.admin.deleteUser(teamMember.linked_user_id);
-
-          if (deleteUserError) {
-            console.error('Error deleting auth user:', deleteUserError);
-            toast.warning('Team member removed but auth account deletion failed. Contact support.');
+          console.log('Attempting to delete authentication user:', teamMember.linked_user_id);
+          
+          // Check if service role key is available
+          const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+          if (!serviceRoleKey) {
+            console.error('Service role key not found in environment variables');
+            toast.warning('Cannot delete auth account: Service role key not configured');
           } else {
-            console.log('Deleted authentication user:', teamMember.linked_user_id);
+            // Create admin client with service role key for user deletion
+            const adminClient = createClient(
+              import.meta.env.VITE_SUPABASE_URL,
+              serviceRoleKey,
+              {
+                auth: {
+                  autoRefreshToken: false,
+                  persistSession: false
+                }
+              }
+            );
+
+            console.log('Admin client created, attempting user deletion...');
+            
+            const { data: deleteData, error: deleteUserError } = await adminClient.auth.admin.deleteUser(teamMember.linked_user_id);
+
+            if (deleteUserError) {
+              console.error('Error deleting auth user:', deleteUserError);
+              
+              // Try alternative method using edge function as fallback
+              console.log('Trying alternative deletion method...');
+              try {
+                const { data: edgeData, error: edgeError } = await supabase.functions.invoke('delete-user', {
+                  body: {
+                    userId: teamMember.linked_user_id
+                  }
+                });
+
+                if (edgeError) {
+                  console.error('Edge function deletion also failed:', edgeError);
+                  toast.warning(`Auth account deletion failed: ${deleteUserError.message}. Edge function also failed: ${edgeError.message}`);
+                } else if (edgeData?.success) {
+                  console.log('Successfully deleted authentication user via edge function:', edgeData);
+                  toast.success('Deleted authentication account via edge function');
+                } else {
+                  console.error('Edge function returned error:', edgeData);
+                  toast.warning(`Auth account deletion failed: ${deleteUserError.message}`);
+                }
+              } catch (edgeError) {
+                console.error('Edge function call failed:', edgeError);
+                toast.warning(`Auth account deletion failed: ${deleteUserError.message}`);
+              }
+            } else {
+              console.log('Successfully deleted authentication user:', deleteData);
+              toast.success('Deleted authentication account');
+            }
           }
         } catch (error) {
           console.error('Error deleting auth user:', error);
-          toast.warning('Team member removed but auth account deletion failed. Contact support.');
+          toast.warning(`Auth account deletion failed: ${error.message}`);
         }
+      } else {
+        console.log('No linked_user_id found, skipping authentication user deletion');
       }
+
+      // Step 3: Remove from team_members table (do this last)
+      console.log('Attempting to remove team member record:', memberId);
+      
+      const { data: teamData, error: teamError } = await supabase
+        .from('team_members')
+        .delete()
+        .eq('id', memberId)
+        .select();
+
+      if (teamError) {
+        console.error('Error removing team member:', teamError);
+        toast.error(`Failed to remove team member from team list: ${teamError.message}`);
+        return;
+      }
+
+      console.log('Successfully removed team member record:', teamData);
+
+      // Run post-removal diagnostic
+      console.log('=== POST-REMOVAL DIAGNOSTIC ===');
+      try {
+        const { data: remainingTeamMember } = await supabase
+          .from('team_members')
+          .select('*')
+          .eq('id', memberId)
+          .single();
+        
+        console.log('Remaining team member record (should be null):', remainingTeamMember);
+        
+        if (teamMember.linked_user_id) {
+          const { data: remainingProfile } = await supabase
+            .from('doctor_profiles')
+            .select('*')
+            .eq('user_id', teamMember.linked_user_id)
+            .single();
+          
+          console.log('Remaining doctor profile (should be null):', remainingProfile);
+        }
+      } catch (diagError) {
+        console.log('Post-removal diagnostic error (expected):', diagError);
+      }
+      console.log('=== END POST-REMOVAL DIAGNOSTIC ===');
 
       toast.success(`Team member ${teamMember.first_name} ${teamMember.last_name} removed successfully`);
       await fetchTeamMembers(doctorId!);
     } catch (error) {
       console.error('Error removing team member:', error);
-      toast.error('Failed to remove team member');
+      toast.error(`Failed to remove team member: ${error.message}`);
     }
   };
 
@@ -596,7 +720,7 @@ const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Basic Information */}
-        <Card>
+        <Card className="border-2 border-gray-200 rounded-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building className="w-5 h-5 text-blue-500" />
@@ -638,7 +762,7 @@ const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         </Card>
 
         {/* Contact Information */}
-        <Card>
+        <Card className="border-2 border-gray-200 rounded-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Phone className="w-5 h-5 text-green-500" />
@@ -682,7 +806,7 @@ const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         </Card>
 
         {/* Branding */}
-        <Card className="md:col-span-2">
+        <Card className="md:col-span-2 border-2 border-gray-200 rounded-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Upload className="w-5 h-5 text-purple-500" />
@@ -751,7 +875,7 @@ const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
           </CardContent>
         </Card>
 {/* Contact List Management */}
-        <Card className="md:col-span-2">
+        <Card className="md:col-span-2 border-2 border-gray-200 rounded-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="w-5 h-5 text-indigo-500" />
@@ -803,7 +927,7 @@ const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         </Card>
 
         {/* Team Member Invitation */}
-        <Card className="md:col-span-2">
+        <Card className="md:col-span-2 border-2 border-gray-200 rounded-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Mail className="w-5 h-5 text-blue-500" />
@@ -874,52 +998,11 @@ const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
                         });
                       }
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="staff">Staff</option>
                     <option value="manager">Manager</option>
                   </select>
-                </div>
-                <div>
-                  <Label>Permissions</Label>
-                  <div className="space-y-2 mt-2">
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={invitePermissions.leads}
-                        onChange={(e) => setInvitePermissions(prev => ({ ...prev, leads: e.target.checked }))}
-                        className="rounded border-gray-300"
-                      />
-                      <span className="text-sm">View Leads</span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={invitePermissions.content}
-                        onChange={(e) => setInvitePermissions(prev => ({ ...prev, content: e.target.checked }))}
-                        className="rounded border-gray-300"
-                      />
-                      <span className="text-sm">View Content</span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={invitePermissions.payments}
-                        onChange={(e) => setInvitePermissions(prev => ({ ...prev, payments: e.target.checked }))}
-                        className="rounded border-gray-300"
-                      />
-                      <span className="text-sm">View Payments</span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={invitePermissions.team}
-                        onChange={(e) => setInvitePermissions(prev => ({ ...prev, team: e.target.checked }))}
-                        className="rounded border-gray-300"
-                      />
-                      <span className="text-sm">Manage Team</span>
-                    </label>
-                  </div>
                 </div>
                 <div className="md:col-span-2">
                   <Label htmlFor="patient_invite_message">Personal Message (Optional)</Label>
@@ -953,7 +1036,7 @@ const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         </Card>
 
         {/* Current Team Members */}
-        <Card>
+        <Card className='md:col-span-2 border-2 border-gray-200 rounded-lg'>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="w-5 h-5" />
