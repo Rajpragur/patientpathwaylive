@@ -19,10 +19,10 @@ import {
   Zap,
   Megaphone,
   Brain,
-  Globe,
   Users,
   TestTube,
   Mail,
+  Share2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -52,16 +52,16 @@ const mainMenuItems = [
     description: 'Manage quizzes'
   },
   {
+    id: 'social-media',
+    label: 'Social Media',
+    icon: <Share2 size={22} />,
+    description: 'Manage social posts'
+  },
+  {
     id: 'automation',
     label: 'Automation',
     icon: <Zap size={22} />,
     description: 'Automated workflows'
-  },
-  {
-    id: 'integrations',
-    label: 'Integrations',
-    icon: <Globe size={22} />,
-    description: 'Connect services'
   },
   {
     id: 'email-config',

@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -54,7 +54,8 @@ import {
   Database as DatabaseIcon,
   Shield as ShieldIcon,
   ToggleRight,
-  ToggleLeft
+  ToggleLeft,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -157,10 +158,17 @@ export function EnhancedAdminDashboard() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [showAddAdminDialog, setShowAddAdminDialog] = useState(false);
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [addAdminLoading, setAddAdminLoading] = useState(false);
   const [showLeadDetails, setShowLeadDetails] = useState(false);
   const [showMaskedData, setShowMaskedData] = useState(true); // Default to masked data
   const [showMaskedLeads, setShowMaskedLeads] = useState(false); // For masked leads dialog
   const [selectedLead, setSelectedLead] = useState<QuizLead | null>(null);
+  // Email alias request states
+  const [emailAliasRequests, setEmailAliasRequests] = useState<any[]>([]);
+  const [aliasRequestLoading, setAliasRequestLoading] = useState(false);
+  
   // Doctor analytics & access control
   const [showDoctorLeads, setShowDoctorLeads] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<DoctorProfile | null>(null);
@@ -211,6 +219,83 @@ export function EnhancedAdminDashboard() {
     fetchAdminData();
   }, [selectedTimeframe]);
 
+  const approveEmailAliasRequest = async (requestId: string) => {
+    try {
+      setAliasRequestLoading(true);
+      
+      console.log('Approving alias request:', requestId);
+      
+      const { data: userData } = await supabase.auth.getUser();
+      const approvedBy = userData.user?.id;
+      
+      if (!approvedBy) {
+        console.error('No authenticated user found');
+        toast.error('Authentication required to approve requests');
+        return;
+      }
+      
+      console.log('Approving with user ID:', approvedBy);
+      
+      const { data, error } = await supabase.rpc('approve_alias_request', {
+        request_id: requestId,
+        approved_by: approvedBy
+      });
+
+      console.log('Approval response:', { data, error });
+
+      if (error) {
+        console.error('Error approving alias request:', error);
+        toast.error(`Failed to approve alias request: ${error.message}`);
+        return;
+      }
+
+      if (data) {
+        toast.success('Email alias request approved successfully');
+        // Refresh the data
+        await fetchAdminData();
+      } else {
+        console.error('Approval returned false - alias may no longer be available');
+        toast.error('Failed to approve alias request - alias may no longer be available');
+      }
+    } catch (error) {
+      console.error('Error approving alias request:', error);
+      toast.error(`Failed to approve alias request: ${error.message}`);
+    } finally {
+      setAliasRequestLoading(false);
+    }
+  };
+
+  const rejectEmailAliasRequest = async (requestId: string, reason?: string) => {
+    try {
+      setAliasRequestLoading(true);
+      
+      const { data, error } = await supabase.rpc('reject_alias_request', {
+        request_id: requestId,
+        rejected_by: (await supabase.auth.getUser()).data.user?.id,
+        rejection_reason: reason || 'No reason provided'
+      });
+
+      if (error) {
+        console.error('Error rejecting alias request:', error);
+        toast.error('Failed to reject alias request');
+        return;
+      }
+
+      if (data) {
+        toast.success('Email alias request rejected');
+        // Refresh the data
+        await fetchAdminData();
+      } else {
+        toast.error('Failed to reject alias request');
+      }
+    } catch (error) {
+      console.error('Error rejecting alias request:', error);
+      toast.error('Failed to reject alias request');
+    } finally {
+      setAliasRequestLoading(false);
+    }
+  };
+
   const fetchAdminData = async () => {
     try {
       setLoading(true);
@@ -242,9 +327,49 @@ export function EnhancedAdminDashboard() {
         console.error('Error fetching leads:', leadError);
       }
 
+      // Fetch email alias requests
+      const { data: aliasRequestData, error: aliasRequestError } = await supabase
+        .from('email_alias_requests')
+        .select(`
+          *,
+          doctor_profiles!inner(
+            id,
+            first_name,
+            last_name,
+            clinic_name,
+            email
+          )
+        `)
+        .order('requested_at', { ascending: false });
+
+      if (aliasRequestError) {
+        console.error('Error fetching email alias requests:', aliasRequestError);
+      }
+
+      // Fetch admin users from doctor_profiles
+      const { data: adminUserData, error: adminUserError } = await supabase
+        .from('doctor_profiles')
+        .select('user_id, email, is_admin, created_at')
+        .eq('is_admin', true);
+
+      if (adminUserError) {
+        console.error('Error fetching admin users:', adminUserError);
+      }
+
+      // Transform admin user data to match AdminUser interface
+      const transformedAdminUsers: AdminUser[] = (adminUserData || []).map(user => ({
+        id: user.user_id,
+        email: user.email,
+        role: 'admin',
+        is_active: user.is_admin,
+        last_login: null, // We don't track this currently
+        created_at: user.created_at
+      }));
+
       setDoctors(doctorData || []);
       setLeads(leadData || []);
-      setAdminUsers([]); // Remove admin_users table dependency
+      setEmailAliasRequests(aliasRequestData || []);
+      setAdminUsers(transformedAdminUsers);
       
       // Calculate comprehensive stats
       const totalDoctors = doctorData?.length || 0;
@@ -436,14 +561,14 @@ export function EnhancedAdminDashboard() {
   // Admin management functions
   const handleUserAccessToggle = async (userId: string, isActive: boolean) => {
     try {
-      // Update user access in Supabase
+      // Update admin status in doctor_profiles table
       const { error } = await supabase
-        .from('admin_users')
-        .update({ is_active: isActive })
-        .eq('id', userId);
+        .from('doctor_profiles')
+        .update({ is_admin: isActive })
+        .eq('user_id', userId);
 
       if (error) {
-        toast.error('Failed to update user access');
+        toast.error('Failed to update admin status');
         return;
       }
 
@@ -452,9 +577,10 @@ export function EnhancedAdminDashboard() {
         user.id === userId ? { ...user, is_active: isActive } : user
       ));
 
-      toast.success(`User access ${isActive ? 'granted' : 'revoked'} successfully`);
+      toast.success(`User ${isActive ? 'granted admin access' : 'removed admin access'} successfully`);
     } catch (error) {
-      toast.error('Failed to update user access');
+      console.error('Error updating admin status:', error);
+      toast.error('Failed to update admin status');
     }
   };
 
@@ -496,12 +622,12 @@ export function EnhancedAdminDashboard() {
   const revokeUserAccess = async (userId: string) => {
     try {
       const { error } = await supabase
-        .from('admin_users')
-        .update({ is_active: false })
-        .eq('id', userId);
+        .from('doctor_profiles')
+        .update({ is_admin: false })
+        .eq('user_id', userId);
 
       if (error) {
-        toast.error('Failed to revoke access');
+        toast.error('Failed to revoke admin access');
         return;
       }
 
@@ -509,9 +635,68 @@ export function EnhancedAdminDashboard() {
         user.id === userId ? { ...user, is_active: false } : user
       ));
 
-      toast.success('User access revoked successfully');
+      toast.success('Admin access revoked successfully');
     } catch (error) {
       toast.error('Failed to revoke access');
+    }
+  };
+
+  const addAdminUser = async () => {
+    if (!newAdminEmail.trim()) {
+      toast.error('Please enter an email address');
+      return;
+    }
+
+    setAddAdminLoading(true);
+    try {
+      // First, check if the user exists in doctor_profiles
+      const { data: existingUser, error: checkError } = await supabase
+        .from('doctor_profiles')
+        .select('user_id, email, is_admin')
+        .eq('email', newAdminEmail.trim())
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        // PGRST116 is "not found" error, which is expected for new users
+        console.error('Error checking user:', checkError);
+        toast.error('Error checking user existence');
+        return;
+      }
+
+      if (existingUser) {
+        if (existingUser.is_admin) {
+          toast.error('This user is already an admin');
+          return;
+        }
+
+        // User exists, just update their admin status
+        const { error: updateError } = await supabase
+          .from('doctor_profiles')
+          .update({ is_admin: true })
+          .eq('user_id', existingUser.user_id);
+
+        if (updateError) {
+          toast.error('Failed to grant admin access');
+          return;
+        }
+
+        toast.success('Admin access granted to existing user');
+      } else {
+        // User doesn't exist, we need to create a doctor profile
+        // But first, we need to check if they have a Supabase auth account
+        toast.error('User not found. The user must first register and create a doctor profile before being granted admin access.');
+        return;
+      }
+
+      // Refresh admin users list
+      await fetchAdminData();
+      setShowAddAdminDialog(false);
+      setNewAdminEmail('');
+    } catch (error) {
+      console.error('Error adding admin user:', error);
+      toast.error('An error occurred while adding admin user');
+    } finally {
+      setAddAdminLoading(false);
     }
   };
 
@@ -1058,9 +1243,6 @@ export function EnhancedAdminDashboard() {
             <h1 className="text-3xl font-semibold text-gray-900 flex items-center gap-3">
               <Shield className="w-8 h-8 text-gray-700" />
               Admin Dashboard
-            <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 border-green-200">
-              Access Control Active
-            </Badge>
             </h1>
             <p className="text-gray-500 mt-1">Platform management and analytics</p>
           </div>
@@ -1116,50 +1298,6 @@ export function EnhancedAdminDashboard() {
                 </div>
               </DialogContent>
             </Dialog>
-
-            <Button 
-              onClick={fetchAdminData} 
-              variant="outline"
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              <Database className="w-4 h-4 mr-2" />
-              Refresh Data
-            </Button>
-            
-            <Button 
-              onClick={() => setShowAddDoctor(true)} 
-              variant="outline"
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              <UserPlus className="w-4 h-4 mr-2" />
-              Add Doctor
-            </Button>
-            
-            <Button 
-              onClick={() => setShowBulkActions(true)} 
-              variant="outline"
-              className="bg-purple-600 hover:bg-purple-700 text-white"
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              Bulk Actions
-            </Button>
-            
-            <Button 
-              onClick={() => setShowNotifications(true)}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              <Bell className="w-4 h-4 mr-2" />
-              Notifications
-            </Button>
-            
-            <Button 
-              onClick={() => setShowQuickActions(true)}
-              variant="outline"
-              className="bg-indigo-600 hover:bg-indigo-700 text-white"
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              Quick Actions
-            </Button>
           </div>
         </div>
 
@@ -1301,7 +1439,7 @@ export function EnhancedAdminDashboard() {
 
         {/* Main Content Tabs */}
         <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7 bg-white p-1 rounded-lg shadow-sm">
+          <TabsList className="grid w-full grid-cols-8 bg-white p-1 rounded-lg shadow-sm">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <Activity className="w-4 h-4" />
               Overview
@@ -1325,6 +1463,10 @@ export function EnhancedAdminDashboard() {
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings2 className="w-4 h-4" />
               Settings
+            </TabsTrigger>
+            <TabsTrigger value="emailAliases" className="flex items-center gap-2">
+              <Mail className="w-4 h-4" />
+              Email Aliases
             </TabsTrigger>
           </TabsList>
 
@@ -2124,7 +2266,11 @@ export function EnhancedAdminDashboard() {
                     <Shield className="w-5 h-5" />
                     Admin User Management
                   </CardTitle>
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setShowAddAdminDialog(true)}
+                  >
                     <UserPlus className="w-4 h-4 mr-2" />
                     Add Admin User
                   </Button>
@@ -2140,7 +2286,6 @@ export function EnhancedAdminDashboard() {
                         <TableHead>Status</TableHead>
                         <TableHead>Last Login</TableHead>
                         <TableHead>Created</TableHead>
-                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -2176,24 +2321,6 @@ export function EnhancedAdminDashboard() {
                           </TableCell>
                           <TableCell className="text-sm text-slate-500">
                             {new Date(user.created_at).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => revokeUserAccess(user.id)}
-                                disabled={!user.is_active}
-                              >
-                                <Ban className="w-4 h-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm">
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm">
-                                <MoreHorizontal className="w-4 h-4" />
-                              </Button>
-                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -2297,6 +2424,94 @@ export function EnhancedAdminDashboard() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* Email Aliases Tab */}
+          <TabsContent value="emailAliases" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="w-5 h-5" />
+                  Email Alias Requests
+                </CardTitle>
+                <CardDescription>
+                  Review and manage email alias requests from doctors.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {aliasRequestLoading ? (
+                  <div className="flex items-center justify-center h-32">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : emailAliasRequests.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <Mail className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>No email alias requests</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {emailAliasRequests.map((request) => (
+                      <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                              <span className="text-blue-600 font-medium">
+                                {(request.doctor_profiles?.first_name?.[0] || '') + (request.doctor_profiles?.last_name?.[0] || '')}
+                              </span>
+                            </div>
+                            <div>
+                              <h4 className="font-medium">
+                                {request.doctor_profiles?.first_name} {request.doctor_profiles?.last_name}
+                              </h4>
+                              <p className="text-sm text-gray-500">{request.doctor_profiles?.email}</p>
+                              <p className="text-sm text-gray-500">Clinic: {request.doctor_profiles?.clinic_name || 'N/A'}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="font-medium">Requested Alias:</span>
+                                <code className="px-2 py-1 bg-gray-100 rounded text-sm">
+                                  {request.requested_alias}@patientpathway.ai
+                                </code>
+                              </div>
+                              <p className="text-xs text-gray-400 mt-1">
+                                Requested: {new Date(request.requested_at).toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            request.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                            request.status === 'approved' ? 'bg-green-100 text-green-700' :
+                            'bg-red-100 text-red-700'
+                          }`}>
+                            {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                          </span>
+                          {request.status === 'pending' && (
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => approveEmailAliasRequest(request.id)}
+                                disabled={aliasRequestLoading}
+                                className="bg-green-600 hover:bg-green-700"
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => rejectEmailAliasRequest(request.id)}
+                                disabled={aliasRequestLoading}
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
@@ -3272,6 +3487,59 @@ export function EnhancedAdminDashboard() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Admin User Dialog */}
+      <Dialog open={showAddAdminDialog} onOpenChange={setShowAddAdminDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Admin User</DialogTitle>
+            <DialogDescription>
+              Grant admin access to an existing user. The user must already have a doctor profile in the system.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="admin-email">Email Address</Label>
+              <Input
+                id="admin-email"
+                type="email"
+                placeholder="user@example.com"
+                value={newAdminEmail}
+                onChange={(e) => setNewAdminEmail(e.target.value)}
+                disabled={addAdminLoading}
+              />
+              <p className="text-sm text-slate-500 mt-1">
+                Enter the email address of an existing user to grant admin access.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAddAdminDialog(false);
+                setNewAdminEmail('');
+              }}
+              disabled={addAdminLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={addAdminUser}
+              disabled={addAdminLoading || !newAdminEmail.trim()}
+            >
+              {addAdminLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Adding...
+                </>
+              ) : (
+                'Add Admin User'
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

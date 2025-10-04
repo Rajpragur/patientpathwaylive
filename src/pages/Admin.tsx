@@ -4,7 +4,8 @@ import { AdminAuth } from '@/components/admin/AdminAuth';
 import { EnhancedAdminDashboard } from '@/components/admin/EnhancedAdminDashboard';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
-const ADMIN_EMAIL = 'patientpathway@admin.com';
+import { checkAdminRole } from '@/lib/adminUtils';
+
 export default function AdminPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -13,8 +14,11 @@ export default function AdminPage() {
     // Check if user is already authenticated
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user && user.email === ADMIN_EMAIL) {
-        setUser(user);
+      if (user) {
+        const isAdmin = await checkAdminRole(user.id);
+        if (isAdmin) {
+          setUser(user);
+        }
       }
       setLoading(false);
     };
@@ -24,8 +28,13 @@ export default function AdminPage() {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (session?.user && session.user.email === ADMIN_EMAIL) {
-          setUser(session.user);
+        if (session?.user) {
+          const isAdmin = await checkAdminRole(session.user.id);
+          if (isAdmin) {
+            setUser(session.user);
+          } else {
+            setUser(null);
+          }
         } else {
           setUser(null);
         }
@@ -36,9 +45,10 @@ export default function AdminPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleAuthSuccess = () => {
+  const handleAuthSuccess = (isAdmin: boolean) => {
     // This will be called when admin successfully logs in
     // The auth state change listener will handle setting the user
+    console.log('Admin auth success:', isAdmin);
   };
 
   const handleSignOut = async () => {

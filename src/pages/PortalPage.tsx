@@ -10,9 +10,9 @@ import { ConfigurationPage } from '@/components/dashboard/ConfigurationPage';
 import { SettingsPage } from '@/components/dashboard/SettingsPage';
 import { SupportPage } from '@/components/dashboard/SupportPage';
 import { SocialIntegrationsPage } from '@/components/dashboard/SocialIntegrationsPage';
+import { SocialMediaManager } from '@/components/dashboard/SocialMediaManager';
 import { AutomationPage } from '@/components/dashboard/AutomationPage';
 import { SymptomChecker } from '@/components/dashboard/SymptomChecker';
-import { IntegrationsPage } from '@/components/dashboard/IntegrationsPage';
 import { EmailConfigurationPage } from '@/components/dashboard/EmailConfigurationPage';
 import { toast } from 'sonner';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
@@ -57,25 +57,20 @@ export default function PortalPage() {
       }
 
       console.log('Doctor profiles found:', doctorProfiles);
-
-      // Check if user has doctor profile with access
       if (doctorProfiles && doctorProfiles.length > 0) {
         const profilesWithAccess = doctorProfiles.filter(profile => profile.access_control === true);
         
         if (profilesWithAccess.length > 0) {
-          console.log('✅ Access granted via doctor profile!');
+          console.log('Access granted via doctor profile!');
           console.log('User type:', profilesWithAccess[0].is_staff ? 'Staff' : profilesWithAccess[0].is_manager ? 'Manager' : 'Doctor');
           setHasAccess(true);
           return;
         }
       }
-
-      // No access found - but don't sign out immediately, let user see the message
       console.log('❌ No access found via doctor profiles');
       setHasAccess(false);
       setAccessRevoked(true);
       toast.error('You do not have access to the portal. Please contact your administrator.');
-
     } catch (error) {
       console.error('Error checking access:', error);
       setHasAccess(false);
@@ -93,7 +88,6 @@ export default function PortalPage() {
         console.log('No user found, redirecting to auth');
         navigate('/auth', { replace: true });
       } else {
-        // Check doctor access control when user is authenticated
         checkDoctorAccess(user.id);
       }
     }
@@ -102,7 +96,6 @@ export default function PortalPage() {
   // Periodic access check (every 5 minutes)
   useEffect(() => {
     if (!user || !hasAccess || accessRevoked) return;
-
     const interval = setInterval(async () => {
       console.log('Performing periodic access check...');
       await checkDoctorAccess(user.id);
@@ -110,10 +103,6 @@ export default function PortalPage() {
 
     return () => clearInterval(interval);
   }, [user, hasAccess, accessRevoked]);
-
-  // Note: Removed focus-based access checks to prevent unintended sign-outs
-  // when native dialogs (like file pickers) close and refocus the window,
-  // which could be perceived as a page reload by users.
 
   const handleSignOut = async () => {
     try {
@@ -140,8 +129,6 @@ export default function PortalPage() {
     const timeout = setTimeout(() => setTabLoading(false), 100);
     return () => clearTimeout(timeout);
   }, [currentPage, tabLoading]);
-
-  // Show access revoked page
   if (accessRevoked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -175,21 +162,13 @@ export default function PortalPage() {
       </div>
     );
   }
-
-  // Show loader overlay if loading, checking auth, or checking access
   if (loading || !hasCheckedAuth || accessLoading || hasAccess === null) {
     return <PageLoader loading={true} />;
   }
-
-  // Debug logging for access state
-  console.log('Render check - User:', !!user, 'HasAccess:', hasAccess, 'AccessRevoked:', accessRevoked);
-
-  // Deny access if no user, no access, or access revoked
   if (!user || hasAccess !== true || accessRevoked) {
     console.log('Access denied in render - User:', !!user, 'HasAccess:', hasAccess, 'AccessRevoked:', accessRevoked);
     return null;
   }
-
   const renderCurrentPage = () => {
     switch (currentPage) {
       case 'dashboard':
@@ -202,8 +181,6 @@ export default function PortalPage() {
         return <QuizManagementPage />;
       case 'automation':
         return <AutomationPage />;
-      case 'integrations':
-        return <IntegrationsPage />;
       case 'email-config':
         return <EmailConfigurationPage />;
       case 'profile':
@@ -214,12 +191,13 @@ export default function PortalPage() {
         return <SettingsPage />;
       case 'support':
         return <SupportPage />;
+      case 'social-media':
+        return <SocialMediaManager />;
       default:
         return <LeadsPage />;
     }
   };
 
-  // Define theme colors to match the quiz components
   const teal = '#0f766e';
 
   return (
@@ -249,10 +227,10 @@ export default function PortalPage() {
                     {currentPage === 'quizzes' && 'Assessments'}
                     {currentPage === 'schedule' && 'Schedule'}
                     {currentPage === 'social' && 'Social Integrations'}
-                    {currentPage === 'automation' && 'Automation'}
-                    {currentPage === 'marketing' && 'Marketing Recommendations'}
-                    {currentPage === 'symptom-checker' && 'Symptom Checker'}
-                    {currentPage === 'integrations' && 'Integrations'}
+          {currentPage === 'social-media' && 'Social Media Manager'}
+          {currentPage === 'automation' && 'Automation'}
+          {currentPage === 'marketing' && 'Marketing Recommendations'}
+          {currentPage === 'symptom-checker' && 'Symptom Checker'}
                     {currentPage === 'email' && 'Email Automation'}
                     {currentPage === 'profile' && 'Profile'}
                     {currentPage === 'configuration' && 'Configuration'}
@@ -266,10 +244,10 @@ export default function PortalPage() {
                     {currentPage === 'quizzes' && 'Manage your assessments and quizzes'}
                     {currentPage === 'schedule' && 'View and manage your appointments'}
                     {currentPage === 'social' && 'Connect and manage your social media accounts'}
-                    {currentPage === 'automation' && 'Create and manage automated communications'}
-                    {currentPage === 'marketing' && 'Daily content ideas and marketing strategies'}
-                    {currentPage === 'symptom-checker' && 'Conversational assessment tool'}
-                    {currentPage === 'integrations' && 'Connect with other services and platforms'}
+          {currentPage === 'social-media' && 'Create, schedule, and manage your social media posts'}
+          {currentPage === 'automation' && 'Create and manage automated communications'}
+          {currentPage === 'marketing' && 'Daily content ideas and marketing strategies'}
+          {currentPage === 'symptom-checker' && 'Conversational assessment tool'}
                     {currentPage === 'email' && 'Connect email accounts and send quiz invitations'}
                     {currentPage === 'profile' && 'Manage your account information'}
                     {currentPage === 'configuration' && 'Manage your clinic information and settings'}

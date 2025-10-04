@@ -4,61 +4,88 @@ import { EnhancedAdminDashboard } from '@/components/admin/EnhancedAdminDashboar
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 
-const ADMIN_EMAIL = 'patientpathway@admin.com';
-
 export default function AdminPortal() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [authCompleted, setAuthCompleted] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+
     const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user && user.email === ADMIN_EMAIL) {
-        setUser(user);
-        setAuthCompleted(true);
+      try {
+        console.log('Checking auth...');
+        
+        const { data: { user }, error } = await supabase.auth.getUser();
+        
+        if (!isMounted) return;
+        
+        console.log('User found:', user?.email);
+        
+        if (error) {
+          console.error('Auth error:', error);
+          setLoading(false);
+          setAuthChecked(true);
+          return;
+        }
+        
+        if (user) {
+          setUser(user);
+          // Don't check admin role here - let the login form handle it
+          setIsAdmin(false);
+        }
+        
+        setLoading(false);
+        setAuthChecked(true);
+      } catch (error) {
+        console.error('Error in checkAuth:', error);
+        setLoading(false);
+        setAuthChecked(true);
       }
-      setLoading(false);
     };
 
     checkAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (session?.user && session.user.email === ADMIN_EMAIL) {
+        if (!isMounted) return;
+        
+        console.log('Auth state change:', event, session?.user?.email);
+        
+        if (session?.user) {
           setUser(session.user);
-          setAuthCompleted(true);
+          setIsAdmin(false); // Reset admin status on auth change
         } else {
           setUser(null);
-          setAuthCompleted(false);
+          setIsAdmin(false);
         }
+        
         setLoading(false);
+        setAuthChecked(true);
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const handleAuthSuccess = () => {
-    // Force a re-check of the auth state
-    setAuthCompleted(true);
-    // Also trigger a manual auth check
-    const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user && user.email === ADMIN_EMAIL) {
-        setUser(user);
-      }
-    };
-    checkAuth();
+  const handleAuthSuccess = (adminStatus: boolean) => {
+    console.log('Auth success, admin status:', adminStatus);
+    setIsAdmin(adminStatus);
+    setAuthChecked(true);
   };
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
-    setAuthCompleted(false);
+    setIsAdmin(false);
+    setAuthChecked(false);
   };
 
-  if (loading) {
+  if (loading || !authChecked) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-50">
         <div className="text-center">
@@ -69,7 +96,7 @@ export default function AdminPortal() {
     );
   }
 
-  if (!user || !authCompleted) {
+  if (!user || !isAdmin) {
     return <AdminAuth onAuthSuccess={handleAuthSuccess} />;
   }
 

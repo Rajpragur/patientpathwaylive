@@ -41,6 +41,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { QRCodeSVG } from 'qrcode.react';
 import { EmbedPreview } from './EmbedPreview';
 import { getDeviceType, getDeviceSize } from '@/utils/device';
+import { generateAssessmentEmailTemplate } from '@/lib/emailTemplates';
 
 export function ShareQuizPage() {
   const { quizId, customQuizId } = useParams<{ quizId?: string; customQuizId?: string }>();
@@ -66,6 +67,12 @@ export function ShareQuizPage() {
   const [ctaText, setCtaText] = useState('For more info about non-invasive in office procedure to give you relief, Schedule a 5min screening phone call.');
   const [customMessage, setCustomMessage] = useState('');
   const baseUrl = window.location.origin;
+
+  // Email sending states
+  const [recipientName, setRecipientName] = useState('');
+  const [recipientEmail, setRecipientEmail] = useState('');
+  const [emailSubject, setEmailSubject] = useState('');
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   const doctorIdFromUrl = searchParams.get('doctor');
   const heightFromUrl = searchParams.get('height');
@@ -600,6 +607,73 @@ const createSpecialLinks = () => {
   };
 };
 
+const sendEmail = async () => {
+  if (!doctorProfile?.email_alias_created || !doctorProfile?.email_alias || !recipientEmail.trim() || !recipientName.trim()) {
+    toast.error('Please fill in all required fields');
+    return;
+  }
+
+  if (!recipientEmail.includes('@')) {
+    toast.error('Please enter a valid email address');
+    return;
+  }
+
+  setSendingEmail(true);
+  try {
+    // Generate professional email template using the doctor's details
+    const emailTemplate = generateAssessmentEmailTemplate(
+      quizId?.toLowerCase() as 'nose' | 'snot12' | 'snot22' | 'tnss' || 'nose',
+      {
+        doctorProfile: {
+          id: doctorProfile.id,
+          first_name: doctorProfile.first_name,
+          last_name: doctorProfile.last_name,
+          email: doctorProfile.email,
+          phone: doctorProfile.phone,
+          clinic_name: doctorProfile.clinic_name,
+          website: doctorProfile.website,
+          avatar_url: doctorProfile.avatar_url
+        },
+        baseUrl,
+        recipientName: recipientName.trim()
+      }
+    );
+
+    // Use custom subject if provided, otherwise use template subject
+    const finalSubject = emailSubject.trim() || emailTemplate.subject;
+
+    const { data, error } = await supabase.functions.invoke('send-email', {
+      body: {
+        to: recipientEmail.trim(),
+        subject: finalSubject,
+        html: emailTemplate.html,
+        text: emailTemplate.text,
+        doctorId: doctorProfile.id
+      }
+    });
+
+    if (error) {
+      console.error('Error sending email:', error);
+      toast.error('Failed to send email');
+      return;
+    }
+
+    if (data?.success) {
+      toast.success(`Assessment invitation sent to ${recipientName} (${recipientEmail})`);
+      setRecipientEmail('');
+      setRecipientName('');
+      setEmailSubject('');
+    } else {
+      toast.error(data?.error || 'Failed to send email');
+    }
+  } catch (error) {
+    console.error('Error sending email:', error);
+    toast.error('Failed to send email');
+  } finally {
+    setSendingEmail(false);
+  }
+};
+
   const generateQrCode = () => {
     setShowQrCode(true);
   };
@@ -618,7 +692,7 @@ const createSpecialLinks = () => {
 
 
   const mailHtmlNOSE = useMemo(() => {
-    const noseUrl = `${baseUrl}/share/nose/doctor=${doctorProfile?.id || 'demo'}?utm_source=email`;
+    const noseUrl = `${baseUrl}/share/nose?doctor=${doctorProfile?.id || 'demo'}&utm_source=email`;
     const websiteLink = doctorProfile?.website
       ? `<a target="_blank" href="${doctorProfile.website}" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px"><img src="${doctorProfile?.avatar_url || 'Your Website Image'}" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47"></a>`
       : `<img src="https://cdn.prod.website-files.com/6213b8b7ae0610f9484d627a/63d85029011f18f6bfabf2f3_Exhale_Sinus_Horizontal_logo-p-800.png" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47">`;
@@ -647,7 +721,7 @@ const createSpecialLinks = () => {
   }, [doctorProfile, baseUrl]);
 
   const mailHtmlSNOT12 = useMemo(() => {
-    const snot12Url = `${baseUrl}/share/snot12/doctor=${doctorProfile?.id || 'demo'}?utm_source=email`;
+    const snot12Url = `${baseUrl}/share/snot12?doctor=${doctorProfile?.id || 'demo'}&utm_source=email`;
     const websiteLink = doctorProfile?.website
       ? `<a target="_blank" href="${doctorProfile.website}" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px"><img src="${doctorProfile?.avatar_url || 'Your Website Image'}" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47"></a>`
       : `<img src="https://cdn.prod.website-files.com/6213b8b7ae0610f9484d627a/63d85029011f18f6bfabf2f3_Exhale_Sinus_Horizontal_logo-p-800.png" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47">`;
@@ -675,7 +749,7 @@ const createSpecialLinks = () => {
   }, [doctorProfile, baseUrl]);
 
 const mailHtmlSNOT22 = useMemo(() => {
-      const snot22Url = `${baseUrl}/share/snot22/doctor=${doctorProfile?.id || 'demo'}?utm_source=email`;
+      const snot22Url = `${baseUrl}/share/snot22?doctor=${doctorProfile?.id || 'demo'}&utm_source=email`;
     const websiteLink = doctorProfile?.website
       ? `<a target="_blank" href="${doctorProfile.website}" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px"><img src="${doctorProfile?.avatar_url || 'Your Website Image'}" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47"></a>`
       : `<img src="https://cdn.prod.website-files.com/6213b8b7ae0610f9484d627a/63d85029011f18f6bfabf2f3_Exhale_Sinus_Horizontal_logo-p-800.png" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47">`;
@@ -702,7 +776,7 @@ const mailHtmlSNOT22 = useMemo(() => {
 <td align="left" style="padding:0;Margin:0;padding-left:20px;padding-right:20px;padding-bottom:30px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td valign="top" align="center" style="padding:0;Margin:0;width:560px"><table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px"><tr style="border-collapse:collapse"><td align="center" style="padding:0;Margin:0;display:none"></td> </tr></table></td></tr></table></td></tr></table></td></tr></table></td></tr></table></div></body></html>`;
   }, [doctorProfile, baseUrl]);
 const mailHtmlTNSS = useMemo(() => {
-      const tnssUrl = `${baseUrl}/share/tnss/doctor=${doctorProfile?.id || 'demo'}?utm_source=email`;
+      const tnssUrl = `${baseUrl}/share/tnss?doctor=${doctorProfile?.id || 'demo'}&utm_source=email`;
     const websiteLink = doctorProfile?.website
       ? `<a target="_blank" href="${doctorProfile.website}" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;text-decoration:underline;color:#1376C8;font-size:14px"><img src="${doctorProfile?.avatar_url || 'Your Website Image'}" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47"></a>`
       : `<img src="https://cdn.prod.website-files.com/6213b8b7ae0610f9484d627a/63d85029011f18f6bfabf2f3_Exhale_Sinus_Horizontal_logo-p-800.png" alt="" style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" width="200" height="47">`;
@@ -1310,21 +1384,84 @@ const mailHtmlTNSS = useMemo(() => {
 
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">Email options</CardTitle>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Send className="w-4 h-4" />
+                        Send Assessment Email
+                      </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="flex items-center gap-3 text-gray-600">
-                        <Mail className="w-4 h-4" />
-                        <span className="text-sm">{doctorProfile ? (doctorProfile.email) : 'Your Email'}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-gray-600">
-                        <UserRound className="w-4 h-4" />
-                        <span className="text-sm">{doctorProfile ? (doctorProfile.first_name) : 'Your Name'}</span>
-                      </div>
-                      <div className="space-y-2">
-                        <h4 className="font-medium">Subject</h4>
-                        <p className="text-sm text-gray-600">Discover What Your {quizId.toUpperCase()} Assessment Reveals About You — Take the Test Today, Unlock Exclusive Insights, and Get Your Personalized Results the Moment You Finish!</p>
-                      </div>
+                      {doctorProfile?.email_alias_created && doctorProfile?.email_alias ? (
+                        <>
+                          <div className="space-y-3">
+                            <div>
+                              <label className="text-sm font-medium">Patient Name</label>
+                              <Input
+                                value={recipientName}
+                                onChange={(e) => setRecipientName(e.target.value)}
+                                placeholder="John Doe"
+                                className="mt-1"
+                              />
+                            </div>
+                            
+                            <div>
+                              <label className="text-sm font-medium">Patient Email</label>
+                              <Input
+                                type="email"
+                                value={recipientEmail}
+                                onChange={(e) => setRecipientEmail(e.target.value)}
+                                placeholder="patient@example.com"
+                                className="mt-1"
+                              />
+                            </div>
+                            
+                            <div>
+                              <label className="text-sm font-medium">Email Subject (Optional)</label>
+                              <Input
+                                value={emailSubject}
+                                onChange={(e) => setEmailSubject(e.target.value)}
+                                placeholder="Leave empty to use default subject"
+                                className="mt-1"
+                              />
+                            </div>
+                          </div>
+                          
+                          <Button
+                            onClick={sendEmail}
+                            disabled={sendingEmail || !recipientEmail.trim() || !recipientName.trim()}
+                            className="w-full"
+                          >
+                            {sendingEmail ? 'Sending...' : 'Send Assessment Email'}
+                          </Button>
+                          
+                          <div className="text-xs text-gray-500 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <Mail className="w-3 h-3" />
+                              <span>From: {doctorProfile.email_alias}@patientpathway.ai</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <UserRound className="w-3 h-3" />
+                              <span>Doctor: Dr. {doctorProfile.first_name} {doctorProfile.last_name}</span>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-center py-4">
+                          <div className="text-amber-600 mb-2">
+                            <Mail className="w-8 h-8 mx-auto mb-2" />
+                            <p className="font-medium">Email Alias Required</p>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-3">
+                            You need to set up an email alias to send assessment emails.
+                          </p>
+                          <Button 
+                            variant="outline" 
+                            onClick={() => navigate('/dashboard/email-configuration')}
+                            className="text-sm"
+                          >
+                            Set Up Email Alias
+                          </Button>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </div>

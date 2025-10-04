@@ -7,15 +7,14 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, Lock, AlertTriangle, Mail } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { checkAdminRole } from '@/lib/adminUtils';
 
 interface AdminAuthProps {
-  onAuthSuccess: () => void;
+  onAuthSuccess: (isAdmin: boolean) => void;
 }
 
-const ADMIN_EMAIL = 'patientpathway@admin.com';
-
 export function AdminAuth({ onAuthSuccess }: AdminAuthProps) {
-  const [email, setEmail] = useState(ADMIN_EMAIL);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -23,11 +22,6 @@ export function AdminAuth({ onAuthSuccess }: AdminAuthProps) {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
-    if (email !== ADMIN_EMAIL) {
-      setError('Access denied. This portal is restricted to authorized administrators only.');
-      return;
-    }
 
     try {
       setLoading(true);
@@ -43,13 +37,16 @@ export function AdminAuth({ onAuthSuccess }: AdminAuthProps) {
       }
 
       if (data.user) {
-        // Verify this is actually the admin user
-        if (data.user.email === ADMIN_EMAIL) {
+        // Check admin role from database
+        const isAdmin = await checkAdminRole(data.user.id);
+        
+        if (isAdmin) {
           toast.success('Admin access granted');
-          onAuthSuccess();
+          onAuthSuccess(true);
         } else {
-          setError('Access denied. This portal is restricted to authorized administrators only.');
+          setError('Access denied. This portal is restricted to users with admin privileges only.');
           await supabase.auth.signOut();
+          onAuthSuccess(false);
         }
       }
     } catch (error) {
@@ -81,19 +78,18 @@ export function AdminAuth({ onAuthSuccess }: AdminAuthProps) {
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email" className="text-sm font-medium text-slate-700">
-                Admin Email
+                Email Address
               </Label>
               <Input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="patientpathway1@gmail.com"
+                placeholder="Enter your email address"
                 className="border-slate-300 focus:border-red-500 focus:ring-red-500"
                 required
-                disabled
               />
-              <p className="text-xs text-slate-500">Email is pre-filled and locked</p>
+              <p className="text-xs text-slate-500">Enter your registered email address</p>
             </div>
             
             <div className="space-y-2">
@@ -143,13 +139,13 @@ export function AdminAuth({ onAuthSuccess }: AdminAuthProps) {
             <div className="text-center space-y-2">
               <div className="flex items-center gap-2 text-xs text-slate-500 justify-center">
                 <Shield className="w-3 h-3" />
-                <span>This portal is restricted to authorized personnel only</span>
+                <span>This portal is restricted to users with admin privileges only</span>
               </div>
               <div className="text-xs text-slate-400">
-                Admin: {ADMIN_EMAIL}
+                Only users with admin role can access this portal
               </div>
               <div className="text-xs text-slate-400">
-                Use your Supabase account password
+                Use your registered account credentials
               </div>
             </div>
           </div>
