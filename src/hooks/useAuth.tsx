@@ -58,10 +58,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               // Using simplified approach - redirect to portal
               navigateRef.current('/portal');
             }
+          } else {
+            // User is signed in and verified, check for team member linking
+            checkAndHandleTeamMemberLinking(session.user);
           }
         } else if (event === 'USER_UPDATED') {
           // Handle email verification
           if (session?.user?.email_confirmed_at && window.location.pathname === '/verify-email') {
+            // Check if this is a team member that needs linking
+            checkAndHandleTeamMemberLinking(session.user);
             navigateRef.current('/portal');
           }
         } else if (event === 'SIGNED_OUT') {
@@ -101,10 +106,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const handleTeamInvitation = async (invitationToken: string, userId: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('link-clinic-member', {
+      // Get user metadata for team member linking
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('No user found for team invitation');
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('link-team-member', {
         body: {
           invitationToken,
-          userId
+          userId,
+          firstName: user.user_metadata?.first_name,
+          lastName: user.user_metadata?.last_name,
+          email: user.email
         }
       });
 
@@ -112,9 +127,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('Error linking team member:', error);
         toast.error('Failed to join team. Please contact support.');
         navigateRef.current('/auth');
-      } else {
+      } else if (data?.success) {
         toast.success('Successfully joined the team!');
         navigateRef.current('/portal');
+      } else {
+        console.error('Edge function returned error:', data?.error);
+        toast.error(data?.error || 'Failed to join team');
+        navigateRef.current('/auth');
       }
     } catch (error) {
       console.error('Error in team invitation handling:', error);

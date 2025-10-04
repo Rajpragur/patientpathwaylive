@@ -14,6 +14,59 @@ export function EmailVerificationPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [emailConfirmed, setEmailConfirmed] = useState(false);
 
+  const handleTeamMemberLinking = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get invitation token from URL params or user metadata
+      const invitationTokenFromUrl = searchParams.get('invitation');
+      const invitationTokenFromMetadata = user.user_metadata?.invitation_token;
+      const invitationToken = invitationTokenFromUrl || invitationTokenFromMetadata;
+
+      // Check if user is a team member
+      const isTeamMember = user.user_metadata?.is_team_member || invitationTokenFromUrl;
+      
+      if (isTeamMember && invitationToken) {
+        console.log('Linking team member after email verification:', {
+          userId: user.id,
+          invitationToken,
+          source: invitationTokenFromUrl ? 'URL' : 'metadata'
+        });
+        
+        // Use the edge function to handle team member linking
+        const { data, error } = await supabase.functions.invoke('link-team-member', {
+          body: {
+            invitationToken: invitationToken,
+            userId: user.id,
+            firstName: user.user_metadata?.first_name || user.user_metadata?.full_name?.split(' ')[0] || 'Team',
+            lastName: user.user_metadata?.last_name || user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || 'Member',
+            email: user.email
+          }
+        });
+
+        if (error) {
+          console.error('Error linking team member:', error);
+          toast.error('Failed to link to team. Please contact support.');
+        } else if (data?.success) {
+          console.log('Team member linked successfully');
+          toast.success('Successfully joined the team!');
+        } else {
+          console.error('Edge function returned error:', data?.error);
+          toast.error(data?.error || 'Failed to link to team');
+        }
+      } else {
+        console.log('Not a team member or no invitation token found:', {
+          isTeamMember,
+          invitationToken,
+          userMetadata: user.user_metadata
+        });
+      }
+    } catch (error) {
+      console.error('Error in team member linking:', error);
+    }
+  };
+
   useEffect(() => {
     const verifyEmail = async () => {
       try {
@@ -37,6 +90,9 @@ export function EmailVerificationPage() {
 
         setVerificationStatus('success');
         toast.success('Email verified successfully!');
+        
+        // Check if this is a team member and link them
+        await handleTeamMemberLinking();
         
         // Redirect to dashboard after 2 seconds
         setTimeout(() => {
@@ -80,6 +136,10 @@ export function EmailVerificationPage() {
             setEmailConfirmed(true); // Treat as confirmed since confirmation is disabled
             setVerificationStatus('success');
             toast.success('Email confirmation is disabled. Proceeding to portal...');
+            
+            // Check if this is a team member and link them
+            await handleTeamMemberLinking();
+            
             setTimeout(() => {
               navigate('/portal');
             }, 2000);
@@ -90,6 +150,10 @@ export function EmailVerificationPage() {
             setEmailConfirmed(true);
             setVerificationStatus('success');
             toast.success('Email already verified!');
+            
+            // Check if this is a team member and link them
+            await handleTeamMemberLinking();
+            
             setTimeout(() => {
               navigate('/portal');
             }, 2000);

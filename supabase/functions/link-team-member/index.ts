@@ -63,6 +63,20 @@ serve(async (req) => {
 
     const doctorProfile = teamMemberRecord.doctor_profiles
 
+    console.log('Team member record:', {
+      id: teamMemberRecord.id,
+      role: teamMemberRecord.role,
+      invitation_token: teamMemberRecord.invitation_token,
+      doctor_id: teamMemberRecord.doctor_id
+    })
+
+    console.log('Doctor profile data:', {
+      id: doctorProfile.id,
+      doctor_id: doctorProfile.doctor_id,
+      clinic_name: doctorProfile.clinic_name,
+      location: doctorProfile.location
+    })
+
     // Update the team member record
     const { error: linkError } = await supabaseClient
       .from('team_members')
@@ -81,10 +95,57 @@ serve(async (req) => {
       )
     }
 
-      // Create a doctor profile for the team member (with conflict handling)
-      const { error: profileError } = await supabaseClient
+      // First, check if a doctor profile already exists for this user
+      const { data: existingProfile, error: checkError } = await supabaseClient
         .from('doctor_profiles')
-        .upsert([{
+        .select('id, user_id, email')
+        .eq('user_id', userId)
+        .single()
+
+      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
+        console.error('Error checking existing profile:', checkError)
+        return new Response(
+          JSON.stringify({ error: 'Failed to check existing profile' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      let profileError = null
+
+      if (existingProfile) {
+        // Update existing profile
+        console.log('Updating existing doctor profile for team member:', existingProfile.id)
+        
+        const updateData = {
+          first_name: firstName || 'Team',
+          last_name: lastName || 'Member',
+          email: email,
+          doctor_id: doctorProfile.doctor_id,
+          clinic_name: doctorProfile.clinic_name,
+          location: doctorProfile.location,
+          phone: doctorProfile.phone,
+          mobile: doctorProfile.mobile,
+          logo_url: doctorProfile.logo_url,
+          providers: doctorProfile.providers,
+          access_control: true,
+          is_staff: teamMemberRecord.role === 'staff',
+          is_manager: teamMemberRecord.role === 'manager',
+          doctor_id_clinic: doctorProfile.id.toString()
+        }
+        
+        console.log('Update data for team member profile:', updateData)
+        
+        const { error: updateError } = await supabaseClient
+          .from('doctor_profiles')
+          .update(updateData)
+          .eq('id', existingProfile.id)
+
+        profileError = updateError
+      } else {
+        // Create new profile
+        console.log('Creating new doctor profile for team member')
+        
+        const insertData = {
           user_id: userId,
           first_name: firstName || 'Team',
           last_name: lastName || 'Member',
@@ -97,14 +158,19 @@ serve(async (req) => {
           logo_url: doctorProfile.logo_url,
           providers: doctorProfile.providers,
           access_control: true,
-          // Set team flags based on role
           is_staff: teamMemberRecord.role === 'staff',
           is_manager: teamMemberRecord.role === 'manager',
-          doctor_id_clinic: doctorProfile.id.toString() // Ensure it's TEXT
-        }], {
-          onConflict: 'email', // Use email as the conflict resolution key
-          ignoreDuplicates: false // Update if exists
-        })
+          doctor_id_clinic: doctorProfile.id.toString()
+        }
+        
+        console.log('Insert data for team member profile:', insertData)
+        
+        const { error: insertError } = await supabaseClient
+          .from('doctor_profiles')
+          .insert([insertData])
+
+        profileError = insertError
+      }
 
     if (profileError) {
       console.error('Error creating doctor profile for team member:', profileError)
@@ -114,8 +180,26 @@ serve(async (req) => {
       )
     }
 
+    console.log('Team member linked successfully:', {
+      userId,
+      invitationToken,
+      role: teamMemberRecord.role,
+      isStaff: teamMemberRecord.role === 'staff',
+      isManager: teamMemberRecord.role === 'manager',
+      doctorIdClinic: doctorProfile.id.toString()
+    })
+
     return new Response(
-      JSON.stringify({ success: true, message: 'Team member linked successfully' }),
+      JSON.stringify({ 
+        success: true, 
+        message: 'Team member linked successfully',
+        data: {
+          role: teamMemberRecord.role,
+          isStaff: teamMemberRecord.role === 'staff',
+          isManager: teamMemberRecord.role === 'manager',
+          doctorIdClinic: doctorProfile.id.toString()
+        }
+      }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 

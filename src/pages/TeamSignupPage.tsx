@@ -143,75 +143,39 @@ export default function TeamSignupPage() {
 
     setLoadingSignup(true);
     try {
-      // Sign up the user (team member - disable email confirmation)
+      // Sign up the user (team member - enable email confirmation)
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/portal`, // Redirect directly to portal
+          emailRedirectTo: `${window.location.origin}/verify-email?invitation=${invitationToken}`, // Redirect to verification page with token
           data: {
             first_name: firstName,
             last_name: lastName,
             full_name: `${firstName} ${lastName}`,
-            is_team_member: true // Mark as team member
+            is_team_member: true, // Mark as team member
+            invitation_token: invitationToken // Store invitation token for later linking
           }
         }
       });
 
       if (authError) {
-        // Handle email confirmation errors gracefully
-        if (authError.message.includes('confirmation email') || authError.message.includes('Error sending')) {
-          console.log('Email confirmation error, but user might still be created:', authError);
-          
-          // Check if user was created despite email error
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            console.log('User created successfully despite email error');
-            // Continue with team linking
-            const linked = await linkTeamMember(user.id);
-            if (linked) {
-              // Sign in the user immediately after linking
-              console.log('Signing in user after email error recovery...');
-              try {
-                const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-                  email: email,
-                  password: password
-                });
-                
-                if (signInError) {
-                  console.error('Error signing in after email error recovery:', signInError);
-                  toast.error('Account created but failed to sign in. Please try logging in manually.');
-                } else {
-                  console.log('User signed in successfully after email error recovery');
-                  toast.success('Account created and signed in successfully!');
-                }
-              } catch (error) {
-                console.error('Error in email error recovery sign in:', error);
-              }
-              return;
-            }
-          }
-        }
-        throw authError;
+        console.error('Signup error:', authError);
+        toast.error(authError.message || 'Failed to create account');
+        return;
       }
 
       if (authData.user) {
-        console.log('Using legacy team linking system');
+        console.log('Team member account created successfully');
         console.log('Auth data:', { 
           user: authData.user?.id, 
           session: !!authData.session, 
           emailConfirmed: authData.user?.email_confirmed_at 
         });
 
-        // Link the team member
-        const linked = await linkTeamMember(authData.user.id);
-        
-         // If account was created successfully, redirect to login
-         if (linked) {
-           console.log('Account created successfully, redirecting to login...');
-           toast.success('Account created successfully! Please sign in to continue.');
-           navigate('/auth?message=account-created');
-         }
+        // Show success message and redirect to email verification
+        toast.success('Account created successfully! Please check your email to verify your account.');
+        navigate('/verify-email?message=team-member-created');
       }
     } catch (error: any) {
       console.error('Signup error:', error);
