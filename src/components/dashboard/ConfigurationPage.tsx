@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { createClient } from '@supabase/supabase-js';
 import { Loader2, Building, MapPin, Mail, Phone, Users, Upload, UserPlus, X, AlertTriangle } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -305,7 +306,7 @@ export function ConfigurationPage() {
 
         if (profileError) {
           console.error('Error removing doctor profile:', profileError);
-          // Continue with other removals even if this fails
+          toast.warning('Failed to remove doctor profile');
         } else {
           console.log('Removed doctor profile for user:', teamMember.linked_user_id);
         }
@@ -325,26 +326,31 @@ export function ConfigurationPage() {
 
       console.log('Removed team member record:', memberId);
 
-      // Step 3: Delete the authentication user (requires admin privileges)
+      // Step 3: Delete the authentication user using admin client
       if (teamMember.linked_user_id) {
         try {
-          // Use the edge function to delete the user with admin privileges
-          const { data, error: deleteUserError } = await supabase.functions.invoke('delete-user', {
-            body: {
-              userId: teamMember.linked_user_id
+          // Create admin client with service role key for user deletion
+          const adminClient = createClient(
+            import.meta.env.VITE_SUPABASE_URL,
+            import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
+            {
+              auth: {
+                autoRefreshToken: false,
+                persistSession: false
+              }
             }
-          });
+          );
+
+          const { error: deleteUserError } = await adminClient.auth.admin.deleteUser(teamMember.linked_user_id);
 
           if (deleteUserError) {
             console.error('Error deleting auth user:', deleteUserError);
-            // Don't fail the entire operation if user deletion fails
             toast.warning('Team member removed but auth account deletion failed. Contact support.');
-          } else if (data?.success) {
+          } else {
             console.log('Deleted authentication user:', teamMember.linked_user_id);
           }
         } catch (error) {
-          console.error('Error calling delete-user function:', error);
-          // Don't fail the entire operation if user deletion fails
+          console.error('Error deleting auth user:', error);
           toast.warning('Team member removed but auth account deletion failed. Contact support.');
         }
       }
