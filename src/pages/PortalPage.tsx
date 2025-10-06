@@ -119,7 +119,6 @@ export default function PortalPage() {
     }
   }, [user, loading, navigate, hasCheckedAuth]);
 
-  // Periodic access check (every 5 minutes)
   useEffect(() => {
     if (!user || !hasAccess || accessRevoked) return;
     const interval = setInterval(async () => {

@@ -95,6 +95,40 @@ serve(async (req) => {
       // Don't fail the lead submission if communications fail
     }
 
+    // Send patient confirmation email via HTTP call to the edge function
+    try {
+      console.log('Calling send-patient-confirmation edge function for lead:', lead.id)
+      
+      const patientFunctionUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-patient-confirmation`
+      const functionKey = Deno.env.get('SUPABASE_ANON_KEY')
+      
+      console.log('Patient confirmation function URL:', patientFunctionUrl)
+      console.log('Function key available:', !!functionKey)
+      
+      const patientResponse = await fetch(patientFunctionUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${functionKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          leadId: lead.id,
+          doctorId: leadData.doctor_id
+        })
+      })
+      
+      if (patientResponse.ok) {
+        const patientNotificationResult = await patientResponse.json()
+        console.log('Patient confirmation sent successfully:', patientNotificationResult)
+      } else {
+        const errorText = await patientResponse.text()
+        console.warn('Patient confirmation edge function failed:', patientResponse.status, errorText)
+      }
+    } catch (patientCommError) {
+      console.warn('Patient confirmation failed:', patientCommError)
+      // Don't fail the lead submission if patient communications fail
+    }
+
     // Return success response
     return new Response(
       JSON.stringify({
