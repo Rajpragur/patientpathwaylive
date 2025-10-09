@@ -103,7 +103,6 @@ serve(async (req) => {
     console.log('Starting team member removal:', {
       teamMemberId: teamMember.id,
       email: teamMember.email,
-      user_id: teamMember.user_id,
       linked_user_id: teamMember.linked_user_id
     })
 
@@ -112,12 +111,12 @@ serve(async (req) => {
       deletedTeamMembers: 0,
       deletedDoctorProfiles: 0,
       deletedAuthUser: false,
-      userId: teamMember.user_id || teamMember.linked_user_id,
+      userId: teamMember.linked_user_id,
       errors: [] as string[]
     }
 
-    // Determine the user_id to work with (could be user_id or linked_user_id depending on schema)
-    const targetUserId = teamMember.user_id || teamMember.linked_user_id
+    // Use linked_user_id from team_members table
+    const targetUserId = teamMember.linked_user_id
 
     // Step 1: Delete from clinic_members table (by user_id or email)
     if (targetUserId) {

@@ -322,173 +322,48 @@ export function ConfigurationPage() {
     try {
       console.log('Starting team member removal for ID:', memberId);
       
-      // Run diagnostic first
-      await checkTeamMemberStatus(memberId);
+      if (!doctorId) {
+        toast.error('Doctor ID not found');
+        return;
+      }
+
+      // Call the remove-team-member edge function to handle all deletions
+      console.log('Calling remove-team-member edge function...');
       
-      // First, get the team member record to find the linked user
-      const { data: teamMember, error: fetchError } = await supabase
-        .from('team_members')
-        .select('id, linked_user_id, email, first_name, last_name, doctor_id')
-        .eq('id', memberId)
-        .single();
-
-      if (fetchError) {
-        console.error('Error fetching team member:', fetchError);
-        toast.error('Failed to find team member');
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) {
+        toast.error('No active session');
         return;
       }
 
-      if (!teamMember) {
-        toast.error('Team member not found');
-        return;
-      }
-
-      console.log('Found team member to remove:', {
-        id: teamMember.id,
-        linked_user_id: teamMember.linked_user_id,
-        email: teamMember.email,
-        doctor_id: teamMember.doctor_id
+      const { data, error } = await supabase.functions.invoke('remove-team-member', {
+        body: {
+          teamMemberId: memberId,
+          doctorId: doctorId
+        },
+        headers: {
+          Authorization: `Bearer ${session.session.access_token}`
+        }
       });
 
-      // Step 1: Remove from team_members table FIRST (this should work with current RLS)
-      console.log('Step 1: Removing team member record:', memberId);
-      
-      const { data: teamData, error: teamError } = await supabase
-        .from('team_members')
-        .delete()
-        .eq('id', memberId)
-        .select();
-
-      if (teamError) {
-        console.error('Error removing team member:', teamError);
-        toast.error(`Failed to remove team member from team list: ${teamError.message}`);
+      if (error) {
+        console.error('Error removing team member:', error);
+        toast.error(`Failed to remove team member: ${error.message}`);
         return;
       }
 
-      console.log('Successfully removed team member record:', teamData);
-
-      // Step 2: Try to remove doctor profile (this might fail due to RLS, but we'll handle it gracefully)
-      if (teamMember.linked_user_id) {
-        console.log('Step 2: Attempting to remove doctor profile for user:', teamMember.linked_user_id);
-        
-        const { data: profileData, error: profileError } = await supabase
-          .from('doctor_profiles')
-          .delete()
-          .eq('user_id', teamMember.linked_user_id)
-          .select();
-
-        if (profileError) {
-          console.error('Error removing doctor profile (expected due to RLS):', profileError);
-          // This is expected to fail due to RLS - the profile will be orphaned but that's okay
-          toast.warning('Team member removed, but doctor profile could not be deleted due to permissions. This is normal and the profile will be cleaned up automatically.');
-        } else {
-          console.log('Successfully removed doctor profile:', profileData);
-          toast.success('Removed doctor profile');
-        }
-      } else {
-        console.log('No linked_user_id found, skipping doctor profile removal');
+      if (!data.success) {
+        console.error('Team member removal failed:', data);
+        toast.error(data.error || 'Failed to remove team member');
+        return;
       }
 
-      // Step 3: Delete the authentication user (if linked_user_id exists)
-      if (teamMember.linked_user_id) {
-        try {
-          console.log('Step 3: Deleting authentication user:', teamMember.linked_user_id);
-          
-          // Check if service role key is available
-          const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-          if (!serviceRoleKey) {
-            console.error('Service role key not found in environment variables');
-            console.log('Available env vars:', Object.keys(import.meta.env).filter(key => key.includes('SUPABASE')));
-            toast.warning('Cannot delete auth account: Service role key not configured. The team member has been removed from the team, but their authentication account remains.');
-          } else {
-            // Create admin client with service role key for user deletion
-            const adminClient = createClient(
-              import.meta.env.VITE_SUPABASE_URL,
-              serviceRoleKey,
-              {
-                auth: {
-                  autoRefreshToken: false,
-                  persistSession: false
-                }
-              }
-            );
-
-            console.log('Admin client created, attempting user deletion...');
-            
-            const { data: deleteData, error: deleteUserError } = await adminClient.auth.admin.deleteUser(teamMember.linked_user_id);
-
-            if (deleteUserError) {
-              console.error('Error deleting auth user:', deleteUserError);
-              
-              // Try alternative method using edge function as fallback
-              console.log('Trying alternative deletion method...');
-              try {
-                const { data: edgeData, error: edgeError } = await supabase.functions.invoke('delete-user', {
-                  body: {
-                    userId: teamMember.linked_user_id
-                  }
-                });
-
-                if (edgeError) {
-                  console.error('Edge function deletion also failed:', edgeError);
-                  toast.warning(`Auth account deletion failed: ${deleteUserError.message}. Edge function also failed: ${edgeError.message}`);
-                } else if (edgeData?.success) {
-                  console.log('Successfully deleted authentication user via edge function:', edgeData);
-                  toast.success('Deleted authentication account via edge function');
-                } else {
-                  console.error('Edge function returned error:', edgeData);
-                  toast.warning(`Auth account deletion failed: ${deleteUserError.message}`);
-                }
-              } catch (edgeError) {
-                console.error('Edge function call failed:', edgeError);
-                toast.warning(`Auth account deletion failed: ${deleteUserError.message}`);
-              }
-            } else {
-              console.log('Successfully deleted authentication user:', deleteData);
-              toast.success('Deleted authentication account');
-            }
-          }
-        } catch (error) {
-          console.error('Error deleting auth user:', error);
-          toast.warning(`Auth account deletion failed: ${error.message}`);
-        }
-      } else {
-        console.log('No linked_user_id found, skipping authentication user deletion');
-      }
-
-      // Run post-removal diagnostic to verify all deletions
-      console.log('=== POST-REMOVAL DIAGNOSTIC ===');
-      try {
-        // Check if team_members record is deleted
-        const { data: remainingTeamMember } = await supabase
-          .from('team_members')
-          .select('*')
-          .eq('id', memberId)
-          .single();
-        
-        console.log('Remaining team member record (should be null):', remainingTeamMember);
-        
-        // Check if doctor_profiles record is deleted
-        if (teamMember.linked_user_id) {
-          const { data: remainingProfile } = await supabase
-            .from('doctor_profiles')
-            .select('*')
-            .eq('user_id', teamMember.linked_user_id)
-            .single();
-          
-          console.log('Remaining doctor profile (should be null):', remainingProfile);
-          
-          // Note: Cannot check auth.users deletion from client side due to RLS
-          console.log('Authentication user deletion cannot be verified from client side');
-        }
-      } catch (diagError) {
-        console.log('Post-removal diagnostic error (expected if deletions successful):', diagError);
-      }
-      console.log('=== END POST-REMOVAL DIAGNOSTIC ===');
-
-      toast.success(`Team member ${teamMember.first_name} ${teamMember.last_name} removed successfully`);
-      await fetchTeamMembers(doctorId!);
-    } catch (error) {
+      console.log('Team member removed successfully:', data);
+      toast.success(`Team member removed successfully`);
+      
+      // Refresh the team members list
+      await fetchTeamMembers(doctorId);
+    } catch (error: any) {
       console.error('Error removing team member:', error);
       toast.error(`Failed to remove team member: ${error.message}`);
     }

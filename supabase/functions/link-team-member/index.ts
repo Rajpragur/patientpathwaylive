@@ -103,11 +103,11 @@ serve(async (req) => {
       location: doctorProfile.location
     })
 
-    // Update the team member record - use user_id instead of linked_user_id
+    // Update the team member record - use linked_user_id
     const { error: linkError } = await supabaseClient
       .from('team_members')
       .update({
-        user_id: userId,
+        linked_user_id: userId,
         status: 'accepted',
         accepted_at: new Date().toISOString()
       })
