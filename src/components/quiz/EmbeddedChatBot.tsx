@@ -46,9 +46,10 @@ interface EmbeddedChatBotProps {
   chatbotColors?: typeof defaultChatbotColors;
   utm_source: string;
   shareKey?: string;
+  compact?: boolean;
 }
 
-export function EmbeddedChatBot({ quizType, doctorId, customQuiz, quizData, doctorAvatarUrl,chatbotColors,utm_source, shareKey }: EmbeddedChatBotProps) {
+export function EmbeddedChatBot({ quizType, doctorId, customQuiz, quizData, doctorAvatarUrl, chatbotColors, utm_source, shareKey, compact = false }: EmbeddedChatBotProps) {
   const [searchParams] = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -210,10 +211,28 @@ export function EmbeddedChatBot({ quizType, doctorId, customQuiz, quizData, doct
   }, [doctorId, searchParams, customQuiz, shareKey]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    // Auto-scroll to bottom of quiz section when:
+    // 1. A new question appears
+    // 2. Results are shown
+    // 3. Taking details/collecting info
+    if (messages.length > 0 && messages[messages.length - 1].role === 'assistant') {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.isQuestion || 
+          (lastMessage.content && lastMessage.content.toLowerCase().includes('result')) ||
+          collectingInfo ||
+          quizCompleted) {
+        // For collecting info, scroll to show input field
+        if (collectingInfo) {
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 100);
+        } else {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+      }
+    }
+  }, [messages, collectingInfo, quizCompleted]);
 
-  // Reset answering state when question changes
   useEffect(() => {
     setIsAnswering(false);
   }, [currentQuestionIndex]);
@@ -272,6 +291,34 @@ export function EmbeddedChatBot({ quizType, doctorId, customQuiz, quizData, doct
       }
     } catch (error) {
       console.error('Error finding doctor for custom quiz:', error);
+      findFirstDoctor();
+    }
+  };
+
+  const findDoctorByShareKey = async () => {
+    try {
+      console.log('🔍 Finding doctor by share key:', shareKey);
+      const { data: shareData, error } = await supabase
+        .from('quiz_shares')
+        .select('doctor_id')
+        .eq('share_key', shareKey)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching doctor by share key:', error);
+        findFirstDoctor();
+        return;
+      }
+      
+      if (shareData && shareData.doctor_id) {
+        console.log('✅ Found doctor ID for share key:', shareData.doctor_id);
+        setFinalDoctorId(shareData.doctor_id);
+      } else {
+        console.log('❌ No doctor found for share key, using fallback');
+        findFirstDoctor();
+      }
+    } catch (error) {
+      console.error('❌ Error in findDoctorByShareKey:', error);
       findFirstDoctor();
     }
   };
@@ -808,7 +855,7 @@ const renderMessage = (message: Message, index: number) => (
 
 
 // Fix the renderAnswerOption function
-const renderAnswerOption = (option: any, index: number, handleAnswer: Function, setInput: Function, questionIndex?: number, currentQuestionIndex?: number, isAnswering?: boolean) => {
+const renderAnswerOption = (option: any, index: number, handleAnswer: Function, setInput: Function, questionIndex?: number, currentQuestionIndex?: number, isAnswering?: boolean, compact?: boolean) => {
   const isPreviousQuestion = questionIndex !== undefined && currentQuestionIndex !== undefined && questionIndex < currentQuestionIndex;
   const isDisabled = isPreviousQuestion || isAnswering;
   
@@ -824,7 +871,7 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
         }
       }}
       disabled={isDisabled}
-      className={`w-full p-4 text-left rounded-xl border transition-all duration-200 shadow-sm flex items-center gap-3 ${
+      className={`w-full ${compact ? 'p-1' : 'p-4'} text-left ${compact ? 'rounded-sm' : 'rounded-xl'} border transition-all duration-200 shadow-sm flex items-center ${compact ? 'gap-1' : 'gap-3'} ${
         isDisabled 
           ? 'border-gray-200 bg-gray-100 cursor-not-allowed opacity-60' 
           : 'border-gray-200 bg-white hover:border-primary/30 hover:bg-gray-50 hover:shadow'
@@ -834,12 +881,12 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
         color: theme.colors.primary 
       } as React.CSSProperties : {}}
     >
-      <span className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-medium ${
+      <span className={`flex-shrink-0 ${compact ? 'w-3 h-3 text-[10px]' : 'w-7 h-7 text-sm'} rounded-full flex items-center justify-center font-medium ${
         isDisabled ? 'bg-gray-200 text-gray-500' : 'bg-gray-100 text-gray-600'
       }`}>
         {String.fromCharCode(65 + index)}
       </span>
-      <span className={`flex-1 font-medium ${
+      <span className={`flex-1 font-medium ${compact ? 'text-[11px]' : 'text-base'} ${
         isDisabled ? 'text-gray-500' : 'text-gray-700'
       }`}>
         {option.text || option}
@@ -865,40 +912,40 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
                 transition={{ duration: 0.35, ease: 'easeInOut' }}
                 className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <div className="flex items-end gap-2 max-w-4xl">
+                <div className={`flex items-end max-w-4xl ${compact ? 'gap-1' : 'gap-2'}`}>
                   {message.role === 'assistant' && (
                     <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="flex-shrink-0">
-                      <Avatar className="h-8 w-8 border border-gray-200 shadow">
+                      <Avatar className={`${compact ? 'h-5 w-5' : 'h-8 w-8'} border border-gray-200 shadow`}>
                         <AvatarImage 
                           src={doctorProfile?.avatar_url || doctorAvatarUrl || Profileimage}
                           alt={`Dr. ${doctorProfile?.first_name || ''} ${doctorProfile?.last_name || ''}`}
                         />
                         <AvatarFallback className="bg-white">
-                          <Bot className="w-4 h-4" style={{ color: colors.text	 }} />
+                          <Bot className={`${compact ? 'w-2 h-2' : 'w-4 h-4'}`} style={{ color: colors.text	 }} />
                         </AvatarFallback>
                       </Avatar>
                     </motion.div>
                   )}
                   <div
-                    className={`rounded-2xl px-5 py-3 max-w-full shadow-md transition-all duration-200 ${
+                    className={`${compact ? 'rounded-md px-2 py-1' : 'rounded-2xl px-5 py-3'} max-w-full shadow-md transition-all duration-200 ${
                       message.role === 'user'
                         ? 'text-gray-900 hover:shadow-lg'
                         : 'bg-white border border-gray-200 text-gray-700 hover:shadow-lg'
                     }`}
                     style={message.role === 'user' ? { backgroundColor: colors.userBubble, color: colors.userText , borderColor: colors.primary	 } : {backgroundColor: colors.botBubble, color: colors.botText , borderColor: colors.primary}}
                   >
-                    <span className="whitespace-pre-wrap text-base font-medium leading-relaxed">{message.content}</span>
+                    <span className={`whitespace-pre-wrap font-medium leading-relaxed ${compact ? 'text-xs' : 'text-base'}`}>{message.content}</span>
                     {message.isQuestion && message.options && !quizCompleted && (
-                      <div className="mt-4 space-y-2 w-full">
+                      <div className={`${compact ? 'mt-2' : 'mt-4'} ${compact ? 'space-y-1' : 'space-y-2'} w-full`}>
                         {Array.isArray(message.options) && message.options.map((option: any, optionIndex: number) =>
-                          renderAnswerOption(option, optionIndex, handleAnswer, setInput, message.questionIndex, currentQuestionIndex, isAnswering)
+                          renderAnswerOption(option, optionIndex, handleAnswer, setInput, message.questionIndex, currentQuestionIndex, isAnswering, compact)
                         )}
                       </div>
                     )}
                   </div>
                   {message.role === 'user' && (
                     <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="flex-shrink-0">
-                      <UserCircle className="w-7 h-7 bg-white rounded-full border border-gray-200 shadow p-1" style={{ color: colors.primary	 }} />
+                      <UserCircle className={`${compact ? 'w-6 h-6' : 'w-7 h-7'} bg-white rounded-full border border-gray-200 shadow p-1`} style={{ color: colors.primary	 }} />
                     </motion.div>
                   )}
                 </div>
@@ -907,13 +954,13 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
             
             {showTyping && (
               <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="flex-shrink-0">
-                <Avatar className="h-8 w-8 border border-gray-200 shadow">
+                <Avatar className={`${compact ? 'h-5 w-5' : 'h-8 w-8'} border border-gray-200 shadow`}>
                   <AvatarImage 
                     src={doctorProfile?.avatar_url || doctorAvatarUrl || Profileimage}
                     alt={`Dr. ${doctorProfile?.first_name || ''} ${doctorProfile?.last_name || ''}`}
                   />
                   <AvatarFallback className="bg-white">
-                    <Bot className="w-4 h-4" style={{ color: colors.primary}} />
+                    <Bot className={`${compact ? 'w-2 h-2' : 'w-4 h-4'}`} style={{ color: colors.primary}} />
                   </AvatarFallback>
                 </Avatar>
               </motion.div>
@@ -921,34 +968,34 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
           </AnimatePresence>
           
           {result && quizCompleted && !collectingInfo && (
-            <Card className="rounded-2xl mt-6 border" style={{ borderColor: colors.primary	}}>
-              <CardHeader>
-                <CardTitle className="flex justify-center items-center gap-2" style={{ color: colors.primary	 }}>
-                  <CheckCircle className="w-5 h-5" />
+            <Card className={`${compact ? 'rounded-lg mt-3' : 'rounded-2xl mt-6'} border`} style={{ borderColor: colors.primary	}}>
+              <CardHeader className={compact ? 'p-3' : 'p-6'}>
+                <CardTitle className={`flex justify-center items-center gap-2 ${compact ? 'text-base' : 'text-xl'}`} style={{ color: colors.primary	 }}>
+                  <CheckCircle className={`${compact ? 'w-4 h-4' : 'w-5 h-5'}`} />
                   Thank You!
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="text-center p-4 rounded-lg bg-gray-50">
-                    <p className="text-sm" style={{ color: colors.primary }}>Your Score</p>
-                    <p className="text-2xl font-bold" style={{ color: colors.primary	 }}>{result.score}/{quizData.maxScore}</p>
+              <CardContent className={`${compact ? 'p-3 space-y-2' : 'p-6 space-y-4'}`}>
+                <div className={`grid ${compact ? 'grid-cols-1 gap-2' : 'grid-cols-1 md:grid-cols-3 gap-4'}`}>
+                  <div className={`text-center ${compact ? 'p-2' : 'p-4'} rounded-lg bg-gray-50`}>
+                    <p className={`${compact ? 'text-xs' : 'text-sm'}`} style={{ color: colors.primary }}>Your Score</p>
+                    <p className={`${compact ? 'text-lg' : 'text-2xl'} font-bold`} style={{ color: colors.primary	 }}>{result.score}/{quizData.maxScore}</p>
                   </div>
-                  <div className={`text-center p-4 rounded-lg border ${getSeverityColor(result.severity)}`}>
-                    <div className="flex items-center justify-center gap-2 mb-1">
+                  <div className={`text-center ${compact ? 'p-2' : 'p-4'} rounded-lg border ${getSeverityColor(result.severity)}`}>
+                    <div className={`flex items-center justify-center gap-2 ${compact ? 'mb-0.5' : 'mb-1'}`}>
                       {getSeverityIcon(result.severity)}
-                      <p className="text-sm font-medium">Severity Level</p>
+                      <p className={`${compact ? 'text-xs' : 'text-sm'} font-medium`}>Severity Level</p>
                     </div>
-                    <p className="font-bold capitalize">{result.severity}</p>
+                    <p className={`${compact ? 'text-sm' : 'text-base'} font-bold capitalize`}>{result.severity}</p>
                   </div>
-                  <div className="text-center p-4 rounded-lg bg-gray-50">
-                    <p className="text-sm" style={{ color: colors.primary }}>Questions</p>
-                    <p className="text-2xl font-bold" style={{ color: colors.primary }}>{quizData.questions.length}</p>
+                  <div className={`text-center ${compact ? 'p-2' : 'p-4'} rounded-lg bg-gray-50`}>
+                    <p className={`${compact ? 'text-xs' : 'text-sm'}`} style={{ color: colors.primary }}>Questions</p>
+                    <p className={`${compact ? 'text-lg' : 'text-2xl'} font-bold`} style={{ color: colors.primary }}>{quizData.questions.length}</p>
                   </div>
                 </div>
-                <div className="p-4 rounded-lg bg-gray-50">
-                  <h4 className="font-semibold mb-2" style={{ color: colors.primary	 }}>Results Summary:</h4>
-                  <p style={{ color: colors.primary }}>{result.interpretation}</p>
+                <div className={`${compact ? 'p-2' : 'p-4'} rounded-lg bg-gray-50`}>
+                  <h4 className={`${compact ? 'text-sm' : 'text-base'} font-semibold ${compact ? 'mb-1' : 'mb-2'}`} style={{ color: colors.primary	 }}>Results Summary:</h4>
+                  <p className={`${compact ? 'text-xs' : 'text-sm'}`} style={{ color: colors.primary }}>{result.interpretation}</p>
                 </div>
                 <Button 
                   onClick={resetQuiz} 
@@ -983,18 +1030,18 @@ const renderAnswerOption = (option: any, index: number, handleAnswer: Function, 
                   "Enter your phone (e.g., 123-456-7890)..."
                 }
                 onKeyDown={handleKeyDown}
-                className="flex-1 rounded-xl border border-gray-200 px-4 py-2 text-base bg-white shadow focus:ring-2 focus:outline-none transition-all duration-150"
+                className={`flex-1 ${compact ? 'rounded-lg px-2 py-1.5 text-xs' : 'rounded-xl px-4 py-2 text-base'} border border-gray-200 bg-white shadow focus:ring-2 focus:outline-none transition-all duration-150 focus:border-blue-500 focus:ring-blue-200`}
                 disabled={isSubmittingLead}
                 required
                 type={infoStep === 1 ? "email" : infoStep === 2 ? "tel" : "text"}
               />
               <Button 
                 onClick={handleInfoSubmit} 
-                className="rounded-xl shadow text-white" 
+                className={`${compact ? 'rounded-lg px-2 py-1.5' : 'rounded-xl px-4 py-2'} shadow text-white transition-all duration-150 hover:scale-105 active:scale-95`}
                 style={{ backgroundColor: colors.primary, borderColor: colors.primary }}
                 disabled={isSubmittingLead}
               >
-                {isSubmittingLead ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                {isSubmittingLead ? <Loader2 className={`${compact ? 'w-3 h-3' : 'w-4 h-4'} animate-spin`} /> : <Send className={`${compact ? 'w-3 h-3' : 'w-4 h-4'}`} />}
               </Button>
             </div>
           )}

@@ -5,6 +5,9 @@
 export interface DoctorProfile {
   id: string;
   name: string;
+  first_name?: string;
+  last_name?: string;
+  clinic_name?: string;
   credentials: string;
   locations: { city: string; address: string; phone: string }[];
   testimonials: { text: string; author: string; location: string }[];

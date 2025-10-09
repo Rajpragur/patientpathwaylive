@@ -42,3 +42,4 @@ CREATE POLICY "Allow creation of landing pages"
       WHERE dp.user_id = auth.uid()
     ) OR doctor_id = 'demo'
   );
+

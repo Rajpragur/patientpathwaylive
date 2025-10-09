@@ -398,7 +398,7 @@ const TNSSLandingPage: React.FC = () => {
     return (typeof text === 'string' && text.trim()) ? text.trim() : fallback;
   };
 
-  const doctorAvatarUrl = doctor?.avatar_url || '/lovable-uploads/6b38df79-5ad8-494b-83ed-7dba6c54d4b1.png';
+  const doctorAvatarUrl = doctor?.avatar_url || '/src/assets/doctor.png';
 
   if (!doctor || loadingAI) {
     return (

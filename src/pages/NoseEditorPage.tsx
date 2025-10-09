@@ -730,7 +730,7 @@ const NoseEditorPage: React.FC = () => {
         locations: doctor?.locations || [],
         testimonials: doctor?.testimonials || [],
         website: doctor?.website || '#',
-        avatar_url: doctor?.avatar_url || '/lovable-uploads/6b38df79-5ad8-494b-83ed-7dba6c54d4b1.png'
+        avatar_url: doctor?.avatar_url || '/src/assets/doctor.png'
       }
     };
     
@@ -748,7 +748,7 @@ const NoseEditorPage: React.FC = () => {
           locations: doctor?.locations || [],
           testimonials: doctor?.testimonials || [],
           website: doctor?.website || '#',
-          avatar_url: doctor?.avatar_url || '/lovable-uploads/6b38df79-5ad8-494b-83ed-7dba6c54d4b1.png'
+          avatar_url: doctor?.avatar_url || '/src/assets/doctor.png'
         }
       },
     ], { onConflict: 'doctor_id,quiz_type' });
@@ -759,7 +759,7 @@ const NoseEditorPage: React.FC = () => {
 
   // Helper to safely render lists
   const safeList = (arr: any, fallback: string) => Array.isArray(arr) && arr.length > 0 ? arr : [fallback];
-  const doctorAvatarUrl = doctor?.avatar_url || '/lovable-uploads/6b38df79-5ad8-494b-83ed-7dba6c54d4b1.png';
+  const doctorAvatarUrl = doctor?.avatar_url || '/src/assets/doctor.png';
 
   const ChatWidget = () => {
     if (!showChatWidget) return null;

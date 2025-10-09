@@ -316,19 +316,6 @@ See [DEPLOYMENT-OPS-GUIDE.md](./DEPLOYMENT-OPS-GUIDE.md) for complete deployment
 
 ---
 
-## Custom Domain
-
-To connect a custom domain:
-
-1. Navigate to Vercel Project Settings → Domains
-2. Add your domain
-3. Configure DNS records
-4. Wait for SSL provisioning
-
-See [Lovable Custom Domain Guide](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
-
----
-
 ## Support & Resources
 
 ### Documentation
@@ -346,8 +333,7 @@ See [Lovable Custom Domain Guide](https://docs.lovable.dev/tips-tricks/custom-do
 - [shadcn/ui Documentation](https://ui.shadcn.com)
 
 ### Project Links
-- **Lovable Project**: https://lovable.dev/projects/e243a82f-6a2c-41d1-8d6e-46a78816b026
-- **Production URL**: https://pathway-lead-capture-bot.vercel.app/auth
+- **Production URL**: https://patientpathway.ai/
 
 ---
 

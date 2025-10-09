@@ -28,7 +28,7 @@ export function createDoctorProfileForLandingPage(doctor: any, doctorId?: string
     email: doctor?.email || 'Contact for email',
     clinic_name: doctor?.clinic_name || 'Medical Center',
     specialty: doctor?.specialty || 'General Practice',
-    avatar_url: doctor?.avatar_url || '/lovable-uploads/6b38df79-5ad8-494b-83ed-7dba6c54d4b1.png'
+    avatar_url: doctor?.avatar_url || '/src/assets/doctor.png'
   };
 }
 

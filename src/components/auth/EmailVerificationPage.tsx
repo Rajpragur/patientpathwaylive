@@ -129,31 +129,24 @@ export function EmailVerificationPage() {
           
           // If account is recent and no confirmation, email confirmation is likely disabled
           if (isRecentlyCreated && !user.email_confirmed_at) {
-            console.log('🔍 DIAGNOSIS: Email confirmation appears to be DISABLED in Supabase');
-            console.log('📧 No verification email will be sent because email confirmation is disabled');
-            console.log('✅ User can proceed directly to portal');
+            console.log('DIAGNOSIS: Email confirmation appears to be DISABLED in Supabase');
+            console.log('No verification email will be sent because email confirmation is disabled');
+            console.log('User can proceed directly to portal');
             
             setEmailConfirmed(true); // Treat as confirmed since confirmation is disabled
             setVerificationStatus('success');
             toast.success('Email confirmation is disabled. Proceeding to portal...');
-            
-            // Check if this is a team member and link them
             await handleTeamMemberLinking();
-            
             setTimeout(() => {
               navigate('/portal');
             }, 2000);
             return;
           }
-          
           if (user.email_confirmed_at) {
             setEmailConfirmed(true);
             setVerificationStatus('success');
             toast.success('Email already verified!');
-            
-            // Check if this is a team member and link them
             await handleTeamMemberLinking();
-            
             setTimeout(() => {
               navigate('/portal');
             }, 2000);
@@ -165,12 +158,9 @@ export function EmailVerificationPage() {
         console.error('Error checking email status:', error);
       }
     };
-
-    // Only verify if we have search params
     if (searchParams.get('token')) {
       verifyEmail();
     } else {
-      // Check if email is already confirmed
       checkEmailStatus();
     }
   }, [searchParams, navigate]);
