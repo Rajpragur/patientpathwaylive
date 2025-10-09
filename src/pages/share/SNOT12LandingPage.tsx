@@ -143,13 +143,13 @@ const SNOT12LandingPage: React.FC = () => {
 
     try {
       const { data } = await supabase
-        .from('ai_landing_pages')
-        .select('chatbot_colors')
-        .eq('doctor_id', doctor.id)
-        .eq('quiz_type', 'SNOT12')
-        .maybeSingle();
-
-      if (data && data.chatbot_colors) {
+          .from('ai_landing_pages')
+          .select('chatbot_colors')
+          .eq('doctor_id', doctor.id)
+          .eq('quiz_type', 'SNOT12')
+          .maybeSingle();
+          
+        if (data && data.chatbot_colors) {
         return data.chatbot_colors;
       }
       return defaultChatbotColors;
@@ -210,7 +210,7 @@ const SNOT12LandingPage: React.FC = () => {
     );
   }
 
-  return (
+    return (
     <div className="antialiased bg-white font-sans text-gray-900">
       <main className="w-full">
         {/* Hero Section with Embedded Quiz */}
@@ -220,7 +220,7 @@ const SNOT12LandingPage: React.FC = () => {
               <img 
                 src="/hero-bg.jpg" 
                 alt="" 
-                className="w-full h-full object-cover opacity-20 hidden lg:block"
+                className="w-full h-full object-cover opacity-20"
               />
             </div>
 
@@ -250,30 +250,30 @@ const SNOT12LandingPage: React.FC = () => {
                       <p className="text-gray-600 text-xs">
                         Sinus & Nasal Outcome Test
                       </p>
-                    </div>
+              </div>
                     <div className="w-full" style={{ maxHeight: '420px', overflowY: 'auto' }}>
-                      <EmbeddedChatBot
-                        quizType="SNOT12"
-                        doctorId={doctorId || doctor?.id}
-                        quizData={quizzes.SNOT12}
-                        doctorAvatarUrl={doctorAvatarUrl}
-                        chatbotColors={chatbotColors}
-                        utm_source={utmSource}
+                <EmbeddedChatBot
+                  quizType="SNOT12"
+                  doctorId={doctorId || doctor?.id}
+                  quizData={quizzes.SNOT12}
+                  doctorAvatarUrl={doctorAvatarUrl}
+                  chatbotColors={chatbotColors}
+                  utm_source={utmSource}
                         compact={true}
-                      />
+                />
                     </div>
                   </div>
                 </div>
               </div>
             </div>
           </section>
-        </div>
+          </div>
 
         {/* Doctor Note Section */}
         <section className="relative px-4 py-16 sm:px-8 lg:px-16 xl:px-40 2xl:px-64 lg:py-32 bg-gray-50">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            {/* Doctor Image - Hidden on mobile, shown on desktop */}
-            <div className="hidden lg:block">
+            {/* Doctor Image - Now shown on all devices */}
+            <div>
               <img 
                 src={doctorAvatarUrl || '/woman-tissue.jpg'} 
                 alt="Doctor" 
@@ -281,7 +281,7 @@ const SNOT12LandingPage: React.FC = () => {
               />
             </div>
 
-            <div>
+            <div className="text-center lg:text-left max-w-[450px] mx-auto lg:mx-0">
               <h2 className="text-3xl font-bold mb-4">A note from Dr. {doctor?.last_name || 'Smith'}</h2>
               <p className="text-gray-700 leading-relaxed mb-4">
                 Sinus pain and pressure can wear you down. Maybe your nose is always running, or the pressure 
@@ -291,14 +291,14 @@ const SNOT12LandingPage: React.FC = () => {
                 You don't have to keep putting up with it. If infections last for weeks and return several times a year, 
                 it's time to look for the underlying cause and a plan that provides lasting relief. Take our SNOT-12 
                 assessment to understand your symptoms better.
-              </p>
-              <button
-                onClick={handleShowQuiz}
+            </p>
+            <button
+              onClick={handleShowQuiz}
                 className="px-8 py-4 bg-teal-500 text-white rounded inline-block mt-5 font-semibold hover:bg-teal-600 transition"
-              >
+            >
                 Take the SNOT-12 Test
-              </button>
-            </div>
+            </button>
+              </div>
           </div>
         </section>
 
@@ -353,23 +353,23 @@ const SNOT12LandingPage: React.FC = () => {
                   <span className="text-gray-700">Difficulty breathing through the nose</span>
                 </li>
               </ul>
-            </div>
+              </div>
 
-            {/* Image hidden on mobile for cleaner design */}
-            <div className="hidden lg:flex justify-center">
+            {/* Image now shown on all devices */}
+            <div className="flex justify-center">
               <img 
                 src="/woman-tissue.jpg" 
                 alt="Sinus Symptoms" 
                 className="w-full object-cover rounded-2xl shadow-lg"
               />
-            </div>
+              </div>
           </div>
         </section>
 
         {/* What Are Chronic Sinus Infections Section */}
         <section className="relative bg-gray-900 py-20">
-          {/* Background image hidden on mobile for cleaner design */}
-          <div className="absolute inset-0 hidden lg:block">
+          {/* Background image now shown on all devices */}
+          <div className="absolute inset-0">
             <img 
               src="/woman-sneezing.jpg" 
               alt="Background" 
@@ -386,12 +386,12 @@ const SNOT12LandingPage: React.FC = () => {
               sometimes with nasal polyps.
             </p>
 
-            <button
-              onClick={handleShowQuiz}
+              <button
+                onClick={handleShowQuiz}
               className="inline-block bg-teal-500 text-white font-semibold px-8 py-4 rounded-lg shadow-lg transition hover:bg-teal-600"
-            >
+              >
               Take the SNOT-12 Test
-            </button>
+              </button>
           </div>
         </section>
 
@@ -418,7 +418,7 @@ const SNOT12LandingPage: React.FC = () => {
                 <p className="text-gray-700">
                   To look for swelling, blockage, and polyps
                 </p>
-              </div>
+                    </div>
 
               <div className="bg-white rounded-2xl shadow p-6">
                 <h3 className="text-xl font-semibold text-gray-800 mb-4">
@@ -427,7 +427,7 @@ const SNOT12LandingPage: React.FC = () => {
                 <p className="text-gray-700">
                   When needed to confirm disease pattern and guide treatment
                 </p>
-              </div>
+                  </div>
 
               <div className="bg-white rounded-2xl shadow p-6">
                 <h3 className="text-xl font-semibold text-gray-800 mb-4">
@@ -437,7 +437,7 @@ const SNOT12LandingPage: React.FC = () => {
                   When symptoms or history suggest an underlying driver
                 </p>
               </div>
-            </div>
+              </div>
           </div>
         </section>
 
@@ -494,9 +494,9 @@ const SNOT12LandingPage: React.FC = () => {
                       {doctor?.website || 'www.exhalesinus.com'}
                     </a>
                   </p>
-                </div>
-              </div>
-            </div>
+                      </div>
+                    </div>
+                  </div>
 
             <div>
               <img
@@ -536,7 +536,7 @@ const SNOT12LandingPage: React.FC = () => {
                         strokeWidth="2"
                         d="M19 9l-7 7-7-7"
                       ></path>
-                    </svg>
+                      </svg>
                   </button>
                   {openFaqIndex === index && (
                     <div className="pb-4 text-gray-700">{faq.answer}</div>
@@ -595,8 +595,8 @@ const SNOT12LandingPage: React.FC = () => {
 
         {/* Final CTA Section */}
         <section className="relative bg-gray-900 text-white">
-          {/* Background image hidden on mobile for cleaner design */}
-          <div className="absolute inset-0 hidden lg:block">
+          {/* Background image now shown on all devices */}
+          <div className="absolute inset-0">
             <img 
               src="/woman-breathing.jpg" 
               alt="Sinus Test Background" 

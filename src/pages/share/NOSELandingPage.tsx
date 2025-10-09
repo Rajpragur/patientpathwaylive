@@ -80,8 +80,8 @@ const NOSELandingPage: React.FC = () => {
       setUtmSource(source);
     }
     
-    const doctorIdFromRoute = doctorId;
-    const doctorIdFromQuery = searchParams.get('doctor');
+      const doctorIdFromRoute = doctorId;
+      const doctorIdFromQuery = searchParams.get('doctor');
     const id = doctorIdFromQuery || doctorIdFromRoute || 'demo';
     
     setActualDoctorId(id);
@@ -92,42 +92,42 @@ const NOSELandingPage: React.FC = () => {
   const fetchDoctorProfile = useCallback(async (): Promise<DoctorProfile> => {
     if (!actualDoctorId || actualDoctorId === 'demo') {
       return defaultDoctor;
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('doctor_profiles')
-        .select('*')
-        .eq('id', actualDoctorId)
-        .single();
-
-      if (error) {
-        console.error('Error fetching doctor profile:', error);
-        return defaultDoctor;
       }
 
-      if (data && data.first_name && data.last_name) {
+      try {
+        const { data, error } = await supabase
+          .from('doctor_profiles')
+          .select('*')
+          .eq('id', actualDoctorId)
+          .single();
+
+        if (error) {
+          console.error('Error fetching doctor profile:', error);
+        return defaultDoctor;
+        }
+
+        if (data && data.first_name && data.last_name) {
         return {
-          id: data.id,
-          name: `${data.first_name} ${data.last_name}`,
+            id: data.id,
+            name: `${data.first_name} ${data.last_name}`,
           first_name: data.first_name,
           last_name: data.last_name,
           clinic_name: data.clinic_name,
-          credentials: data.specialty || 'MD',
-          locations: [
-            {
-              city: data.location || 'Main Office',
-              address: data.clinic_name || 'Please contact for address',
-              phone: data.phone || 'Please contact for phone'
-            }
-          ],
-          testimonials: defaultDoctor.testimonials,
-          website: data.website || defaultDoctor.website,
-          avatar_url: data.avatar_url
-        };
-      }
+            credentials: data.specialty || 'MD',
+            locations: [
+              {
+                city: data.location || 'Main Office',
+                address: data.clinic_name || 'Please contact for address',
+                phone: data.phone || 'Please contact for phone'
+              }
+            ],
+            testimonials: defaultDoctor.testimonials,
+            website: data.website || defaultDoctor.website,
+            avatar_url: data.avatar_url
+          };
+        }
       return defaultDoctor;
-    } catch (error) {
+      } catch (error) {
       console.error('Error in fetchDoctorProfile:', error);
       return defaultDoctor;
     }
@@ -145,17 +145,17 @@ const NOSELandingPage: React.FC = () => {
 
     try {
       const { data } = await supabase
-        .from('ai_landing_pages')
-        .select('chatbot_colors')
-        .eq('doctor_id', doctor.id)
-        .eq('quiz_type', 'NOSE')
-        .maybeSingle();
+            .from('ai_landing_pages')
+            .select('chatbot_colors')
+            .eq('doctor_id', doctor.id)
+            .eq('quiz_type', 'NOSE')
+            .maybeSingle();
 
       if (data && data.chatbot_colors) {
         return data.chatbot_colors;
       }
       return defaultChatbotColors;
-    } catch (error) {
+      } catch (error) {
       console.warn('Could not fetch chatbot colors');
       return defaultChatbotColors;
     }
@@ -221,9 +221,9 @@ const NOSELandingPage: React.FC = () => {
           <section className="cover relative bg-gradient-to-r from-blue-600 to-teal-500 px-4 sm:px-8 lg:px-16 xl:px-40 2xl:px-64 overflow-hidden py-16 lg:py-32">
             <div className="h-full absolute top-0 left-0 right-0 z-0">
               <img 
-                src="/hero-bg-sneeze.jpg" 
+                src="/hero-bg.jpg" 
                 alt="" 
-                className="w-full h-full object-cover opacity-20 hidden lg:block"
+                className="w-full h-full object-cover opacity-20"
               />
             </div>
 
@@ -242,7 +242,7 @@ const NOSELandingPage: React.FC = () => {
                     NOSE score (0–100). {doctor ? `Dr. ${doctor.last_name} will` : "We'll"} review your results personally and
                     discuss next steps to help you breathe—and sleep—better.
                   </p>
-                </div>
+          </div>
                 {/* Right Side - Quiz Section */}
                 <div id="nose-quiz-section" className="flex justify-center lg:justify-end">
                   <div className="bg-white rounded-lg shadow-lg p-2 lg:p-3 w-full max-w-sm" style={{ maxHeight: '500px' }}>
@@ -253,7 +253,7 @@ const NOSELandingPage: React.FC = () => {
                       <p className="text-gray-600 text-xs">
                         Quick Nasal Obstruction Evaluation
                       </p>
-                    </div>
+        </div>
                     <div className="w-full" style={{ maxHeight: '420px', overflowY: 'auto' }}>
                       <EmbeddedChatBot
                         quizType="NOSE"
@@ -264,19 +264,19 @@ const NOSELandingPage: React.FC = () => {
                         utm_source={utmSource}
                         compact={true}
                       />
-                    </div>
-                  </div>
-                </div>
-                </div>
+      </div>
+          </div>
+        </div>
+      </div>
                 </div>
           </section>
-        </div>
+                </div>
 
         {/* Doctor Note Section */}
         <section className="relative px-4 py-16 sm:px-8 lg:px-16 xl:px-40 2xl:px-64 lg:py-32 bg-gray-50">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            {/* Doctor Image - Hidden on mobile, shown on desktop */}
-            <div className="hidden lg:block">
+            {/* Doctor Image - Now shown on all devices */}
+            <div>
               <img 
                 src={doctorAvatarUrl || '/placeholder.svg'} 
                 alt="Doctor" 
@@ -351,8 +351,8 @@ const NOSELandingPage: React.FC = () => {
               </ul>
               </div>
               
-            {/* Image hidden on mobile for cleaner design */}
-            <div className="hidden lg:flex justify-center">
+            {/* Image now shown on all devices */}
+            <div className="flex justify-center">
               <img 
                 src="/woman-sneezing.jpg" 
                 alt="Nasal Airway" 
@@ -364,8 +364,8 @@ const NOSELandingPage: React.FC = () => {
 
         {/* How NOSE Test Works */}
         <section className="relative bg-gray-900 py-20">
-          {/* Background image hidden on mobile for cleaner design */}
-          <div className="absolute inset-0 hidden lg:block">
+          {/* Background image now shown on all devices */}
+          <div className="absolute inset-0">
             <img 
               src="/woman-tissue.jpg" 
               alt="Background" 
@@ -573,8 +573,8 @@ const NOSELandingPage: React.FC = () => {
               </ul>
               </div>
 
-            {/* Image hidden on mobile for cleaner design */}
-            <div className="hidden lg:flex justify-center lg:justify-end">
+            {/* Image now shown on all devices */}
+            <div className="flex justify-center lg:justify-end">
               <img 
                 src='/mainline-treatment.jpg'
                 alt="Nasal treatment illustration" 
@@ -887,8 +887,8 @@ const NOSELandingPage: React.FC = () => {
         {/* What Happens After Test */}
         <section className="relative px-4 py-16 sm:px-8 lg:px-16 xl:px-40 2xl:px-64 bg-gray-50">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
-            {/* Image hidden on mobile for cleaner design */}
-            <div className="hidden lg:block">
+            {/* Image now shown on all devices */}
+            <div>
               <img 
                 src="/woman-sitting.jpg" 
                 alt="Patient consultation illustration" 
@@ -993,8 +993,8 @@ const NOSELandingPage: React.FC = () => {
                       </div>
                       </div>
 
-            {/* Image hidden on mobile for cleaner design */}
-            <div className="hidden lg:block">
+            {/* Image now shown on all devices */}
+            <div>
               <img 
                 src='/woman-breathing.jpg'
                 alt="Woman Breathing" 
@@ -1113,8 +1113,8 @@ const NOSELandingPage: React.FC = () => {
 
         {/* Final CTA Section */}
         <section className="relative bg-gray-900 text-white">
-          {/* Background image hidden on mobile for cleaner design */}
-          <div className="absolute inset-0 hidden lg:block">
+          {/* Background image now shown on all devices */}
+          <div className="absolute inset-0">
             <img 
               src="/bottom-image-landing.jpg" 
               alt="Nose Test Background" 
