@@ -4,6 +4,8 @@ import { EmbeddedChatBot } from '@/components/quiz/EmbeddedChatBot';
 import { quizzes } from '@/data/quizzes';
 import { supabase } from '@/integrations/supabase/client';
 import { DoctorProfile } from '../../lib/openrouter';
+import { useCachedData } from '@/hooks/useCachedData';
+import { preloadImages } from '@/utils/imageCache';
 
 const defaultDoctor: DoctorProfile = {
   id: 'demo',
@@ -35,8 +37,7 @@ const defaultChatbotColors = {
 const NOSELandingPage: React.FC = () => {
   const { doctorId } = useParams<{ doctorId: string }>();
   const [utmSource, setUtmSource] = useState<string | null>(null);
-  const [doctor, setDoctor] = useState<DoctorProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [actualDoctorId, setActualDoctorId] = useState<string | null>(null);
   const [chatbotColors, setChatbotColors] = useState(defaultChatbotColors);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   
@@ -69,52 +70,7 @@ const NOSELandingPage: React.FC = () => {
     }
   ];
 
-  const fetchDoctorData = useCallback(async (actualDoctorId: string) => {
-    try {
-        const { data, error } = await supabase
-          .from('doctor_profiles')
-          .select('*')
-          .eq('id', actualDoctorId)
-          .single();
-
-        if (error) {
-          console.error('Error fetching doctor profile:', error);
-          setDoctor(defaultDoctor);
-          return;
-        }
-
-        if (data && data.first_name && data.last_name) {
-          const doctorProfile = {
-            id: data.id,
-            name: `${data.first_name} ${data.last_name}`,
-            first_name: data.first_name,
-            last_name: data.last_name,
-            clinic_name: data.clinic_name,
-            credentials: data.specialty || 'MD',
-            locations: [
-              {
-                city: data.location || 'Main Office',
-                address: data.clinic_name || 'Please contact for address',
-                phone: data.phone || 'Please contact for phone'
-              }
-            ],
-            testimonials: defaultDoctor.testimonials,
-            website: data.website || defaultDoctor.website,
-            avatar_url: data.avatar_url
-          };
-          console.log('Doctor profile with clinic name:', doctorProfile);
-          setDoctor(doctorProfile);
-        } else {
-          setDoctor(defaultDoctor);
-        }
-      } catch (error) {
-        console.error('Error in fetchDoctorData:', error);
-        setDoctor(defaultDoctor);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  // Initialize doctorId and UTM source
   useEffect(() => {
     if (isInitialized.current) return;
     
@@ -126,42 +82,114 @@ const NOSELandingPage: React.FC = () => {
     
     const doctorIdFromRoute = doctorId;
     const doctorIdFromQuery = searchParams.get('doctor');
-    const actualDoctorId = doctorIdFromQuery || doctorIdFromRoute;
+    const id = doctorIdFromQuery || doctorIdFromRoute || 'demo';
     
-    if (!actualDoctorId) {
-      setDoctor(defaultDoctor);
-      setLoading(false);
-      isInitialized.current = true;
-        return;
-      }
-      
-    fetchDoctorData(actualDoctorId);
+    setActualDoctorId(id);
     isInitialized.current = true;
-  }, [doctorId, fetchDoctorData]);
+  }, [doctorId]);
 
+  // Cached doctor profile fetch
+  const fetchDoctorProfile = useCallback(async (): Promise<DoctorProfile> => {
+    if (!actualDoctorId || actualDoctorId === 'demo') {
+      return defaultDoctor;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('doctor_profiles')
+        .select('*')
+        .eq('id', actualDoctorId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching doctor profile:', error);
+        return defaultDoctor;
+      }
+
+      if (data && data.first_name && data.last_name) {
+        return {
+          id: data.id,
+          name: `${data.first_name} ${data.last_name}`,
+          first_name: data.first_name,
+          last_name: data.last_name,
+          clinic_name: data.clinic_name,
+          credentials: data.specialty || 'MD',
+          locations: [
+            {
+              city: data.location || 'Main Office',
+              address: data.clinic_name || 'Please contact for address',
+              phone: data.phone || 'Please contact for phone'
+            }
+          ],
+          testimonials: defaultDoctor.testimonials,
+          website: data.website || defaultDoctor.website,
+          avatar_url: data.avatar_url
+        };
+      }
+      return defaultDoctor;
+    } catch (error) {
+      console.error('Error in fetchDoctorProfile:', error);
+      return defaultDoctor;
+    }
+  }, [actualDoctorId]);
+
+  const { data: doctor, loading } = useCachedData<DoctorProfile>(
+    `doctor_profile_${actualDoctorId}`,
+    fetchDoctorProfile,
+    [actualDoctorId]
+  );
+
+  // Cached chatbot colors fetch
+  const fetchChatbotColors = useCallback(async () => {
+    if (!doctor?.id) return defaultChatbotColors;
+
+    try {
+      const { data } = await supabase
+        .from('ai_landing_pages')
+        .select('chatbot_colors')
+        .eq('doctor_id', doctor.id)
+        .eq('quiz_type', 'NOSE')
+        .maybeSingle();
+
+      if (data && data.chatbot_colors) {
+        return data.chatbot_colors;
+      }
+      return defaultChatbotColors;
+    } catch (error) {
+      console.warn('Could not fetch chatbot colors');
+      return defaultChatbotColors;
+    }
+  }, [doctor?.id]);
+
+  const { data: cachedColors } = useCachedData(
+    `chatbot_colors_NOSE_${doctor?.id}`,
+    fetchChatbotColors,
+    [doctor?.id]
+  );
 
   useEffect(() => {
-    if (!doctor?.id) return;
-    
-    const fetchChatbotColors = async () => {
-      try {
-        const { data } = await supabase
-              .from('ai_landing_pages')
-            .select('chatbot_colors')
-              .eq('doctor_id', doctor.id)
-              .eq('quiz_type', 'NOSE')
-              .maybeSingle();
+    if (cachedColors) {
+      setChatbotColors(cachedColors);
+    }
+  }, [cachedColors]);
 
-        if (data && data.chatbot_colors) {
-          setChatbotColors(data.chatbot_colors);
-        }
-      } catch (error) {
-        console.warn('Could not fetch chatbot colors');
-      }
-    };
-    
-    fetchChatbotColors();
-  }, [doctor?.id]);
+  // Preload images for better performance
+  useEffect(() => {
+    const imagesToPreload = [
+      '/hero-bg-sneeze.jpg',
+      '/woman-sneezing.jpg',
+      '/woman-tissue.jpg',
+      '/woman-sitting.jpg',
+      '/woman-breathing.jpg',
+      '/mainline-treatment.jpg',
+      '/bottom-image-landing.jpg',
+      doctor?.avatar_url || '/src/assets/doctor.png'
+    ].filter(Boolean) as string[];
+
+    preloadImages(imagesToPreload).catch(err => 
+      console.warn('Some images failed to preload:', err)
+    );
+  }, [doctor?.avatar_url]);
 
   const handleShowQuiz = () => {
     // Scroll to quiz section instead of showing popup
