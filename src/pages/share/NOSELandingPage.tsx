@@ -193,7 +193,7 @@ const NOSELandingPage: React.FC = () => {
           <section className="cover relative bg-gradient-to-r from-blue-600 to-teal-500 px-4 sm:px-8 lg:px-16 xl:px-40 2xl:px-64 overflow-hidden py-16 lg:py-32">
             <div className="h-full absolute top-0 left-0 right-0 z-0">
               <img 
-                src="/hero-bg.jpg" 
+                src="/hero-bg-sneeze.jpg" 
                 alt="" 
                 className="w-full h-full object-cover opacity-20 hidden lg:block"
               />
