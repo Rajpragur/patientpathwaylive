@@ -35,7 +35,7 @@ export function NOSEPage() {
         <div className="mb-8">
           <div className="w-20 h-20 bg-gradient-to-br from-[#0E7C9D] to-[#FD904B] rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl">
             <img 
-              src="/lovable-uploads/6b38df79-5ad8-494b-83ed-7dba6c54d4b1.png" 
+              src="/src/assets/doctor.png" 
               alt="Patient Pathway"
               className="w-12 h-12 object-contain"
             />

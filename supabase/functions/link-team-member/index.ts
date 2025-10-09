@@ -13,6 +13,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log('=== link-team-member function started ===')
+    
     // Create a Supabase client with the service role key
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -25,14 +27,34 @@ serve(async (req) => {
       }
     )
 
-    const { invitationToken, userId, firstName, lastName, email } = await req.json()
+    const requestBody = await req.json()
+    console.log('Request body received:', {
+      hasInvitationToken: !!requestBody.invitationToken,
+      hasUserId: !!requestBody.userId,
+      hasFirstName: !!requestBody.firstName,
+      hasLastName: !!requestBody.lastName,
+      hasEmail: !!requestBody.email,
+      invitationToken: requestBody.invitationToken?.substring(0, 8) + '...',
+      userId: requestBody.userId?.substring(0, 8) + '...'
+    })
+
+    const { invitationToken, userId, firstName, lastName, email } = requestBody
 
     if (!invitationToken || !userId) {
+      console.error('Missing required fields:', { invitationToken: !!invitationToken, userId: !!userId })
       return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
+        JSON.stringify({ 
+          error: 'Missing required fields',
+          details: {
+            hasInvitationToken: !!invitationToken,
+            hasUserId: !!userId
+          }
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    console.log('Looking up team member with invitation token:', invitationToken)
 
     // Get the team member record
     const { data: teamMemberRecord, error: fetchError } = await supabaseClient
@@ -45,7 +67,6 @@ serve(async (req) => {
           clinic_name,
           location,
           phone,
-          mobile,
           logo_url,
           providers
         )
@@ -55,8 +76,13 @@ serve(async (req) => {
 
     if (fetchError || !teamMemberRecord) {
       console.error('Error fetching team member record:', fetchError)
+      console.error('Invitation token used:', invitationToken)
       return new Response(
-        JSON.stringify({ error: 'Invalid invitation token' }),
+        JSON.stringify({ 
+          error: 'Invalid invitation token',
+          details: fetchError?.message,
+          token: invitationToken
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -77,11 +103,11 @@ serve(async (req) => {
       location: doctorProfile.location
     })
 
-    // Update the team member record
+    // Update the team member record - use user_id instead of linked_user_id
     const { error: linkError } = await supabaseClient
       .from('team_members')
       .update({
-        linked_user_id: userId,
+        user_id: userId,
         status: 'accepted',
         accepted_at: new Date().toISOString()
       })
@@ -124,13 +150,9 @@ serve(async (req) => {
           clinic_name: doctorProfile.clinic_name,
           location: doctorProfile.location,
           phone: doctorProfile.phone,
-          mobile: doctorProfile.mobile,
           logo_url: doctorProfile.logo_url,
           providers: doctorProfile.providers,
-          access_control: true,
-          is_staff: teamMemberRecord.role === 'staff',
-          is_manager: teamMemberRecord.role === 'manager',
-          doctor_id_clinic: doctorProfile.id.toString()
+          access_control: true
         }
         
         console.log('Update data for team member profile:', updateData)
@@ -154,13 +176,9 @@ serve(async (req) => {
           clinic_name: doctorProfile.clinic_name,
           location: doctorProfile.location,
           phone: doctorProfile.phone,
-          mobile: doctorProfile.mobile,
           logo_url: doctorProfile.logo_url,
           providers: doctorProfile.providers,
-          access_control: true,
-          is_staff: teamMemberRecord.role === 'staff',
-          is_manager: teamMemberRecord.role === 'manager',
-          doctor_id_clinic: doctorProfile.id.toString()
+          access_control: true
         }
         
         console.log('Insert data for team member profile:', insertData)
@@ -184,9 +202,7 @@ serve(async (req) => {
       userId,
       invitationToken,
       role: teamMemberRecord.role,
-      isStaff: teamMemberRecord.role === 'staff',
-      isManager: teamMemberRecord.role === 'manager',
-      doctorIdClinic: doctorProfile.id.toString()
+      doctorProfileId: doctorProfile.id
     })
 
     return new Response(
@@ -195,18 +211,25 @@ serve(async (req) => {
         message: 'Team member linked successfully',
         data: {
           role: teamMemberRecord.role,
-          isStaff: teamMemberRecord.role === 'staff',
-          isManager: teamMemberRecord.role === 'manager',
-          doctorIdClinic: doctorProfile.id.toString()
+          doctorProfileId: doctorProfile.id
         }
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
-  } catch (error) {
-    console.error('Error in link-team-member function:', error)
+  } catch (error: any) {
+    console.error('=== ERROR in link-team-member function ===')
+    console.error('Error type:', error.constructor.name)
+    console.error('Error message:', error.message)
+    console.error('Error stack:', error.stack)
+    console.error('Full error:', JSON.stringify(error, null, 2))
+    
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ 
+        error: 'Internal server error',
+        details: error.message,
+        errorType: error.constructor.name
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

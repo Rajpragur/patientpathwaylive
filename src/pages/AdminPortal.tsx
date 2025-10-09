@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AdminAuth } from '@/components/admin/AdminAuth';
 import { EnhancedAdminDashboard } from '@/components/admin/EnhancedAdminDashboard';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,6 +9,7 @@ export default function AdminPortal() {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
+  const isAdminRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -32,8 +33,6 @@ export default function AdminPortal() {
         
         if (user) {
           setUser(user);
-          // Don't check admin role here - let the login form handle it
-          setIsAdmin(false);
         }
         
         setLoading(false);
@@ -53,12 +52,18 @@ export default function AdminPortal() {
         
         console.log('Auth state change:', event, session?.user?.email);
         
-        if (session?.user) {
-          setUser(session.user);
-          setIsAdmin(false); // Reset admin status on auth change
-        } else {
+        // Only reset admin status on SIGNED_OUT event
+        if (event === 'SIGNED_OUT' || !session?.user) {
           setUser(null);
           setIsAdmin(false);
+          isAdminRef.current = false;
+        } else if (session?.user) {
+          setUser(session.user);
+          // Preserve admin status if it was already set
+          if (isAdminRef.current) {
+            console.log('Preserving admin status for existing session');
+            // Don't reset isAdmin here
+          }
         }
         
         setLoading(false);
@@ -75,6 +80,7 @@ export default function AdminPortal() {
   const handleAuthSuccess = (adminStatus: boolean) => {
     console.log('Auth success, admin status:', adminStatus);
     setIsAdmin(adminStatus);
+    isAdminRef.current = adminStatus;
     setAuthChecked(true);
   };
 
@@ -82,6 +88,7 @@ export default function AdminPortal() {
     await supabase.auth.signOut();
     setUser(null);
     setIsAdmin(false);
+    isAdminRef.current = false;
     setAuthChecked(false);
   };
 

@@ -82,7 +82,7 @@ serve(async (req) => {
       )
     }
 
-    // Get the team member record
+    // Get the team member record to find the linked user
     const { data: teamMember, error: teamError } = await supabaseClient
       .from('team_members')
       .select('*')
@@ -100,59 +100,135 @@ serve(async (req) => {
       )
     }
 
-    let deletedDoctorProfileId = null
-    let deletedTeamMemberId = null
+    console.log('Starting team member removal:', {
+      teamMemberId: teamMember.id,
+      email: teamMember.email,
+      user_id: teamMember.user_id,
+      linked_user_id: teamMember.linked_user_id
+    })
 
-    // Step 1: Delete the doctor profile if it exists
-    if (teamMember.linked_user_id) {
-      const { data: deletedProfile, error: profileError } = await supabaseClient
-        .from('doctor_profiles')
+    let deletionSummary = {
+      deletedClinicMembers: 0,
+      deletedTeamMembers: 0,
+      deletedDoctorProfiles: 0,
+      deletedAuthUser: false,
+      userId: teamMember.user_id || teamMember.linked_user_id,
+      errors: [] as string[]
+    }
+
+    // Determine the user_id to work with (could be user_id or linked_user_id depending on schema)
+    const targetUserId = teamMember.user_id || teamMember.linked_user_id
+
+    // Step 1: Delete from clinic_members table (by user_id or email)
+    if (targetUserId) {
+      console.log('Step 1a: Deleting from clinic_members by user_id:', targetUserId)
+      const { error: clinicMemberError } = await supabaseClient
+        .from('clinic_members')
         .delete()
-        .eq('user_id', teamMember.linked_user_id)
-        .select('id')
-        .single()
-
-      if (profileError) {
-        console.error('Error deleting doctor profile:', profileError)
-        // Continue with team member deletion even if profile deletion fails
+        .eq('user_id', targetUserId)
+      
+      if (clinicMemberError) {
+        console.error('Error deleting from clinic_members by user_id:', clinicMemberError)
+        deletionSummary.errors.push(`clinic_members (user_id): ${clinicMemberError.message}`)
       } else {
-        deletedDoctorProfileId = deletedProfile?.id
-        console.log('Successfully deleted doctor profile:', deletedDoctorProfileId)
+        deletionSummary.deletedClinicMembers++
+        console.log('Successfully deleted from clinic_members by user_id')
       }
     }
 
-    // Step 2: Delete the team member record
-    const { data: deletedTeamMember, error: teamDeleteError } = await supabaseClient
+    // Also delete by email as fallback
+    if (teamMember.email) {
+      console.log('Step 1b: Deleting from clinic_members by email:', teamMember.email)
+      const { error: clinicMemberEmailError } = await supabaseClient
+        .from('clinic_members')
+        .delete()
+        .eq('email', teamMember.email)
+      
+      if (clinicMemberEmailError) {
+        console.error('Error deleting from clinic_members by email:', clinicMemberEmailError)
+      } else {
+        deletionSummary.deletedClinicMembers++
+        console.log('Successfully deleted from clinic_members by email')
+      }
+    }
+
+    // Step 2: Delete from team_members table
+    console.log('Step 2: Deleting from team_members:', teamMemberId)
+    const { error: teamDeleteError } = await supabaseClient
       .from('team_members')
       .delete()
       .eq('id', teamMemberId)
-      .select('id')
-      .single()
 
     if (teamDeleteError) {
       console.error('Error deleting team member:', teamDeleteError)
-      return new Response(
-        JSON.stringify({ success: false, error: 'Failed to delete team member record' }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
+      deletionSummary.errors.push(`team_members: ${teamDeleteError.message}`)
+    } else {
+      deletionSummary.deletedTeamMembers++
+      console.log('Successfully deleted team member')
     }
 
-    deletedTeamMemberId = deletedTeamMember?.id
-    console.log('Successfully deleted team member:', deletedTeamMemberId)
+    // Step 3: Delete the doctor profile if linked user exists
+    if (targetUserId) {
+      console.log('Step 3: Deleting doctor profile for user_id:', targetUserId)
+      
+      // First get the doctor profile ID(s) for this user
+      const { data: doctorProfiles, error: profileFetchError } = await supabaseClient
+        .from('doctor_profiles')
+        .select('id')
+        .eq('user_id', targetUserId)
+
+      if (profileFetchError) {
+        console.error('Error fetching doctor profiles:', profileFetchError)
+        deletionSummary.errors.push(`fetch doctor_profiles: ${profileFetchError.message}`)
+      } else if (doctorProfiles && doctorProfiles.length > 0) {
+        const profileIds = doctorProfiles.map(p => p.id)
+        console.log('Found doctor profiles to delete:', profileIds)
+        
+        // Delete the profiles
+        const { error: profileDeleteError } = await supabaseClient
+          .from('doctor_profiles')
+          .delete()
+          .eq('user_id', targetUserId)
+
+        if (profileDeleteError) {
+          console.error('Error deleting doctor profile:', profileDeleteError)
+          deletionSummary.errors.push(`doctor_profiles: ${profileDeleteError.message}`)
+        } else {
+          deletionSummary.deletedDoctorProfiles = doctorProfiles.length
+          console.log('Successfully deleted doctor profiles:', doctorProfiles.length)
+        }
+      }
+    }
+
+    // Step 4: Delete the auth user (last step)
+    if (targetUserId) {
+      console.log('Step 4: Deleting auth user:', targetUserId)
+      const { error: authDeleteError } = await supabaseClient.auth.admin.deleteUser(targetUserId)
+
+      if (authDeleteError) {
+        console.error('Error deleting auth user:', authDeleteError)
+        deletionSummary.errors.push(`auth.users: ${authDeleteError.message}`)
+      } else {
+        deletionSummary.deletedAuthUser = true
+        console.log('Successfully deleted auth user')
+      }
+    }
+
+    // Determine if the operation was successful
+    const isSuccess = deletionSummary.deletedTeamMembers > 0 || deletionSummary.deletedClinicMembers > 0
 
     return new Response(
       JSON.stringify({
-        success: true,
-        message: 'Team member removed successfully',
-        deletedTeamMemberId,
-        deletedDoctorProfileId,
-        linkedUserId: teamMember.linked_user_id
+        success: isSuccess,
+        message: isSuccess 
+          ? 'Team member removed successfully'
+          : 'Failed to remove team member',
+        summary: deletionSummary,
+        teamMemberEmail: teamMember.email,
+        teamMemberName: `${teamMember.first_name || ''} ${teamMember.last_name || ''}`.trim()
       }),
       { 
-        status: 200, 
+        status: isSuccess ? 200 : 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     )
@@ -160,7 +236,11 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in remove-team-member function:', error)
     return new Response(
-      JSON.stringify({ success: false, error: 'Internal server error' }),
+      JSON.stringify({ 
+        success: false, 
+        error: 'Internal server error',
+        details: error.message 
+      }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

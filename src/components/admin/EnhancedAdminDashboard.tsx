@@ -117,6 +117,24 @@ interface AdminUser {
   created_at: string;
 }
 
+interface TeamMember {
+  id: string;
+  doctor_id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  role: string;
+  status: string;
+  invited_at: string;
+  accepted_at: string | null;
+  permissions: {
+    leads: boolean;
+    content: boolean;
+    payments: boolean;
+    team: boolean;
+  } | null;
+}
+
 export function EnhancedAdminDashboard() {
   const [stats, setStats] = useState<AdminStats>({
     totalDoctors: 0,
@@ -214,6 +232,11 @@ export function EnhancedAdminDashboard() {
   const [doctorToRevoke, setDoctorToRevoke] = useState<DoctorProfile | null>(null);
   const [showDeleteWarning, setShowDeleteWarning] = useState(false);
   const [doctorToDelete, setDoctorToDelete] = useState<DoctorProfile | null>(null);
+  
+  // Team members states
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [loadingTeamMembers, setLoadingTeamMembers] = useState(false);
+  const [doctorDetailsTab, setDoctorDetailsTab] = useState('overview');
 
   useEffect(() => {
     fetchAdminData();
@@ -510,9 +533,40 @@ export function EnhancedAdminDashboard() {
     }
   };
 
-  const openDoctorLeads = (doctor: DoctorProfile) => {
+  const openDoctorLeads = async (doctor: DoctorProfile) => {
     setSelectedDoctor(doctor);
     setShowDoctorLeads(true);
+    setDoctorDetailsTab('overview'); // Reset to overview tab
+    await fetchTeamMembers(doctor.id);
+  };
+
+  const fetchTeamMembers = async (doctorProfileId: string) => {
+    try {
+      setLoadingTeamMembers(true);
+      console.log('Fetching team members for doctor:', doctorProfileId);
+      
+      const { data, error } = await supabase
+        .from('team_members')
+        .select('*')
+        .eq('doctor_id', doctorProfileId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching team members:', error);
+        toast.error('Failed to load team members');
+        setTeamMembers([]);
+        return;
+      }
+
+      console.log('Team members loaded:', data);
+      setTeamMembers(data || []);
+    } catch (error) {
+      console.error('Error fetching team members:', error);
+      toast.error('Failed to load team members');
+      setTeamMembers([]);
+    } finally {
+      setLoadingTeamMembers(false);
+    }
   };
 
   const getDoctorLeadBreakdown = (doctorId: string) => {
@@ -2596,7 +2650,20 @@ export function EnhancedAdminDashboard() {
             </DialogTitle>
           </DialogHeader>
           {selectedDoctor && (
-            <div className="space-y-6">
+            <Tabs value={doctorDetailsTab} onValueChange={setDoctorDetailsTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="team">
+                  Team Members
+                  {teamMembers.length > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {teamMembers.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="overview" className="space-y-6 mt-6">
               {/* Doctor Profile Details */}
               <Card>
                 <CardHeader>
@@ -2734,6 +2801,101 @@ export function EnhancedAdminDashboard() {
                 </CardContent>
               </Card>
 
+              {/* Team Members Summary */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Users className="w-5 h-5" />
+                    Team Members
+                    <Badge variant="secondary" className="ml-auto">
+                      {teamMembers.filter(m => m.role === 'staff' || m.role === 'manager' || m.role === 'owner').length}
+                    </Badge>
+                  </CardTitle>
+                  <CardDescription>
+                    Staff and managers associated with this profile
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loadingTeamMembers ? (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-500"></div>
+                    </div>
+                  ) : teamMembers.length === 0 ? (
+                    <div className="text-center py-4 text-gray-500 text-sm">
+                      No team members added yet
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {teamMembers
+                        .filter(member => member.role === 'staff' || member.role === 'manager' || member.role === 'owner')
+                        .slice(0, 3)
+                        .map((member) => (
+                          <div 
+                            key={member.id} 
+                            className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+                          >
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-semibold">
+                              {member.first_name?.[0] || member.email[0].toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium text-sm text-gray-900 truncate">
+                                  {member.first_name && member.last_name 
+                                    ? `${member.first_name} ${member.last_name}`
+                                    : formatFieldValue(member.first_name) || formatFieldValue(member.last_name) || 'Unnamed Member'
+                                  }
+                                </p>
+                                <Badge 
+                                  variant="outline"
+                                  className={`text-xs ${
+                                    member.role === 'owner' 
+                                      ? 'bg-purple-50 text-purple-700 border-purple-200' 
+                                      : member.role === 'manager'
+                                      ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                      : 'bg-gray-50 text-gray-700 border-gray-200'
+                                  }`}
+                                >
+                                  {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-gray-500 truncate">{member.email}</p>
+                            </div>
+                            <Badge 
+                              variant={member.status === 'accepted' ? 'default' : 'outline'}
+                              className={`text-xs ${
+                                member.status === 'accepted'
+                                  ? 'bg-green-100 text-green-800'
+                                  : member.status === 'pending'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}
+                            >
+                              {member.status}
+                            </Badge>
+                          </div>
+                        ))}
+                      
+                      {teamMembers.filter(m => m.role === 'staff' || m.role === 'manager' || m.role === 'owner').length > 3 && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full"
+                          onClick={() => setDoctorDetailsTab('team')}
+                        >
+                          View all {teamMembers.filter(m => m.role === 'staff' || m.role === 'manager' || m.role === 'owner').length} members
+                        </Button>
+                      )}
+                      
+                      {teamMembers.filter(m => m.role === 'staff' || m.role === 'manager' || m.role === 'owner').length === 0 && (
+                        <div className="text-center py-4 text-gray-500 text-sm">
+                          No staff or manager members found
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               {(() => {
                 const breakdown = getDoctorLeadBreakdown(selectedDoctor.id);
                 const quizEntries = Object.entries(breakdown.byQuiz);
@@ -2790,7 +2952,127 @@ export function EnhancedAdminDashboard() {
                   </div>
                 );
               })()}
-            </div>
+              </TabsContent>
+
+              <TabsContent value="team" className="space-y-6 mt-6">
+                {loadingTeamMembers ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+                  </div>
+                ) : (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Users className="w-5 h-5" />
+                        Team Members ({teamMembers.length})
+                      </CardTitle>
+                      <CardDescription>
+                        Staff and managers associated with this doctor's profile
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {teamMembers.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                          <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                          <p className="text-sm">No team members found</p>
+                          <p className="text-xs text-gray-400 mt-1">This doctor hasn't added any team members yet</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {teamMembers
+                            .filter(member => member.role === 'staff' || member.role === 'manager' || member.role === 'owner')
+                            .map((member) => (
+                              <div 
+                                key={member.id} 
+                                className="flex items-start justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                              >
+                                <div className="flex items-start gap-3 flex-1">
+                                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold">
+                                    {member.first_name?.[0] || member.email[0].toUpperCase()}
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <h4 className="font-semibold text-gray-900">
+                                        {member.first_name && member.last_name 
+                                          ? `${member.first_name} ${member.last_name}`
+                                          : formatFieldValue(member.first_name) || formatFieldValue(member.last_name) || 'Unnamed Member'
+                                        }
+                                      </h4>
+                                      <Badge 
+                                        variant={member.role === 'owner' ? 'default' : member.role === 'manager' ? 'secondary' : 'outline'}
+                                        className={
+                                          member.role === 'owner' 
+                                            ? 'bg-purple-100 text-purple-800' 
+                                            : member.role === 'manager'
+                                            ? 'bg-blue-100 text-blue-800'
+                                            : 'bg-gray-100 text-gray-800'
+                                        }
+                                      >
+                                        {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                                      </Badge>
+                                      <Badge 
+                                        variant={member.status === 'accepted' ? 'default' : 'outline'}
+                                        className={
+                                          member.status === 'accepted'
+                                            ? 'bg-green-100 text-green-800'
+                                            : member.status === 'pending'
+                                            ? 'bg-yellow-100 text-yellow-800'
+                                            : 'bg-red-100 text-red-800'
+                                        }
+                                      >
+                                        {member.status.charAt(0).toUpperCase() + member.status.slice(1)}
+                                      </Badge>
+                                    </div>
+                                    <p className="text-sm text-gray-600 mt-1">{member.email}</p>
+                                    
+                                    {member.permissions && (
+                                      <div className="mt-2 flex flex-wrap gap-2">
+                                        <span className="text-xs text-gray-500">Permissions:</span>
+                                        {member.permissions.leads && (
+                                          <Badge variant="outline" className="text-xs">Leads</Badge>
+                                        )}
+                                        {member.permissions.content && (
+                                          <Badge variant="outline" className="text-xs">Content</Badge>
+                                        )}
+                                        {member.permissions.payments && (
+                                          <Badge variant="outline" className="text-xs">Payments</Badge>
+                                        )}
+                                        {member.permissions.team && (
+                                          <Badge variant="outline" className="text-xs">Team</Badge>
+                                        )}
+                                        {!member.permissions.leads && !member.permissions.content && !member.permissions.payments && !member.permissions.team && (
+                                          <span className="text-xs text-gray-400">No permissions</span>
+                                        )}
+                                      </div>
+                                    )}
+                                    
+                                    <div className="mt-2 text-xs text-gray-500">
+                                      <div className="flex gap-4">
+                                        <span>Invited: {new Date(member.invited_at).toLocaleDateString()}</span>
+                                        {member.accepted_at && (
+                                          <span>Accepted: {new Date(member.accepted_at).toLocaleDateString()}</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          
+                          {teamMembers.filter(member => member.role === 'staff' || member.role === 'manager' || member.role === 'owner').length === 0 && (
+                            <div className="text-center py-8 text-gray-500">
+                              <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                              <p className="text-sm">No staff or manager members found</p>
+                              <p className="text-xs text-gray-400 mt-1">Team members with other roles are not displayed</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+            </Tabs>
           )}
         </DialogContent>
       </Dialog>

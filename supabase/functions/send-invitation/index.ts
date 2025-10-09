@@ -21,13 +21,43 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    console.log('=== send-invitation function started ===');
+    
+    // Check environment variables
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    console.log('Environment check:', {
+      hasSupabaseUrl: !!supabaseUrl,
+      hasServiceRoleKey: !!serviceRoleKey
+    });
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error('Missing required environment variables');
+    }
+
+    // Use service role key to bypass RLS for reading doctor profiles
     const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      supabaseUrl,
+      serviceRoleKey,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
     );
 
-    const { patientEmail, patientFirstName, patientLastName, message, doctorId, invitationToken }: InvitationRequest = await req.json();
+    console.log('Supabase client created successfully');
+
+    const requestBody = await req.json();
+    console.log('Request body received:', { 
+      hasPatientEmail: !!requestBody.patientEmail,
+      hasDoctorId: !!requestBody.doctorId,
+      hasInvitationToken: !!requestBody.invitationToken
+    });
+
+    const { patientEmail, patientFirstName, patientLastName, message, doctorId, invitationToken }: InvitationRequest = requestBody;
 
     // Debug logging
     console.log('Received request body:', { patientEmail, patientFirstName, patientLastName, message, doctorId, invitationToken });
@@ -52,20 +82,28 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Get doctor profile information
+    console.log('Attempting to fetch doctor profile with ID:', doctorId);
     const { data: doctorProfile, error: doctorError } = await supabaseClient
       .from('doctor_profiles')
-      .select('first_name, last_name, email, clinic_name, location, phone, mobile')
+      .select('first_name, last_name, email, clinic_name, location, phone')
       .eq('id', doctorId)
       .single();
 
-    if (doctorError || !doctorProfile) {
-      throw new Error('Doctor profile not found');
+    console.log('Doctor profile query result:', { doctorProfile, doctorError });
+
+    if (doctorError) {
+      console.error('Doctor profile error:', doctorError);
+      throw new Error(`Doctor profile error: ${doctorError.message} (Code: ${doctorError.code})`);
+    }
+
+    if (!doctorProfile) {
+      throw new Error(`Doctor profile not found for ID: ${doctorId}`);
     }
 
     const doctorName = `${doctorProfile.first_name} ${doctorProfile.last_name}`;
     const clinicName = doctorProfile.clinic_name || 'Clinic';
     const clinicLocation = doctorProfile.location || '';
-    const clinicPhone = doctorProfile.phone || doctorProfile.mobile || '';
+    const clinicPhone = doctorProfile.phone || '';
     const doctorEmail = doctorProfile.email;
 
     // Generate patient name for greeting
@@ -216,7 +254,6 @@ If you did not expect this invitation, you can safely ignore this email or conta
       subject,
       status: 'sent',
       resend_id: result.id,
-      email_type: 'team_member_invitation',
       sent_at: new Date().toISOString()
     });
 
@@ -229,10 +266,17 @@ If you did not expect this invitation, you can safely ignore this email or conta
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   } catch (error: any) {
-    console.error("Error sending team member invitation:", error);
+    console.error("=== ERROR in send-invitation function ===");
+    console.error("Error type:", error.constructor.name);
+    console.error("Error message:", error.message);
+    console.error("Error stack:", error.stack);
+    console.error("Full error object:", JSON.stringify(error, null, 2));
+    
     return new Response(JSON.stringify({ 
       success: false,
-      error: error.message 
+      error: error.message || 'Unknown error occurred',
+      errorType: error.constructor.name,
+      details: error.toString()
     }), {
       status: 500,
       headers: { "Content-Type": "application/json", ...corsHeaders },
