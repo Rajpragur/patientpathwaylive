@@ -1,14 +1,10 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/" }
+    { "source": "/:path*", "destination": "/index.html" }
   ],
   "headers": [
     {
-      "source": "/(.*\\.(jpg|jpeg|png|gif|webp|svg|ico))",
+      "source": "/(.*)\\.(jpg|jpeg|png|gif|webp|svg|ico)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -17,7 +13,7 @@
       ]
     },
     {
-      "source": "/(.*\\.(js|css|woff|woff2|ttf|eot))",
+      "source": "/(.*)\\.(js|css|woff|woff2|ttf|eot)",
       "headers": [
         {
           "key": "Cache-Control",
