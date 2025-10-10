@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { EmbeddedChatBot } from '@/components/quiz/EmbeddedChatBot';
-import { quizzes } from '@/data/quizzes';
+import { EmbeddedCardQuiz } from '@/components/quiz/EmbeddedCardQuiz';
 import { supabase } from '@/integrations/supabase/client';
 import { generatePageContent, DoctorProfile } from '../../lib/openrouter';
 import { useCachedData } from '@/hooks/useCachedData';
@@ -22,21 +21,10 @@ const defaultDoctor: DoctorProfile = {
   website: 'https://www.exhalesinus.com/',
 };
 
-const defaultChatbotColors = {
-  primary: '#2563eb',
-  background: '#ffffff',
-  text: '#ffffff',
-  userBubble: '#2563eb',
-  botBubble: '#f1f5f9',
-  userText: '#ffffff',
-  botText: '#334155'
-};
-
 const SNOT12LandingPage: React.FC = () => {
   const { doctorId } = useParams<{ doctorId: string }>();
   const [utmSource, setUtmSource] = useState<string | null>(null);
   const [actualDoctorId, setActualDoctorId] = useState<string | null>(null);
-  const [chatbotColors, setChatbotColors] = useState(defaultChatbotColors);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
 
   const isInitialized = useRef(false);
@@ -137,39 +125,6 @@ const SNOT12LandingPage: React.FC = () => {
     [actualDoctorId]
   );
 
-  // Cached chatbot colors fetch
-  const fetchChatbotColors = useCallback(async () => {
-    if (!doctor?.id) return defaultChatbotColors;
-
-    try {
-      const { data } = await supabase
-          .from('ai_landing_pages')
-          .select('chatbot_colors')
-          .eq('doctor_id', doctor.id)
-          .eq('quiz_type', 'SNOT12')
-          .maybeSingle();
-          
-        if (data && data.chatbot_colors) {
-        return data.chatbot_colors;
-      }
-      return defaultChatbotColors;
-    } catch (error) {
-      console.warn('Could not fetch chatbot colors');
-      return defaultChatbotColors;
-    }
-  }, [doctor?.id]);
-
-  const { data: cachedColors } = useCachedData(
-    `chatbot_colors_SNOT12_${doctor?.id}`,
-    fetchChatbotColors,
-    [doctor?.id]
-  );
-
-  useEffect(() => {
-    if (cachedColors) {
-      setChatbotColors(cachedColors);
-    }
-  }, [cachedColors]);
   useEffect(() => {
     const imagesToPreload = [
       '/hero-bg.jpg',
@@ -242,26 +197,14 @@ const SNOT12LandingPage: React.FC = () => {
 
                 {/* Right Side - Quiz Section */}
                 <div id="snot12-quiz-section" className="flex justify-center lg:justify-end">
-                  <div className="bg-white rounded-lg shadow-lg p-2 lg:p-3 w-full max-w-xs" style={{ maxHeight: '500px' }}>
-                    <div className="text-center mb-2">
-                      <h2 className="text-sm lg:text-base font-bold text-gray-900 mb-1">
-                        SNOT-12 Score 
-                      </h2>
-                      <p className="text-gray-600 text-xs">
-                        Sinus & Nasal Outcome Test
-                      </p>
-              </div>
-                    <div className="w-full" style={{ maxHeight: '420px', overflowY: 'auto' }}>
-                <EmbeddedChatBot
-                  quizType="SNOT12"
-                  doctorId={doctorId || doctor?.id}
-                  quizData={quizzes.SNOT12}
-                  doctorAvatarUrl={doctorAvatarUrl}
-                  chatbotColors={chatbotColors}
-                  utm_source={utmSource}
-                        compact={true}
-                />
-                    </div>
+                  <div className="w-full max-w-md" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+                    <EmbeddedCardQuiz
+                      quizType="SNOT12"
+                      doctorId={doctorId || doctor?.id}
+                      utm_source={utmSource}
+                      compact={true}
+                      autoStart={true}
+                    />
                   </div>
                 </div>
               </div>

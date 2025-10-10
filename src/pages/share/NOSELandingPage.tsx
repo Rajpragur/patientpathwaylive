@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { EmbeddedChatBot } from '@/components/quiz/EmbeddedChatBot';
-import { quizzes } from '@/data/quizzes';
+import { EmbeddedCardQuiz } from '@/components/quiz/EmbeddedCardQuiz';
 import { supabase } from '@/integrations/supabase/client';
 import { DoctorProfile } from '../../lib/openrouter';
 import { useCachedData } from '@/hooks/useCachedData';
@@ -24,21 +23,10 @@ const defaultDoctor: DoctorProfile = {
   website: 'https://www.exhalesinus.com/',
 };
 
-const defaultChatbotColors = {
-  primary: '#2563eb',
-  background: '#ffffff',
-  text: '#ffffff',
-  userBubble: '#2563eb',
-  botBubble: '#f1f5f9',
-  userText: '#ffffff',
-  botText: '#334155'
-};
-
 const NOSELandingPage: React.FC = () => {
   const { doctorId } = useParams<{ doctorId: string }>();
   const [utmSource, setUtmSource] = useState<string | null>(null);
   const [actualDoctorId, setActualDoctorId] = useState<string | null>(null);
-  const [chatbotColors, setChatbotColors] = useState(defaultChatbotColors);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   
   const isInitialized = useRef(false);
@@ -139,40 +127,6 @@ const NOSELandingPage: React.FC = () => {
     [actualDoctorId]
   );
 
-  // Cached chatbot colors fetch
-  const fetchChatbotColors = useCallback(async () => {
-    if (!doctor?.id) return defaultChatbotColors;
-
-    try {
-      const { data } = await supabase
-            .from('ai_landing_pages')
-            .select('chatbot_colors')
-            .eq('doctor_id', doctor.id)
-            .eq('quiz_type', 'NOSE')
-            .maybeSingle();
-
-      if (data && data.chatbot_colors) {
-        return data.chatbot_colors;
-      }
-      return defaultChatbotColors;
-      } catch (error) {
-      console.warn('Could not fetch chatbot colors');
-      return defaultChatbotColors;
-    }
-  }, [doctor?.id]);
-
-  const { data: cachedColors } = useCachedData(
-    `chatbot_colors_NOSE_${doctor?.id}`,
-    fetchChatbotColors,
-    [doctor?.id]
-  );
-
-  useEffect(() => {
-    if (cachedColors) {
-      setChatbotColors(cachedColors);
-    }
-  }, [cachedColors]);
-
   // Preload images for better performance
   useEffect(() => {
     const imagesToPreload = [
@@ -192,7 +146,6 @@ const NOSELandingPage: React.FC = () => {
   }, [doctor?.avatar_url]);
 
   const handleShowQuiz = () => {
-    // Scroll to quiz section instead of showing popup
     const quizSection = document.getElementById('nose-quiz-section');
     if (quizSection) {
       quizSection.scrollIntoView({ behavior: 'smooth' });
@@ -211,8 +164,6 @@ const NOSELandingPage: React.FC = () => {
       </div>
     );
   }
-
-
     return (
     <div className="antialiased bg-white font-sans text-gray-900">
       <main className="w-full">
@@ -221,7 +172,7 @@ const NOSELandingPage: React.FC = () => {
           <section className="cover relative bg-gradient-to-r from-blue-600 to-teal-500 px-4 sm:px-8 lg:px-16 xl:px-40 2xl:px-64 overflow-hidden py-16 lg:py-32">
             <div className="h-full absolute top-0 left-0 right-0 z-0">
               <img 
-                src="/hero-bg.jpg" 
+                src="/hero-bg-nose.jpg" 
                 alt="" 
                 className="w-full h-full object-cover opacity-20"
               />
@@ -245,28 +196,16 @@ const NOSELandingPage: React.FC = () => {
           </div>
                 {/* Right Side - Quiz Section */}
                 <div id="nose-quiz-section" className="flex justify-center lg:justify-end">
-                  <div className="bg-white rounded-lg shadow-lg p-2 lg:p-3 w-full max-w-sm" style={{ maxHeight: '500px' }}>
-                    <div className="text-center mb-2">
-                      <h2 className="text-sm lg:text-base font-bold text-gray-900 mb-1">
-                        NOSE Score 
-                      </h2>
-                      <p className="text-gray-600 text-xs">
-                        Quick Nasal Obstruction Evaluation
-                      </p>
-        </div>
-                    <div className="w-full" style={{ maxHeight: '420px', overflowY: 'auto' }}>
-                      <EmbeddedChatBot
-                        quizType="NOSE"
-                        doctorId={doctorId || doctor?.id}
-                        quizData={quizzes.NOSE}
-                        doctorAvatarUrl={doctorAvatarUrl}
-                        chatbotColors={chatbotColors}
-                        utm_source={utmSource}
-                        compact={true}
-                      />
-      </div>
-          </div>
-        </div>
+                  <div className="w-full max-w-md" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+                    <EmbeddedCardQuiz
+                      quizType="NOSE"
+                      doctorId={doctorId || doctor?.id}
+                      utm_source={utmSource}
+                      compact={true}
+                      autoStart={true}
+                    />
+                  </div>
+                </div>
       </div>
                 </div>
           </section>

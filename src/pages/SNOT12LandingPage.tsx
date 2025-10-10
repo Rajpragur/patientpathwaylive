@@ -1,9 +1,14 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { EmbeddedCardQuiz } from '@/components/quiz/EmbeddedCardQuiz';
 
 export default function Snot12LandingPage() {
   const quizRef = useRef<HTMLDivElement>(null);
+  const { doctorId } = useParams<{ doctorId: string }>();
+  const [searchParams] = useSearchParams();
+  const utm_source = searchParams.get('utm_source');
 
   const handleTakeQuiz = () => {
     if (quizRef.current) {
@@ -31,21 +36,13 @@ export default function Snot12LandingPage() {
 
       {/* Quiz Section */}
       <section ref={quizRef} className="max-w-4xl mx-auto px-4 py-8">
-        <Card className="shadow-lg">
-          <CardHeader>
-            <h2 className="text-2xl font-bold text-center">SNOT-12 Assessment</h2>
-          </CardHeader>
-          <CardContent>
-            <iframe
-              src="/quiz/snot12"
-              width="100%"
-              height="600px"
-              frameBorder="0"
-              className="rounded-lg"
-              title="SNOT-12 Assessment Quiz"
-            />
-          </CardContent>
-        </Card>
+        <EmbeddedCardQuiz
+          quizType="SNOT12"
+          doctorId={doctorId}
+          utm_source={utm_source}
+          compact={false}
+          autoStart={true}
+        />
       </section>
 
       {/* Content Sections */}
