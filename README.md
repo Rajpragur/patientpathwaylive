@@ -23,13 +23,13 @@
 
 **Patient Pathway Live** is a full-stack healthcare platform that enables ENT (Ear, Nose, Throat) specialists to:
 
-- ✅ Create and customize medical assessment quizzes (NOSE, SNOT-12, SNOT-22, TNSS, etc.)
-- 🤖 Generate AI-powered landing pages for patient engagement
-- 📊 Capture and manage patient leads with analytics
-- 📧 Send automated communications via email and SMS
-- 👥 Manage clinic teams and multi-location practices
-- 📱 Embed quizzes and chatbots on external websites
-- 🔗 Share assessments via customizable short links
+- Create and customize medical assessment quizzes (NOSE, SNOT-12, SNOT-22, TNSS, etc.)
+- Generate AI-powered landing pages for patient engagement
+- Capture and manage patient leads with analytics
+- Send automated communications via email and SMS
+- Manage clinic teams and multi-location practices
+- Embed quizzes and chatbots on external websites
+- Share assessments via customizable short links
 
 ### Key Features
 
@@ -42,51 +42,6 @@
 - **Embeddable Widgets** - Integrate quizzes into any website
 
 ---
-
-## 📚 Documentation
-
-We've created comprehensive documentation for developers, architects, and DevOps engineers:
-
-### **[📖 Architecture Documentation Index](./ARCHITECTURE-INDEX.md)** ⭐ START HERE
-*Complete guide to all documentation with quick links and recommendations*
-
-### Core Documentation
-
-1. **[🏗️ ARCHITECTURE.md](./ARCHITECTURE.md)**
-   - Complete system architecture
-   - Database schema and relationships
-   - Authentication & authorization
-   - API architecture
-   - Third-party integrations
-   - Security architecture
-
-2. **[📊 SYSTEM-DIAGRAMS.md](./SYSTEM-DIAGRAMS.md)**
-   - High-level architecture diagrams
-   - Database ER diagrams
-   - User flow diagrams
-   - Component hierarchy
-   - Security architecture visualization
-
-3. **[🔧 TECH-STACK-REFERENCE.md](./TECH-STACK-REFERENCE.md)**
-   - Complete technology reference
-   - Code examples and patterns
-   - Common commands
-   - Environment variables
-   - Best practices
-   - Troubleshooting guide
-
-4. **[🚀 DEPLOYMENT-OPS-GUIDE.md](./DEPLOYMENT-OPS-GUIDE.md)**
-   - Deployment procedures
-   - CI/CD pipeline
-   - Monitoring & logging
-   - Backup & recovery
-   - Security operations
-   - Maintenance tasks
-
----
-
-## Quick Start
-
 ### Prerequisites
 
 - **Node.js** 18.x or higher
@@ -98,7 +53,6 @@ We've created comprehensive documentation for developers, architects, and DevOps
 ### Local Development Setup
 
 ```bash
-# 1. Clone the repository
 git clone <YOUR_GIT_URL>
 cd patientpathwaylive
 
@@ -159,8 +113,8 @@ npm run dev
 
 ```
 patientpathwaylive/
-├── src/                       # Frontend source code
-│   ├── components/           # React components
+├── src/                     # Frontend source code
+│   ├── components/          # React components
 │   │   ├── dashboard/       # Doctor portal components (31 files)
 │   │   ├── quiz/            # Quiz components (17 files)
 │   │   ├── auth/            # Authentication components
@@ -179,13 +133,6 @@ patientpathwaylive/
 │
 ├── public/                  # Static assets
 │
-├── Documentation
-├── ARCHITECTURE.md          # Complete architecture docs
-├── SYSTEM-DIAGRAMS.md       # Visual diagrams
-├── TECH-STACK-REFERENCE.md  # Technology reference
-├── DEPLOYMENT-OPS-GUIDE.md  # Deployment guide
-├── ARCHITECTURE-INDEX.md    # Documentation index
-│
 └── Configuration Files
     ├── package.json         # Dependencies
     ├── vite.config.ts       # Vite configuration
@@ -194,12 +141,7 @@ patientpathwaylive/
     └── vercel.json          # Vercel deployment
 ```
 
-See [TECH-STACK-REFERENCE.md](./TECH-STACK-REFERENCE.md) for complete file structure details.
-
 ---
-
-## Development
-
 ### Common Commands
 
 ```bash
@@ -228,8 +170,6 @@ npm run test:e2e        # Run E2E tests
 5. Code review
 6. Merge to main
 7. Auto-deploy to production
-
-See [DEPLOYMENT-OPS-GUIDE.md](./DEPLOYMENT-OPS-GUIDE.md) for detailed procedures.
 
 ---
 
@@ -265,19 +205,7 @@ Required variables for deployment:
 - `VITE_SUPABASE_ANON_KEY`
 - `VITE_OPENROUTER_API_KEY`
 - `VITE_RESEND_API_KEY`
-
-See [DEPLOYMENT-OPS-GUIDE.md](./DEPLOYMENT-OPS-GUIDE.md) for complete deployment procedures.
-
 ---
-
-## Contributing
-
-### Before Contributing
-
-1. Read [ARCHITECTURE.md](./ARCHITECTURE.md) for system overview
-2. Review [TECH-STACK-REFERENCE.md](./TECH-STACK-REFERENCE.md) for code patterns
-3. Check existing issues and PRs
-4. Follow code style and conventions
 
 ### Code Standards
 
@@ -318,12 +246,6 @@ See [DEPLOYMENT-OPS-GUIDE.md](./DEPLOYMENT-OPS-GUIDE.md) for complete deployment
 
 ## Support & Resources
 
-### Documentation
-- **Architecture Overview**: [ARCHITECTURE.md](./ARCHITECTURE.md)
-- **Visual Diagrams**: [SYSTEM-DIAGRAMS.md](./SYSTEM-DIAGRAMS.md)
-- **Tech Reference**: [TECH-STACK-REFERENCE.md](./TECH-STACK-REFERENCE.md)
-- **Deployment Guide**: [DEPLOYMENT-OPS-GUIDE.md](./DEPLOYMENT-OPS-GUIDE.md)
-
 ### External Resources
 - [React Documentation](https://react.dev)
 - [TypeScript Documentation](https://typescriptlang.org)
@@ -336,21 +258,3 @@ See [DEPLOYMENT-OPS-GUIDE.md](./DEPLOYMENT-OPS-GUIDE.md) for complete deployment
 - **Production URL**: https://patientpathway.ai/
 
 ---
-
-## License
-
-[Your License Here]
-
----
-
-## Acknowledgments
-
-Built with ❤️ using:
-- React, TypeScript, Vite
-- Supabase
-- Tailwind CSS & shadcn/ui
-- Vercel
-
----
-
-*For detailed architecture information, start with [ARCHITECTURE-INDEX.md](./ARCHITECTURE-INDEX.md)*
