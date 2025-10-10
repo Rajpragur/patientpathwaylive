@@ -706,7 +706,7 @@ export function EnhancedAdminDashboard() {
       // First, check if the user exists in doctor_profiles
       const { data: existingUser, error: checkError } = await supabase
         .from('doctor_profiles')
-        .select('user_id, email, is_admin')
+        .select('user_id, email, is_admin, first_name, last_name')
         .eq('email', newAdminEmail.trim())
         .single();
 
@@ -732,6 +732,25 @@ export function EnhancedAdminDashboard() {
         if (updateError) {
           toast.error('Failed to grant admin access');
           return;
+        }
+
+        // Send admin notification email
+        try {
+          const { error: emailError } = await supabase.functions.invoke('send-admin-notification', {
+            body: {
+              email: existingUser.email,
+              firstName: existingUser.first_name,
+              lastName: existingUser.last_name
+            }
+          });
+
+          if (emailError) {
+            console.error('Error sending admin notification email:', emailError);
+            // Don't show error to user, admin access was still granted
+          }
+        } catch (emailError) {
+          console.error('Failed to send admin notification email:', emailError);
+          // Don't show error to user, admin access was still granted
         }
 
         toast.success('Admin access granted to existing user');
