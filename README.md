@@ -2,11 +2,11 @@
 
 > A comprehensive healthcare assessment platform for ENT specialists to create, manage, and distribute medical quizzes to patients.
 
-**Production URL**: https://pathway-lead-capture-bot.vercel.app/auth
+**Production URL**: https://patientpathway.ai/
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Overview](#overview)
 - [Documentation](#documentation)
@@ -16,30 +16,6 @@
 - [Development](#development)
 - [Deployment](#deployment)
 - [Contributing](#contributing)
-
----
-
-## Overview
-
-**Patient Pathway Live** is a full-stack healthcare platform that enables ENT (Ear, Nose, Throat) specialists to:
-
-- Create and customize medical assessment quizzes (NOSE, SNOT-12, SNOT-22, TNSS, etc.)
-- Generate AI-powered landing pages for patient engagement
-- Capture and manage patient leads with analytics
-- Send automated communications via email and SMS
-- Manage clinic teams and multi-location practices
-- Embed quizzes and chatbots on external websites
-- Share assessments via customizable short links
-
-### Key Features
-
-- **AI-Powered Content Generation** - Automated landing page creation using LLMs
-- **Multi-tenant Architecture** - Support for clinics and team members
-- **Real-time Analytics** - Track quiz performance and patient engagement
-- **Customizable Assessments** - Create custom quizzes or use standard medical assessments
-- **Email & SMS Integration** - Automated patient communication
-- **OAuth Social Sharing** - Share results on social platforms
-- **Embeddable Widgets** - Integrate quizzes into any website
 
 ---
 ### Prerequisites
@@ -92,16 +68,15 @@ npm run dev
 ### Backend
 - **Supabase** - Backend as a Service
   - PostgreSQL 14+ database
-  - Deno edge functions
-  - Authentication (GoTrue)
-  - S3-compatible storage
+  - Deno edge functions for backend
+  - Authentication
 - **Deno** - Edge function runtime
 
 ### Third-Party Services
-- **Resend** - Email delivery
+- **Resend** - Email delivery (personal alias provided to accounts with domain)
 - **Twilio** - SMS notifications
-- **OpenRouter** - AI/LLM (Llama 3.3)
-- **OAuth** - Google, Facebook, Twitter, LinkedIn
+- **OpenRouter** - AI/LLM (Gemini 2.0)
+- **OAuth** - Google
 
 ### Deployment
 - **Vercel** - Frontend hosting
@@ -113,32 +88,32 @@ npm run dev
 
 ```
 patientpathwaylive/
-├── src/                     # Frontend source code
-│   ├── components/          # React components
-│   │   ├── dashboard/       # Doctor portal components (31 files)
-│   │   ├── quiz/            # Quiz components (17 files)
-│   │   ├── auth/            # Authentication components
-│   │   ├── admin/           # Admin components
-│   │   └── ui/              # shadcn/ui components (60 files)
-│   ├── pages/               # Route components
-│   ├── hooks/               # Custom React hooks
-│   ├── lib/                 # Utilities & services
-│   ├── integrations/        # External service clients
-│   ├── types/               # TypeScript definitions
-│   └── data/                # Static data & configs
+├── src/ 
+│   ├── components/  
+│   │   ├── dashboard/ 
+│   │   ├── quiz/          
+│   │   ├── auth/        
+│   │   ├── admin/    
+│   │   └── ui/         
+│   ├── pages/       
+│   ├── hooks/              
+│   ├── lib/                
+│   ├── integrations/   
+│   ├── types/          
+│   └── data/        
 │
-├── supabase/                # Backend configuration
-│   ├── functions/           # Edge functions (29 functions)
-│   └── migrations/          # Database migrations (37 files)
+├── supabase/          
+│   ├── functions/      
+│   └── migrations/   
 │
-├── public/                  # Static assets
+├── public/    
 │
 └── Configuration Files
-    ├── package.json         # Dependencies
-    ├── vite.config.ts       # Vite configuration
-    ├── tailwind.config.ts   # Tailwind CSS
-    ├── tsconfig.json        # TypeScript
-    └── vercel.json          # Vercel deployment
+    ├── package.json    
+    ├── vite.config.ts  
+    ├── tailwind.config.ts
+    ├── tsconfig.json     
+    └── vercel.json   
 ```
 
 ---
@@ -146,32 +121,13 @@ patientpathwaylive/
 
 ```bash
 # Development
-npm run dev              # Start dev server
-npm run build           # Build for production
-npm run preview         # Preview production build
-npm run lint            # Lint code
-
+npm run dev        
+npm run build      
+npm run preview  
 # Supabase
-npx supabase start      # Start local Supabase
-npx supabase db push    # Push database migrations
-npx supabase functions deploy  # Deploy edge functions
-
-# Testing (future)
-npm run test            # Run tests
-npm run test:e2e        # Run E2E tests
+npx supabase start   
+npx supabase functions deploy 
 ```
-
-### Development Workflow
-
-1. Create feature branch
-2. Make changes
-3. Test locally
-4. Create pull request
-5. Code review
-6. Merge to main
-7. Auto-deploy to production
-
----
 
 ## Deployment
 
@@ -179,12 +135,6 @@ npm run test:e2e        # Run E2E tests
 
 **Automatic Deployment:**
 - Push to `main` branch → Production
-- Push to feature branch → Preview deployment
-
-**Manual Deployment:**
-```bash
-vercel --prod
-```
 
 ### Backend (Supabase)
 
@@ -205,43 +155,6 @@ Required variables for deployment:
 - `VITE_SUPABASE_ANON_KEY`
 - `VITE_OPENROUTER_API_KEY`
 - `VITE_RESEND_API_KEY`
----
-
-### Code Standards
-
-- **TypeScript** - Use strict mode, define types
-- **React** - Functional components, hooks
-- **Styling** - Tailwind utility classes
-- **Testing** - Write tests for new features (future)
-- **Documentation** - Update docs with changes
-
-### Pull Request Process
-
-1. Create feature branch from `main`
-2. Make your changes
-3. Test thoroughly
-4. Update documentation
-5. Submit PR with clear description
-6. Address review comments
-7. Merge after approval
-
----
-
-## Additional Editing Options
-
-### GitHub Web Editor
-
-- Navigate to desired file
-- Click "Edit" button (pencil icon)
-- Make changes and commit
-
-### GitHub Codespaces
-
-- Click "Code" button → "Codespaces" tab
-- Create new codespace
-- Edit files in VS Code environment
-- Commit and push changes
-
 ---
 
 ## Support & Resources
