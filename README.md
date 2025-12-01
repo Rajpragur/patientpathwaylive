@@ -7,15 +7,9 @@
 ---
 
 ## Table of Contents
-
-- [Overview](#overview)
-- [Documentation](#documentation)
-- [Quick Start](#quick-start)
 - [Technology Stack](#technology-stack)
 - [Project Structure](#project-structure)
-- [Development](#development)
 - [Deployment](#deployment)
-- [Contributing](#contributing)
 
 ---
 ### Prerequisites
